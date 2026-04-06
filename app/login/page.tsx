@@ -1,0 +1,103 @@
+'use client'
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
+
+export default function LoginPage() {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+  const router = useRouter()
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+
+    const supabase = createClient()
+
+    const { data, error: authError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+
+    if (authError || !data.user) {
+      setError('Email o password non validi.')
+      setLoading(false)
+      return
+    }
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', data.user.id)
+      .single()
+
+    const dest = profile?.role === 'admin' ? '/dashboard' : '/formatore'
+    router.push(dest)
+    router.refresh()
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-[#f7f7f5] px-4">
+      <div className="w-full max-w-sm">
+        {/* Logo */}
+        <div className="flex flex-col items-center mb-8">
+          <div
+            className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4"
+            style={{ backgroundColor: '#d64b55' }}
+          >
+            <svg width="28" height="28" fill="none" viewBox="0 0 24 24">
+              <path d="M12 3L3 8v13h18V8L12 3z" stroke="white" strokeWidth="1.5" strokeLinejoin="round"/>
+              <rect x="9" y="13" width="6" height="8" stroke="white" strokeWidth="1.5"/>
+            </svg>
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900">FormaScuola</h1>
+          <p className="text-sm text-gray-500 mt-1">Accedi alla piattaforma</p>
+        </div>
+
+        {/* Form */}
+        <div
+          className="bg-white rounded-xl p-6 shadow-sm"
+          style={{ border: '0.5px solid #e5e5e5' }}
+        >
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <Input
+              label="Email"
+              type="email"
+              placeholder="nome@esempio.it"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              autoComplete="email"
+            />
+            <Input
+              label="Password"
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              autoComplete="current-password"
+            />
+            {error && (
+              <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-[7px] px-3 py-2">
+                {error}
+              </div>
+            )}
+            <Button type="submit" loading={loading} className="w-full mt-2" size="lg">
+              Accedi
+            </Button>
+          </form>
+        </div>
+
+        <p className="text-center text-xs text-gray-400 mt-6">
+          © {new Date().getFullYear()} FormaScuola — Tutti i diritti riservati
+        </p>
+      </div>
+    </div>
+  )
+}
