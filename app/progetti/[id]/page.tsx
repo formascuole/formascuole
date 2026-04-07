@@ -65,6 +65,11 @@ export default async function ProgettoDetailPage({ params }: { params: Promise<{
     .eq('progetto_id', id)
     .order('created_at')
 
+  const { data: finanziamenti } = await supabase
+    .from('finanziamenti')
+    .select('*')
+    .order('nome')
+
   const { count: notifiche } = await supabase
     .from('solleciti_log')
     .select('*', { count: 'exact', head: true })
@@ -77,6 +82,7 @@ export default async function ProgettoDetailPage({ params }: { params: Promise<{
       email={profile.email}
       avatarInitials={profile.avatar_initials}
       notificheBadge={notifiche || 0}
+      isSuperAdmin={isSuperAdmin}
     >
       <ProgettoDetailClient
         progetto={progetto}
@@ -84,6 +90,7 @@ export default async function ProgettoDetailPage({ params }: { params: Promise<{
         formatori={formatori || []}
         messaggi={messaggiConLetto}
         referenti={referenti || []}
+        finanziamenti={finanziamenti || []}
         currentUserId={user.id}
         isSuperAdmin={isSuperAdmin}
       />

@@ -2,7 +2,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ProgettoConStats, CorsoConOre, Profile, ChatMessaggio, Referente } from '@/lib/types'
+import { ProgettoConStats, CorsoConOre, Profile, ChatMessaggio, Referente, Finanziamento } from '@/lib/types'
+import { getFinanziamentoColor } from '@/app/progetti/ProgettiClient'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { Button } from '@/components/ui/Button'
@@ -19,6 +20,7 @@ interface ProgettoDetailClientProps {
   formatori: Profile[]
   messaggi: ChatMessaggio[]
   referenti: Referente[]
+  finanziamenti: Finanziamento[]
   currentUserId: string
   isSuperAdmin?: boolean
 }
@@ -27,6 +29,7 @@ type EditScuolaForm = {
   school_name: string
   address: string
   anno_scolastico: string
+  finanziamento_id: string
   status: string
 }
 
@@ -39,6 +42,7 @@ export function ProgettoDetailClient({
   formatori,
   messaggi: initialMessaggi,
   referenti: initialReferenti,
+  finanziamenti,
   currentUserId,
   isSuperAdmin,
 }: ProgettoDetailClientProps) {
@@ -60,7 +64,8 @@ export function ProgettoDetailClient({
   const [editScuolaForm, setEditScuolaForm] = useState<EditScuolaForm>({
     school_name: progetto.school_name,
     address: progetto.address,
-    anno_scolastico: progetto.anno_scolastico,
+    anno_scolastico: progetto.anno_scolastico || '',
+    finanziamento_id: (progetto as ProgettoConStats & { finanziamento_id?: string | null }).finanziamento_id || '',
     status: progetto.status,
   })
   const [savingScuola, setSavingScuola] = useState(false)
@@ -242,7 +247,23 @@ export function ProgettoDetailClient({
               <h1 className="text-xl font-bold text-gray-900">{progetto.school_name}</h1>
               <StatusBadge variant={progetto.status} />
             </div>
-            <p className="text-sm text-gray-500">{progetto.address} · {progetto.anno_scolastico}</p>
+            <div className="flex items-center flex-wrap gap-2 mt-0.5">
+              <p className="text-sm text-gray-500">{progetto.address}</p>
+              {(() => {
+                const finId = (progetto as ProgettoConStats & { finanziamento_id?: string | null }).finanziamento_id
+                const fin = finId ? finanziamenti.find(f => f.id === finId) : null
+                if (fin) {
+                  const color = getFinanziamentoColor(fin.nome)
+                  return (
+                    <span className="text-xs font-medium px-2 py-0.5 rounded-md" style={{ backgroundColor: color.bg, color: color.text }}>
+                      {fin.nome}
+                    </span>
+                  )
+                }
+                if (progetto.anno_scolastico) return <span className="text-sm text-gray-400">{progetto.anno_scolastico}</span>
+                return null
+              })()}
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -252,7 +273,8 @@ export function ProgettoDetailClient({
                 setEditScuolaForm({
                   school_name: progetto.school_name,
                   address: progetto.address,
-                  anno_scolastico: progetto.anno_scolastico,
+                  anno_scolastico: progetto.anno_scolastico || '',
+                  finanziamento_id: (progetto as ProgettoConStats & { finanziamento_id?: string | null }).finanziamento_id || '',
                   status: progetto.status,
                 })
                 setEditScuolaOpen(true)
@@ -476,7 +498,7 @@ export function ProgettoDetailClient({
             <Button
               onClick={handleSaveScuola}
               loading={savingScuola}
-              disabled={!editScuolaForm.school_name.trim() || !editScuolaForm.address.trim() || !editScuolaForm.anno_scolastico.trim()}
+              disabled={!editScuolaForm.school_name.trim() || !editScuolaForm.address.trim()}
             >
               Salva modifiche
             </Button>
@@ -494,12 +516,19 @@ export function ProgettoDetailClient({
             value={editScuolaForm.address}
             onChange={e => setEditScuolaForm(f => ({ ...f, address: e.target.value }))}
           />
-          <Input
-            label="Anno scolastico *"
-            value={editScuolaForm.anno_scolastico}
-            onChange={e => setEditScuolaForm(f => ({ ...f, anno_scolastico: e.target.value }))}
-            placeholder="Es. 2024-2025"
-          />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Finanziamento</label>
+            <select
+              value={editScuolaForm.finanziamento_id}
+              onChange={e => setEditScuolaForm(f => ({ ...f, finanziamento_id: e.target.value }))}
+              className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 bg-white focus:outline-none focus:border-[#d64b55] transition-colors"
+            >
+              <option value="">Nessun finanziamento</option>
+              {finanziamenti.filter(f => f.attivo || f.id === editScuolaForm.finanziamento_id).map(f => (
+                <option key={f.id} value={f.id}>{f.nome}{!f.attivo ? ' (inattivo)' : ''}</option>
+              ))}
+            </select>
+          </div>
           <Select
             label="Stato *"
             value={editScuolaForm.status}

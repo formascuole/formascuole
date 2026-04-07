@@ -7,9 +7,9 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { data, error } = await supabase
-    .from('progetti_con_stats')
+    .from('finanziamenti')
     .select('*')
-    .order('created_at', { ascending: false })
+    .order('nome')
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json(data)
@@ -20,29 +20,24 @@ export async function POST(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  const { data: superAdminRow } = await supabase
+    .from('profiles_roles')
+    .select('role')
+    .eq('profile_id', user.id)
+    .eq('role', 'super_admin')
+    .maybeSingle()
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  if (!['admin','super_admin'].includes(profile?.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-
-  const body = await request.json()
-  const { school_name, address, anno_scolastico, finanziamento_id, ref_name, ref_email, ref_tel, status } = body
-
-  if (!school_name || !address || !ref_name || !ref_email) {
-    return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+  if (profile?.role !== 'super_admin' && !superAdminRow) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
+  const body = await request.json()
+  const { nome, descrizione, attivo } = body
+  if (!nome?.trim()) return NextResponse.json({ error: 'Nome obbligatorio' }, { status: 400 })
+
   const { data, error } = await supabase
-    .from('progetti')
-    .insert({
-      school_name,
-      address,
-      ...(anno_scolastico && { anno_scolastico }),
-      finanziamento_id: finanziamento_id || null,
-      ref_name,
-      ref_email,
-      ref_tel,
-      status: status || 'active',
-      created_by: user.id,
-    })
+    .from('finanziamenti')
+    .insert({ nome: nome.trim(), descrizione: descrizione?.trim() || null, attivo: attivo ?? true })
     .select()
     .single()
 

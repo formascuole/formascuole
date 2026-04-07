@@ -105,18 +105,33 @@ const formatoreNav: NavItem[] = [
   },
 ]
 
+const finanziamentiNavItem: NavItem = {
+  href: '/finanziamenti',
+  label: 'Finanziamenti',
+  icon: (
+    <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
+      <rect x="2" y="6" width="20" height="13" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+      <path d="M2 10h20" stroke="currentColor" strokeWidth="1.5"/>
+      <circle cx="12" cy="15" r="1.5" fill="currentColor"/>
+    </svg>
+  ),
+}
+
 interface SidebarProps {
   role: UserRole
   nome: string
   email: string
   avatarInitials: string
   notificheBadge?: number
+  isSuperAdmin?: boolean
 }
 
-export function Sidebar({ role, nome, email, avatarInitials, notificheBadge }: SidebarProps) {
+export function Sidebar({ role, nome, email, avatarInitials, notificheBadge, isSuperAdmin }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
-  const nav = role === 'admin' || role === 'super_admin' ? adminNav : role === 'tutor' ? tutorNav : formatoreNav
+  const isSA = isSuperAdmin ?? role === 'super_admin'
+  const baseNav = role === 'admin' || role === 'super_admin' ? adminNav : role === 'tutor' ? tutorNav : formatoreNav
+  const nav = isSA ? [...baseNav, finanziamentiNavItem] : baseNav
 
   const handleLogout = async () => {
     const supabase = createClient()

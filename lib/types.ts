@@ -15,6 +15,14 @@ export interface Profile {
   roles?: UserRole[]      // all assigned roles (from profiles_roles)
 }
 
+export interface Finanziamento {
+  id: string
+  nome: string
+  descrizione?: string | null
+  attivo: boolean
+  created_at: string
+}
+
 export interface Progetto {
   id: string
   school_name: string
@@ -23,7 +31,8 @@ export interface Progetto {
   ref_email: string
   ref_tel?: string
   status: ProjectStatus
-  anno_scolastico: string
+  anno_scolastico?: string
+  finanziamento_id?: string | null
   created_at: string
   created_by?: string
 }

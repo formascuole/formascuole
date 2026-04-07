@@ -110,6 +110,7 @@ export default async function CorsoDetailPage({
       email={profile.email}
       avatarInitials={profile.avatar_initials}
       notificheBadge={notifiche || 0}
+      isSuperAdmin={isSuperAdmin}
     >
       <CorsoDetailClient
         corso={corso}

@@ -1,7 +1,7 @@
 'use client'
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { ProgettoConStats } from '@/lib/types'
+import { ProgettoConStats, Finanziamento } from '@/lib/types'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { Button } from '@/components/ui/Button'
@@ -9,35 +9,61 @@ import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 
-interface ProgettiClientProps {
-  progetti: ProgettoConStats[]
+// Palette colori per badge finanziamento
+const BADGE_PALETTE = [
+  { bg: '#dbeafe', text: '#1e40af' },
+  { bg: '#dcfce7', text: '#166534' },
+  { bg: '#fef3c7', text: '#92400e' },
+  { bg: '#ede9fe', text: '#5b21b6' },
+  { bg: '#fce7f3', text: '#9d174d' },
+  { bg: '#cffafe', text: '#155e75' },
+  { bg: '#ffedd5', text: '#9a3412' },
+  { bg: '#f0fdf4', text: '#14532d' },
+]
+
+export function getFinanziamentoColor(nome: string) {
+  let hash = 0
+  for (let i = 0; i < nome.length; i++) hash = (hash * 31 + nome.charCodeAt(i)) & 0x7fffffff
+  return BADGE_PALETTE[hash % BADGE_PALETTE.length]
 }
 
-export function ProgettiClient({ progetti }: ProgettiClientProps) {
+interface ProgettiClientProps {
+  progetti: ProgettoConStats[]
+  finanziamenti: Finanziamento[]
+}
+
+export function ProgettiClient({ progetti, finanziamenti }: ProgettiClientProps) {
   const router = useRouter()
   const [search, setSearch] = useState('')
+  const [filterFinId, setFilterFinId] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({
     school_name: '',
     address: '',
-    anno_scolastico: '',
+    finanziamento_id: '',
     ref_name: '',
     ref_email: '',
     ref_tel: '',
     status: 'active',
   })
 
+  const attivi = finanziamenti.filter(f => f.attivo)
+
   const filtered = useMemo(() => {
-    if (!search.trim()) return progetti
+    let list = progetti
+    if (filterFinId) {
+      list = list.filter(p => (p as ProgettoConStats & { finanziamento_id?: string | null }).finanziamento_id === filterFinId)
+    }
+    if (!search.trim()) return list
     const q = search.toLowerCase()
-    return progetti.filter(p =>
+    return list.filter(p =>
       p.school_name.toLowerCase().includes(q) ||
       p.address.toLowerCase().includes(q) ||
-      p.anno_scolastico.includes(q) ||
+      (p.anno_scolastico || '').includes(q) ||
       p.ref_name.toLowerCase().includes(q)
     )
-  }, [progetti, search])
+  }, [progetti, search, filterFinId])
 
   const handleSave = async () => {
     setSaving(true)
@@ -45,11 +71,14 @@ export function ProgettiClient({ progetti }: ProgettiClientProps) {
       const res = await fetch('/api/progetti', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...form,
+          finanziamento_id: form.finanziamento_id || null,
+        }),
       })
       if (res.ok) {
         setModalOpen(false)
-        setForm({ school_name: '', address: '', anno_scolastico: '', ref_name: '', ref_email: '', ref_tel: '', status: 'active' })
+        setForm({ school_name: '', address: '', finanziamento_id: '', ref_name: '', ref_email: '', ref_tel: '', status: 'active' })
         router.refresh()
       }
     } finally {
@@ -72,9 +101,9 @@ export function ProgettiClient({ progetti }: ProgettiClientProps) {
         </Button>
       </div>
 
-      {/* Search */}
-      <div className="mb-6">
-        <div className="relative max-w-sm">
+      {/* Search + filtro finanziamento */}
+      <div className="mb-6 flex flex-wrap items-center gap-3">
+        <div className="relative max-w-sm flex-1 min-w-48">
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" width="15" height="15" fill="none" viewBox="0 0 24 24">
             <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="1.5"/>
             <path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
@@ -83,10 +112,25 @@ export function ProgettiClient({ progetti }: ProgettiClientProps) {
             type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Cerca per scuola, indirizzo, referente, anno..."
+            placeholder="Cerca per scuola, indirizzo, referente..."
             className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-[7px] focus:outline-none focus:border-[#d64b55] transition-colors bg-white"
           />
         </div>
+        {finanziamenti.length > 0 && (
+          <select
+            value={filterFinId}
+            onChange={e => setFilterFinId(e.target.value)}
+            className="text-sm border border-gray-200 rounded-[7px] px-3 py-2 bg-white focus:outline-none focus:border-[#d64b55] transition-colors"
+          >
+            <option value="">Tutti i finanziamenti</option>
+            {finanziamenti.map(f => (
+              <option key={f.id} value={f.id}>{f.nome}{!f.attivo ? ' (inattivo)' : ''}</option>
+            ))}
+          </select>
+        )}
+        {(search || filterFinId) && (
+          <span className="text-xs text-gray-400">{filtered.length} risultat{filtered.length === 1 ? 'o' : 'i'}</span>
+        )}
       </div>
 
       {/* Grid */}
@@ -96,12 +140,12 @@ export function ProgettiClient({ progetti }: ProgettiClientProps) {
             <path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" stroke="currentColor" strokeWidth="1.5"/>
           </svg>
           <p className="text-sm">Nessun progetto trovato</p>
-          {search && <p className="text-xs mt-1">Prova a modificare la ricerca</p>}
+          {(search || filterFinId) && <p className="text-xs mt-1">Prova a modificare i filtri</p>}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((p) => (
-            <ProjectCard key={p.id} progetto={p} />
+            <ProjectCard key={p.id} progetto={p} finanziamenti={finanziamenti} />
           ))}
         </div>
       )}
@@ -115,7 +159,7 @@ export function ProgettiClient({ progetti }: ProgettiClientProps) {
         footer={
           <>
             <Button variant="secondary" onClick={() => setModalOpen(false)}>Annulla</Button>
-            <Button onClick={handleSave} loading={saving} disabled={!form.school_name || !form.anno_scolastico || !form.ref_name || !form.ref_email}>
+            <Button onClick={handleSave} loading={saving} disabled={!form.school_name || !form.ref_name || !form.ref_email}>
               Crea Progetto
             </Button>
           </>
@@ -124,7 +168,19 @@ export function ProgettiClient({ progetti }: ProgettiClientProps) {
         <div className="space-y-4">
           <Input label="Nome scuola *" value={form.school_name} onChange={e => setForm(f => ({ ...f, school_name: e.target.value }))} placeholder="Es. ITIS G. Marconi" />
           <Input label="Indirizzo *" value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} placeholder="Via Roma 1, Milano" />
-          <Input label="Anno scolastico *" value={form.anno_scolastico} onChange={e => setForm(f => ({ ...f, anno_scolastico: e.target.value }))} placeholder="2024-2025" />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Finanziamento</label>
+            <select
+              value={form.finanziamento_id}
+              onChange={e => setForm(f => ({ ...f, finanziamento_id: e.target.value }))}
+              className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 bg-white focus:outline-none focus:border-[#d64b55] transition-colors"
+            >
+              <option value="">Nessun finanziamento</option>
+              {attivi.map(f => (
+                <option key={f.id} value={f.id}>{f.nome}</option>
+              ))}
+            </select>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <Input label="Nome referente *" value={form.ref_name} onChange={e => setForm(f => ({ ...f, ref_name: e.target.value }))} />
             <Input label="Email referente *" type="email" value={form.ref_email} onChange={e => setForm(f => ({ ...f, ref_email: e.target.value }))} />
@@ -146,10 +202,13 @@ export function ProgettiClient({ progetti }: ProgettiClientProps) {
   )
 }
 
-function ProjectCard({ progetto: p }: { progetto: ProgettoConStats }) {
+function ProjectCard({ progetto: p, finanziamenti }: { progetto: ProgettoConStats; finanziamenti: Finanziamento[] }) {
   const router = useRouter()
   const pct = Number(p.percentuale_completamento)
   const hasWarning = Number(p.corsi_senza_formatore) > 0 || Number(p.corsi_senza_calendario) > 0
+  const fin_id = (p as ProgettoConStats & { finanziamento_id?: string | null }).finanziamento_id
+  const finanziamento = fin_id ? finanziamenti.find(f => f.id === fin_id) : null
+  const color = finanziamento ? getFinanziamentoColor(finanziamento.nome) : null
 
   return (
     <div
@@ -165,20 +224,31 @@ function ProjectCard({ progetto: p }: { progetto: ProgettoConStats }) {
         <StatusBadge variant={p.status} size="sm" />
       </div>
 
-      <div className="text-xs text-gray-500 mb-3 space-y-1">
+      <div className="text-xs text-gray-500 mb-3 space-y-1.5">
         <div className="flex items-center gap-1.5">
           <svg width="12" height="12" fill="none" viewBox="0 0 24 24">
             <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z" stroke="currentColor" strokeWidth="1.5"/>
           </svg>
           {p.ref_name}
         </div>
-        <div className="flex items-center gap-1.5">
-          <svg width="12" height="12" fill="none" viewBox="0 0 24 24">
-            <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.5"/>
-            <path d="M3 9h18M8 2v4M16 2v4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-          </svg>
-          {p.anno_scolastico}
-        </div>
+        {finanziamento && color ? (
+          <div className="flex items-center gap-1.5">
+            <span
+              className="inline-block text-xs font-medium px-2 py-0.5 rounded-md"
+              style={{ backgroundColor: color.bg, color: color.text }}
+            >
+              {finanziamento.nome}
+            </span>
+          </div>
+        ) : p.anno_scolastico ? (
+          <div className="flex items-center gap-1.5">
+            <svg width="12" height="12" fill="none" viewBox="0 0 24 24">
+              <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+              <path d="M3 9h18M8 2v4M16 2v4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+            {p.anno_scolastico}
+          </div>
+        ) : null}
         <div className="flex items-center gap-1.5">
           <svg width="12" height="12" fill="none" viewBox="0 0 24 24">
             <path d="M12 3l9 4.5-9 4.5-9-4.5L12 3z" stroke="currentColor" strokeWidth="1.5"/>
