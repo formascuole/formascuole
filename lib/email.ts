@@ -122,6 +122,48 @@ Rispondi SOLO con il corpo dell'email in testo semplice (no HTML, no oggetto ema
   return (message.content[0] as { type: string; text: string }).text
 }
 
+interface ReminderSessioneEmailParams {
+  formatore_nome: string
+  formatore_email: string
+  corso_title: string
+  school_name: string
+  data_sessione: string
+  ore_sessione: number
+  corso_url: string
+}
+
+export async function generateReminderSessioneEmail(params: ReminderSessioneEmailParams): Promise<string> {
+  const message = await anthropic.messages.create({
+    model: 'claude-sonnet-4-20250514',
+    max_tokens: 500,
+    messages: [
+      {
+        role: 'user',
+        content: `Genera un breve reminder email in italiano per un formatore che deve confermare una sessione svoltasi ieri.
+
+Dati:
+- Nome formatore: ${params.formatore_nome}
+- Titolo corso: ${params.corso_title}
+- Nome scuola: ${params.school_name}
+- Data sessione: ${params.data_sessione}
+- Ore sessione: ${params.ore_sessione}h
+- Link scheda corso: ${params.corso_url}
+
+L'email deve:
+1. Salutare il formatore per nome
+2. Ricordare che la sessione del [data] di [ore]h si è svolta ieri
+3. Chiedere di accedere alla piattaforma e segnare la sessione come "Completata"
+4. Fornire il link diretto alla scheda corso
+5. Essere breve e diretta (max 5 righe di corpo)
+
+Rispondi SOLO con il corpo dell'email in testo semplice (no HTML, no oggetto email).`,
+      },
+    ],
+  })
+
+  return (message.content[0] as { type: string; text: string }).text
+}
+
 export async function sendEmail({
   to,
   subject,

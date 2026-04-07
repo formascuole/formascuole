@@ -115,6 +115,7 @@ export default async function CorsoDetailPage({
         progettoId={id}
         currentUserId={user.id}
         isAdmin={true}
+        canConfirmSessions={true}
       />
     </AppLayout>
   )

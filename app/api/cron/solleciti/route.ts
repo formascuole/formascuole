@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { generateSollecitoEmail, sendEmail } from '@/lib/email'
+import { generateSollecitoEmail, generateReminderSessioneEmail, sendEmail } from '@/lib/email'
 
 const CRON_SECRET = process.env.CRON_SECRET
 
@@ -140,10 +140,96 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // ── Reminder sessioni: find sessions from yesterday that are not confirmed ──
+    const yesterday = new Date(now)
+    yesterday.setDate(yesterday.getDate() - 1)
+    const yesterdayStr = yesterday.toISOString().split('T')[0]
+
+    const { data: sessioniDaConfermare } = await supabase
+      .from('sessioni')
+      .select(`
+        id,
+        corso_id,
+        data,
+        ore,
+        corso:corsi(
+          id,
+          title,
+          formatore_id,
+          project:progetti(school_name)
+        )
+      `)
+      .eq('data', yesterdayStr)
+      .eq('completata', false)
+      .not('corso.formatore_id', 'is', null)
+
+    const reminderResults: { sessione_id: string; action: string }[] = []
+
+    for (const sessione of sessioniDaConfermare || []) {
+      const corso = (sessione.corso as unknown) as {
+        id: string; title: string; formatore_id: string;
+        project: { school_name: string } | null
+      } | null
+      if (!corso || !corso.formatore_id || !corso.project) continue
+
+      // Get formatore profile
+      const { data: formatore } = await supabase
+        .from('profiles')
+        .select('nome, email')
+        .eq('id', corso.formatore_id)
+        .single()
+      if (!formatore) continue
+
+      // Check we haven't already sent a reminder for this specific session today
+      const { data: existingReminder } = await supabase
+        .from('solleciti_log')
+        .select('id')
+        .eq('corso_id', sessione.corso_id)
+        .eq('tipo', 'reminder_sessione')
+        .gte('sent_at', `${now.toISOString().split('T')[0]}T00:00:00Z`)
+        .maybeSingle()
+
+      if (existingReminder) {
+        reminderResults.push({ sessione_id: sessione.id, action: 'already_sent_today' })
+        continue
+      }
+
+      try {
+        const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://formascuole.vercel.app'
+        const emailBody = await generateReminderSessioneEmail({
+          formatore_nome: formatore.nome,
+          formatore_email: formatore.email,
+          corso_title: corso.title,
+          school_name: corso.project.school_name,
+          data_sessione: yesterdayStr,
+          ore_sessione: Number(sessione.ore),
+          corso_url: `${APP_URL}/progetti/${corso.id}`,
+        })
+
+        await sendEmail({
+          to: formatore.email,
+          subject: `Reminder: conferma sessione del ${yesterdayStr} — ${corso.title}`,
+          body: emailBody,
+        })
+
+        await supabase.from('solleciti_log').insert({
+          corso_id: sessione.corso_id,
+          formatore_id: corso.formatore_id,
+          tipo: 'reminder_sessione',
+        })
+
+        reminderResults.push({ sessione_id: sessione.id, action: 'sent_reminder' })
+      } catch {
+        reminderResults.push({ sessione_id: sessione.id, action: 'email_error' })
+      }
+    }
+
     return NextResponse.json({
       success: true,
       processed: corsiIncomplete.length,
       results,
+      reminder_sessioni_processed: (sessioniDaConfermare || []).length,
+      reminder_results: reminderResults,
       timestamp: now.toISOString(),
     })
   } catch (error) {

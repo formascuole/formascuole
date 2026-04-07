@@ -3,7 +3,7 @@ export type ProjectStatus = 'active' | 'pending' | 'completed'
 export type CorsoTipo = 'PF' | 'Lab'
 export type ModalitaCorso = 'presenza' | 'online' | 'ibrido'
 export type ModalitaSessione = 'presenza' | 'online'
-export type SollectipoTipo = 'assegnazione' | 'sollecito_1' | 'sollecito_2' | 'sollecito_3'
+export type SollectipoTipo = 'assegnazione' | 'sollecito_1' | 'sollecito_2' | 'sollecito_3' | 'reminder_sessione'
 
 export interface Profile {
   id: string
@@ -80,6 +80,8 @@ export interface Sessione {
   data: string
   ore: number
   modalita_sessione?: ModalitaSessione
+  completata: boolean
+  completata_at?: string | null
   created_at: string
 }
 

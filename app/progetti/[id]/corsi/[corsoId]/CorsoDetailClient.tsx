@@ -23,12 +23,14 @@ interface CorsoDetailClientProps {
   progettoId: string
   currentUserId: string
   isAdmin: boolean
+  /** True if the current user can confirm sessions (admin or the assigned formatore) */
+  canConfirmSessions: boolean
 }
 
 export function CorsoDetailClient({
   corso,
   progetto,
-  sessioni,
+  sessioni: initialSessioni,
   formatori,
   tutori,
   dualRoleIds = [],
@@ -37,8 +39,11 @@ export function CorsoDetailClient({
   progettoId,
   currentUserId,
   isAdmin,
+  canConfirmSessions,
 }: CorsoDetailClientProps) {
   const router = useRouter()
+  const [sessioni, setSessioni] = useState<Sessione[]>(initialSessioni)
+  const [confirmingId, setConfirmingId] = useState<string | null>(null)
   const [calendarOpen, setCalendarOpen] = useState(false)
   const [formatorePickerOpen, setFormatorePickerOpen] = useState(false)
   const [tutorePickerOpen, setTutorePickerOpen] = useState(false)
@@ -213,6 +218,28 @@ export function CorsoDetailClient({
     }
   }
 
+  const handleConfirmSession = async (sessioneId: string) => {
+    setConfirmingId(sessioneId)
+    try {
+      const res = await fetch(`/api/sessioni/${sessioneId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ completata: true }),
+      })
+      if (res.ok) {
+        const updated = await res.json()
+        setSessioni(prev => prev.map(s => s.id === sessioneId ? { ...s, completata: true, completata_at: updated.completata_at } : s))
+      }
+    } finally {
+      setConfirmingId(null)
+    }
+  }
+
+  // Sessions stats for the counter
+  const today = new Date().toISOString().split('T')[0]
+  const sessioniCompletate = sessioni.filter(s => s.completata).length
+  const sessioniScadute = sessioni.filter(s => !s.completata && s.data <= today).length
+
   return (
     <div className="p-8 max-w-4xl mx-auto">
       {/* Breadcrumb */}
@@ -255,7 +282,12 @@ export function CorsoDetailClient({
             )}
           </div>
         )}
-        <OreCounter oreTotali={Number(corso.ore_totali)} orePianificate={orePianificate} />
+        <OreCounter
+          oreTotali={Number(corso.ore_totali)}
+          orePianificate={orePianificate}
+          sessioniCompletate={sessioniCompletate}
+          sessioniTotali={sessioni.length}
+        />
       </div>
 
       {/* Formatore */}
@@ -354,7 +386,14 @@ export function CorsoDetailClient({
       {/* Sessioni */}
       <div className="bg-white rounded-xl mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h2 className="font-semibold text-gray-900">Sessioni pianificate ({sessioni.length})</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="font-semibold text-gray-900">Sessioni pianificate ({sessioni.length})</h2>
+            {sessioni.length > 0 && sessioniScadute > 0 && (
+              <span className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md bg-amber-100 text-amber-700">
+                {sessioniScadute} da confermare
+              </span>
+            )}
+          </div>
           {isAdmin && (
             <Button size="sm" onClick={() => setCalendarOpen(true)} disabled={oreResidue === 0}>
               <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
@@ -379,38 +418,91 @@ export function CorsoDetailClient({
                 <th className="text-left text-xs font-medium text-gray-400 px-6 py-3">DATA</th>
                 <th className="text-left text-xs font-medium text-gray-400 px-6 py-3">ORE</th>
                 {isIbrido && <th className="text-left text-xs font-medium text-gray-400 px-6 py-3">MODALITÀ</th>}
-                <th className="text-left text-xs font-medium text-gray-400 px-6 py-3">CREATA IL</th>
+                <th className="text-left text-xs font-medium text-gray-400 px-6 py-3">STATO</th>
                 {isAdmin && <th className="px-6 py-3"></th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {sessioni.map((s) => (
-                <tr key={s.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-3 text-sm text-gray-800">{formatDate(s.data)}</td>
-                  <td className="px-6 py-3 text-sm font-medium text-gray-800">{s.ore}h</td>
-                  {isIbrido && (
+              {sessioni.map((s) => {
+                const isPast = s.data <= today
+                const canConfirm = canConfirmSessions && !s.completata && isPast
+                const isFuture = s.data > today
+                return (
+                  <tr key={s.id} className={`hover:bg-gray-50 ${s.completata ? 'bg-green-50/30' : ''}`}>
+                    <td className="px-6 py-3 text-sm text-gray-800 font-medium">{formatDate(s.data)}</td>
+                    <td className="px-6 py-3 text-sm font-medium text-gray-800">{s.ore}h</td>
+                    {isIbrido && (
+                      <td className="px-6 py-3">
+                        {s.modalita_sessione ? (
+                          <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-md ${s.modalita_sessione === 'presenza' ? 'bg-blue-100 text-blue-700' : 'bg-violet-100 text-violet-700'}`}>
+                            {s.modalita_sessione === 'presenza' ? '🏫 Presenza' : '💻 Online'}
+                          </span>
+                        ) : <span className="text-xs text-gray-400">—</span>}
+                      </td>
+                    )}
                     <td className="px-6 py-3">
-                      {s.modalita_sessione ? (
-                        <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-md ${s.modalita_sessione === 'presenza' ? 'bg-blue-100 text-blue-700' : 'bg-violet-100 text-violet-700'}`}>
-                          {s.modalita_sessione === 'presenza' ? '🏫 Presenza' : '💻 Online'}
+                      {s.completata ? (
+                        <div className="flex items-center gap-1.5">
+                          <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-md bg-green-100 text-green-700">
+                            <svg width="10" height="10" fill="none" viewBox="0 0 24 24">
+                              <polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
+                            </svg>
+                            Completata
+                          </span>
+                          {s.completata_at && (
+                            <span className="text-xs text-gray-400">{formatDate(s.completata_at)}</span>
+                          )}
+                        </div>
+                      ) : isFuture ? (
+                        <span className="text-xs text-gray-400">Futura</span>
+                      ) : (
+                        <span className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md bg-amber-100 text-amber-700">
+                          Da confermare
                         </span>
-                      ) : <span className="text-xs text-gray-400">—</span>}
+                      )}
                     </td>
-                  )}
-                  <td className="px-6 py-3 text-xs text-gray-400">{formatDate(s.created_at)}</td>
-                  {isAdmin && (
                     <td className="px-6 py-3 text-right">
-                      <button
-                        onClick={() => handleDeleteSession(s.id)}
-                        disabled={deletingId === s.id}
-                        className="text-xs text-red-400 hover:text-red-600 transition-colors disabled:opacity-50"
-                      >
-                        {deletingId === s.id ? 'Eliminando...' : 'Elimina'}
-                      </button>
+                      <div className="flex items-center justify-end gap-3">
+                        {canConfirmSessions && (
+                          <button
+                            onClick={() => canConfirm ? handleConfirmSession(s.id) : undefined}
+                            disabled={!canConfirm || confirmingId === s.id}
+                            title={isFuture ? `Disponibile dal ${formatDate(s.data)}` : s.completata ? 'Già confermata' : 'Segna come completata'}
+                            className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-[7px] transition-colors ${
+                              s.completata
+                                ? 'text-green-600 bg-green-50 cursor-default'
+                                : canConfirm
+                                ? 'text-gray-600 hover:text-green-700 hover:bg-green-50 border border-gray-200 hover:border-green-300'
+                                : 'text-gray-300 cursor-not-allowed'
+                            }`}
+                          >
+                            {confirmingId === s.id ? (
+                              <svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                              </svg>
+                            ) : (
+                              <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
+                                <polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
+                              </svg>
+                            )}
+                            {s.completata ? 'Confermata' : 'Conferma'}
+                          </button>
+                        )}
+                        {isAdmin && !s.completata && (
+                          <button
+                            onClick={() => handleDeleteSession(s.id)}
+                            disabled={deletingId === s.id}
+                            className="text-xs text-red-400 hover:text-red-600 transition-colors disabled:opacity-50"
+                          >
+                            {deletingId === s.id ? '...' : 'Elimina'}
+                          </button>
+                        )}
+                      </div>
                     </td>
-                  )}
-                </tr>
-              ))}
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         )}
