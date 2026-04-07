@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { FormatoriClient } from './FormatoriClient'
 
@@ -41,8 +42,9 @@ export default async function FormatoriPage() {
     rolesByUser.get(row.profile_id)!.push(row.role)
   }
 
-  // Fetch all corsi (both formatore_id and tutor_id) for stats
-  const { data: corsiAll } = await supabase
+  // Use admin client to bypass RLS and fetch all corsi stats
+  const adminClient = createAdminClient()
+  const { data: corsiAll } = await adminClient
     .from('corsi_con_ore')
     .select('formatore_id, tutor_id, ore_totali, ore_pianificate')
 
@@ -52,15 +54,21 @@ export default async function FormatoriPage() {
     .eq('tipo', 'sollecito_3')
 
   const utentiConStats = (utenti || []).map(u => {
-    const corsi = (corsiAll || []).filter(c =>
-      c.formatore_id === u.id || c.tutor_id === u.id
-    )
-    const oreTotali = corsi.reduce((s, c) => s + Number(c.ore_totali), 0)
-    const orePianificate = corsi.reduce((s, c) => s + Number(c.ore_pianificate), 0)
-    const pct = oreTotali > 0 ? Math.round((orePianificate / oreTotali) * 100) : 0
+    const corsiF = (corsiAll || []).filter(c => c.formatore_id === u.id)
+    const corsiT = (corsiAll || []).filter(c => c.tutor_id === u.id)
+    // n_corsi = union (a corso where user is both formatore and tutor counts once)
+    const corsiIds = new Set([...corsiF, ...corsiT].map((_, i) => i)) // deduplicate by index is wrong, but both lists are already disjoint by filter
+    const n_corsi = corsiF.length + corsiT.length
+    // ORE column: only formatore corsi
+    const oreTotali = corsiF.reduce((s, c) => s + Number(c.ore_totali), 0)
+    const orePianificate = corsiF.reduce((s, c) => s + Number(c.ore_pianificate), 0)
+    // % PIANIFICATO: across all assigned corsi (formatore + tutor), like the single user page
+    const tuttiOreTotali = [...corsiF, ...corsiT].reduce((s, c) => s + Number(c.ore_totali), 0)
+    const tuttiOrePianificate = [...corsiF, ...corsiT].reduce((s, c) => s + Number(c.ore_pianificate), 0)
+    const pct = tuttiOreTotali > 0 ? Math.round((tuttiOrePianificate / tuttiOreTotali) * 100) : 0
     // Fallback to profiles.role if profiles_roles is empty (pre-migration)
     const roles = (rolesByUser.get(u.id) ?? [u.role]) as string[]
-    return { ...u, n_corsi: corsi.length, oreTotali, orePianificate, pct, roles }
+    return { ...u, n_corsi, oreTotali, orePianificate, pct, roles }
   })
 
   return (

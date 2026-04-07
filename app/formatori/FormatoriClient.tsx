@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Avatar } from '@/components/ui/Avatar'
@@ -55,7 +55,18 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
   const [editError, setEditError] = useState('')
   const [editSuccess, setEditSuccess] = useState('')
 
+  const [search, setSearch] = useState('')
   const visibleRoles = SELECTABLE_ROLES.filter(r => r.value !== 'admin' || isSuperAdmin)
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return utenti
+    const q = search.toLowerCase()
+    return utenti.filter(u =>
+      u.nome.toLowerCase().includes(q) ||
+      u.email.toLowerCase().includes(q) ||
+      (u.roles || [u.role]).some(r => ROLE_LABELS[r as UserRole]?.toLowerCase().includes(q))
+    )
+  }, [utenti, search])
 
   // ─── Create handlers ───────────────────────────────────────────────────────
   const handleCloseCreate = () => {
@@ -173,6 +184,23 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
         </Button>
       </div>
 
+      {/* Search */}
+      <div className="mb-4">
+        <div className="relative max-w-sm">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" width="15" height="15" fill="none" viewBox="0 0 24 24">
+            <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="1.5"/>
+            <path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Cerca per nome, email o ruolo..."
+            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-[7px] focus:outline-none focus:border-[#d64b55] transition-colors bg-white"
+          />
+        </div>
+      </div>
+
       <div className="bg-white rounded-xl" style={{ border: '0.5px solid #e5e5e5' }}>
         <table className="w-full">
           <thead>
@@ -186,7 +214,7 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
-            {utenti.map(u => (
+            {filtered.map(u => (
               <tr key={u.id} className="hover:bg-gray-50">
                 <td className="px-6 py-4">
                   <Link href={`/utenti/${u.id}`} className="flex items-center gap-3 group">
@@ -233,10 +261,10 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
                 </td>
               </tr>
             ))}
-            {utenti.length === 0 && (
+            {filtered.length === 0 && (
               <tr>
                 <td colSpan={6} className="px-6 py-12 text-center text-sm text-gray-400">
-                  Nessun utente registrato
+                  {search ? 'Nessun utente trovato per questa ricerca' : 'Nessun utente registrato'}
                 </td>
               </tr>
             )}

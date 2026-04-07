@@ -28,12 +28,16 @@ export function ProgettiClient({ progetti }: ProgettiClientProps) {
     status: 'active',
   })
 
-  const filtered = useMemo(() =>
-    progetti.filter(p =>
-      p.school_name.toLowerCase().includes(search.toLowerCase()) ||
-      p.address.toLowerCase().includes(search.toLowerCase()) ||
-      p.anno_scolastico.includes(search)
-    ), [progetti, search])
+  const filtered = useMemo(() => {
+    if (!search.trim()) return progetti
+    const q = search.toLowerCase()
+    return progetti.filter(p =>
+      p.school_name.toLowerCase().includes(q) ||
+      p.address.toLowerCase().includes(q) ||
+      p.anno_scolastico.includes(q) ||
+      p.ref_name.toLowerCase().includes(q)
+    )
+  }, [progetti, search])
 
   const handleSave = async () => {
     setSaving(true)
@@ -70,12 +74,19 @@ export function ProgettiClient({ progetti }: ProgettiClientProps) {
 
       {/* Search */}
       <div className="mb-6">
-        <Input
-          placeholder="Cerca per scuola, indirizzo, anno..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="max-w-sm"
-        />
+        <div className="relative max-w-sm">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" width="15" height="15" fill="none" viewBox="0 0 24 24">
+            <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="1.5"/>
+            <path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Cerca per scuola, indirizzo, referente, anno..."
+            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-[7px] focus:outline-none focus:border-[#d64b55] transition-colors bg-white"
+          />
+        </div>
       </div>
 
       {/* Grid */}
