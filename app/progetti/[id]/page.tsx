@@ -77,6 +77,7 @@ export default async function ProgettoDetailPage({ params }: { params: Promise<{
         messaggi={messaggiConLetto}
         referenti={referenti || []}
         currentUserId={user.id}
+        isSuperAdmin={profile.role === 'super_admin'}
       />
     </AppLayout>
   )

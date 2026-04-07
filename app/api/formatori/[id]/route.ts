@@ -161,3 +161,64 @@ Il team Formascuole`
 
   return NextResponse.json({ ...updatedProfile, roles })
 }
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id: targetId } = await params
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  // Only super_admin can delete users
+  const { data: callerProfile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+  if (callerProfile?.role !== 'super_admin') {
+    return NextResponse.json({ error: 'Riservato al Super Admin' }, { status: 403 })
+  }
+
+  // Cannot delete yourself
+  if (targetId === user.id) {
+    return NextResponse.json({ error: 'Non puoi eliminare il tuo stesso account' }, { status: 400 })
+  }
+
+  const adminClient = createAdminClient()
+
+  // Cannot delete other super_admins
+  const { data: targetProfile } = await adminClient
+    .from('profiles')
+    .select('role')
+    .eq('id', targetId)
+    .single()
+  if (!targetProfile) return NextResponse.json({ error: 'Utente non trovato' }, { status: 404 })
+  if (targetProfile.role === 'super_admin') {
+    return NextResponse.json({ error: 'Non è possibile eliminare un altro Super Admin' }, { status: 403 })
+  }
+  const { data: superAdminRow } = await adminClient
+    .from('profiles_roles')
+    .select('role')
+    .eq('profile_id', targetId)
+    .eq('role', 'super_admin')
+    .maybeSingle()
+  if (superAdminRow) {
+    return NextResponse.json({ error: 'Non è possibile eliminare un altro Super Admin' }, { status: 403 })
+  }
+
+  // Nullify references in corsi
+  await adminClient.from('corsi').update({ formatore_id: null }).eq('formatore_id', targetId)
+  await adminClient.from('corsi').update({ tutor_id: null }).eq('tutor_id', targetId)
+
+  // Delete roles, profile, auth user
+  await adminClient.from('profiles_roles').delete().eq('profile_id', targetId)
+  await adminClient.from('profiles').delete().eq('id', targetId)
+  const { error: authError } = await adminClient.auth.admin.deleteUser(targetId)
+  if (authError) {
+    console.error('Auth delete error (non-fatal):', authError)
+  }
+
+  return NextResponse.json({ success: true })
+}

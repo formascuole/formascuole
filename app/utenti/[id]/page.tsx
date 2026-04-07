@@ -64,6 +64,8 @@ export default async function UtenteDetailPage({ params }: { params: Promise<{ i
         profile={{ ...profile, roles }}
         corsiFormatore={corsiFormatore || []}
         corsiTutor={corsiTutor || []}
+        isSuperAdmin={currentProfile.role === 'super_admin'}
+        currentUserId={user.id}
       />
     </AppLayout>
   )

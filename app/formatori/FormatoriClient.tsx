@@ -7,6 +7,7 @@ import { ProgressBar } from '@/components/ui/ProgressBar'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
+import { DeleteConfirmModal } from '@/components/ui/DeleteConfirmModal'
 import { UserRole } from '@/lib/types'
 import { ROLE_LABELS, ROLE_COLORS } from '@/lib/auth'
 import type { UtenteStats } from '@/app/api/utenti/stats/route'
@@ -63,6 +64,9 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
   const [search, setSearch] = useState('')
   const [statsMap, setStatsMap] = useState<Record<string, UtenteStats>>({})
   const [statsLoading, setStatsLoading] = useState(true)
+
+  // --- Delete state ---
+  const [deleteTarget, setDeleteTarget] = useState<UtenteConStats | null>(null)
 
   // Fetch stats client-side via service-role API to bypass RLS
   useEffect(() => {
@@ -292,17 +296,32 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
                   )
                 })()}
                 <td className="px-6 py-4 text-right">
-                  <button
-                    onClick={() => openEdit(u)}
-                    className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-800 px-2.5 py-1.5 rounded-[7px] hover:bg-gray-100 transition-colors"
-                    title="Modifica utente"
-                  >
-                    <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
-                      <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                      <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                    Modifica
-                  </button>
+                  <div className="flex items-center justify-end gap-2">
+                    <button
+                      onClick={() => openEdit(u)}
+                      className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-800 px-2.5 py-1.5 rounded-[7px] hover:bg-gray-100 transition-colors"
+                      title="Modifica utente"
+                    >
+                      <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
+                        <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                      Modifica
+                    </button>
+                    {isSuperAdmin && !(u.roles || [u.role]).includes('super_admin') && (
+                      <button
+                        onClick={() => setDeleteTarget(u)}
+                        className="inline-flex items-center gap-1.5 text-xs font-medium text-red-400 hover:text-red-600 px-2.5 py-1.5 rounded-[7px] hover:bg-red-50 transition-colors"
+                        title="Elimina utente"
+                      >
+                        <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
+                          <polyline points="3 6 5 6 21 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                          <path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                        Elimina
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -437,6 +456,24 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
           </div>
         ) : null}
       </Modal>
+
+      {/* ── Modal: Elimina utente ────────────────────────────────────────────── */}
+      <DeleteConfirmModal
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        title={`Elimina utente — ${deleteTarget?.nome ?? ''}`}
+        description={`Sei sicuro di voler eliminare ${deleteTarget?.nome}? Questa azione è irreversibile. I corsi assegnati a questo utente rimarranno ma perderanno il riferimento al formatore/tutor.`}
+        confirmName={deleteTarget?.nome ?? ''}
+        onConfirm={async () => {
+          const res = await fetch(`/api/formatori/${deleteTarget!.id}`, { method: 'DELETE' })
+          if (!res.ok) {
+            const json = await res.json()
+            throw new Error(json.error || 'Errore durante l\'eliminazione')
+          }
+          setDeleteTarget(null)
+          router.refresh()
+        }}
+      />
     </div>
   )
 }

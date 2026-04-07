@@ -1,10 +1,13 @@
 'use client'
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Profile, CorsoConOre, UserRole } from '@/lib/types'
 import { Avatar } from '@/components/ui/Avatar'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { StatCard } from '@/components/ui/StatCard'
 import { ProgressBar } from '@/components/ui/ProgressBar'
+import { DeleteConfirmModal } from '@/components/ui/DeleteConfirmModal'
 import { ROLE_LABELS, ROLE_COLORS } from '@/lib/auth'
 import { formatDate } from '@/lib/utils'
 
@@ -16,6 +19,8 @@ interface UtenteDetailClientProps {
   profile: Profile & { roles: UserRole[] }
   corsiFormatore: CorsoConProgetto[]
   corsiTutor: CorsoConProgetto[]
+  isSuperAdmin: boolean
+  currentUserId: string
 }
 
 function corsoStato(c: CorsoConOre): { label: string; color: string } {
@@ -27,7 +32,7 @@ function corsoStato(c: CorsoConOre): { label: string; color: string } {
   return { label: 'In corso', color: 'text-amber-700 bg-amber-100' }
 }
 
-function CorsiTable({ corsi, progettoId }: { corsi: CorsoConProgetto[]; progettoId?: string }) {
+function CorsiTable({ corsi }: { corsi: CorsoConProgetto[] }) {
   if (corsi.length === 0) {
     return (
       <div className="px-6 py-10 text-center text-sm text-gray-400">
@@ -105,9 +110,15 @@ function CorsiTable({ corsi, progettoId }: { corsi: CorsoConProgetto[]; progetto
   )
 }
 
-export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor }: UtenteDetailClientProps) {
+export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSuperAdmin, currentUserId }: UtenteDetailClientProps) {
+  const router = useRouter()
+  const [deleteOpen, setDeleteOpen] = useState(false)
+
   const isFormatore = profile.roles.includes('formatore')
   const isTutor = profile.roles.includes('tutor')
+  const isSelf = profile.id === currentUserId
+  const isTargetSuperAdmin = profile.roles.includes('super_admin')
+  const canDelete = isSuperAdmin && !isSelf && !isTargetSuperAdmin
 
   // Stats
   const tuttiCorsi = [...corsiFormatore, ...corsiTutor]
@@ -141,28 +152,32 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor }: Uten
               ))}
             </div>
           </div>
-          <div className="text-right shrink-0">
-            <div className="text-xs text-gray-400">Account creato il</div>
-            <div className="text-sm text-gray-600 font-medium mt-0.5">{formatDate(profile.created_at)}</div>
+          <div className="flex flex-col items-end gap-3 shrink-0">
+            <div className="text-right">
+              <div className="text-xs text-gray-400">Account creato il</div>
+              <div className="text-sm text-gray-600 font-medium mt-0.5">{formatDate(profile.created_at)}</div>
+            </div>
+            {canDelete && (
+              <button
+                onClick={() => setDeleteOpen(true)}
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 px-3 py-1.5 rounded-[7px] transition-colors"
+              >
+                <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
+                  <polyline points="3 6 5 6 21 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  <path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                Elimina utente
+              </button>
+            )}
           </div>
         </div>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <StatCard
-          label="Corsi come formatore"
-          value={corsiFormatore.length}
-        />
-        <StatCard
-          label="Corsi come tutor"
-          value={corsiTutor.length}
-        />
-        <StatCard
-          label="Ore totali assegnate"
-          value={`${oreTotali}h`}
-          subtitle={`${orePianificate}h pianificate`}
-        />
+        <StatCard label="Corsi come formatore" value={corsiFormatore.length} />
+        <StatCard label="Corsi come tutor" value={corsiTutor.length} />
+        <StatCard label="Ore totali assegnate" value={`${oreTotali}h`} subtitle={`${orePianificate}h pianificate`} />
         <StatCard
           label="Completamento medio"
           value={`${pctMedia}%`}
@@ -170,7 +185,6 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor }: Uten
         />
       </div>
 
-      {/* Corsi come formatore */}
       {isFormatore && (
         <div className="bg-white rounded-xl mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
           <div className="px-6 py-4 border-b border-gray-100">
@@ -183,7 +197,6 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor }: Uten
         </div>
       )}
 
-      {/* Corsi come tutor */}
       {isTutor && (
         <div className="bg-white rounded-xl mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
           <div className="px-6 py-4 border-b border-gray-100">
@@ -196,12 +209,27 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor }: Uten
         </div>
       )}
 
-      {/* Nessun corso se non è né formatore né tutor */}
       {!isFormatore && !isTutor && (
         <div className="bg-white rounded-xl p-10 text-center" style={{ border: '0.5px solid #e5e5e5' }}>
           <p className="text-sm text-gray-400">Nessun corso assegnato a questo utente.</p>
         </div>
       )}
+
+      <DeleteConfirmModal
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        title={`Elimina utente — ${profile.nome}`}
+        description={`Sei sicuro di voler eliminare ${profile.nome}? Questa azione è irreversibile. I corsi assegnati a questo utente rimarranno ma perderanno il riferimento al formatore/tutor.`}
+        confirmName={profile.nome}
+        onConfirm={async () => {
+          const res = await fetch(`/api/formatori/${profile.id}`, { method: 'DELETE' })
+          if (!res.ok) {
+            const json = await res.json()
+            throw new Error(json.error || 'Errore durante l\'eliminazione')
+          }
+          router.push('/formatori')
+        }}
+      />
     </div>
   )
 }

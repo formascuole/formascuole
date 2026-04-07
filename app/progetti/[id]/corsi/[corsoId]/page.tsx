@@ -116,6 +116,7 @@ export default async function CorsoDetailPage({
         currentUserId={user.id}
         isAdmin={true}
         canConfirmSessions={true}
+        isSuperAdmin={profile.role === 'super_admin'}
       />
     </AppLayout>
   )

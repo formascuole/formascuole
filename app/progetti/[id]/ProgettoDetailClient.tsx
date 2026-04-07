@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Avatar } from '@/components/ui/Avatar'
 import { formatDate } from '@/lib/utils'
+import { DeleteConfirmModal } from '@/components/ui/DeleteConfirmModal'
 
 interface ProgettoDetailClientProps {
   progetto: ProgettoConStats
@@ -19,6 +20,7 @@ interface ProgettoDetailClientProps {
   messaggi: ChatMessaggio[]
   referenti: Referente[]
   currentUserId: string
+  isSuperAdmin?: boolean
 }
 
 type EditScuolaForm = {
@@ -38,8 +40,12 @@ export function ProgettoDetailClient({
   messaggi: initialMessaggi,
   referenti: initialReferenti,
   currentUserId,
+  isSuperAdmin,
 }: ProgettoDetailClientProps) {
   const router = useRouter()
+
+  // ── Delete progetto ──────────────────────────────────────────
+  const [deleteProgettoOpen, setDeleteProgettoOpen] = useState(false)
 
   // ── Corso form ──────────────────────────────────────────────
   const [addCorsoOpen, setAddCorsoOpen] = useState(false)
@@ -238,25 +244,39 @@ export function ProgettoDetailClient({
             </div>
             <p className="text-sm text-gray-500">{progetto.address} · {progetto.anno_scolastico}</p>
           </div>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => {
-              setEditScuolaForm({
-                school_name: progetto.school_name,
-                address: progetto.address,
-                anno_scolastico: progetto.anno_scolastico,
-                status: progetto.status,
-              })
-              setEditScuolaOpen(true)
-            }}
-          >
-            <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
-              <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            Modifica
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setEditScuolaForm({
+                  school_name: progetto.school_name,
+                  address: progetto.address,
+                  anno_scolastico: progetto.anno_scolastico,
+                  status: progetto.status,
+                })
+                setEditScuolaOpen(true)
+              }}
+            >
+              <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
+                <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Modifica
+            </Button>
+            {isSuperAdmin && (
+              <button
+                onClick={() => setDeleteProgettoOpen(true)}
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 px-3 py-1.5 rounded-[7px] transition-colors"
+              >
+                <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
+                  <polyline points="3 6 5 6 21 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  <path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                Elimina
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-3 gap-4 mb-5 p-4 bg-gray-50 rounded-xl">
@@ -549,6 +569,22 @@ export function ProgettoDetailClient({
           {editRefError && <p className="text-sm text-red-600">{editRefError}</p>}
         </div>
       </Modal>
+
+      <DeleteConfirmModal
+        open={deleteProgettoOpen}
+        onClose={() => setDeleteProgettoOpen(false)}
+        title={`Elimina progetto — ${progetto.school_name}`}
+        description={`Sei sicuro di voler eliminare il progetto di ${progetto.school_name}? Questa azione è irreversibile. Tutti i corsi, sessioni e messaggi correlati verranno eliminati definitivamente.`}
+        confirmName={progetto.school_name}
+        onConfirm={async () => {
+          const res = await fetch(`/api/progetti/${progetto.id}`, { method: 'DELETE' })
+          if (!res.ok) {
+            const json = await res.json()
+            throw new Error(json.error || 'Errore durante l\'eliminazione')
+          }
+          router.push('/progetti')
+        }}
+      />
 
       {/* ── Modal: Aggiungi corso ────────────────────────────────────── */}
       <Modal

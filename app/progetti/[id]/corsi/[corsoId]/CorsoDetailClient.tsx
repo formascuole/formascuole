@@ -10,6 +10,7 @@ import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
 import { Avatar } from '@/components/ui/Avatar'
 import { formatDate } from '@/lib/utils'
+import { DeleteConfirmModal } from '@/components/ui/DeleteConfirmModal'
 
 interface CorsoDetailClientProps {
   corso: CorsoConOre & { formatore?: Profile; tutor?: Profile; referente?: Referente }
@@ -25,6 +26,7 @@ interface CorsoDetailClientProps {
   isAdmin: boolean
   /** True if the current user can confirm sessions (admin or the assigned formatore) */
   canConfirmSessions: boolean
+  isSuperAdmin?: boolean
 }
 
 export function CorsoDetailClient({
@@ -40,9 +42,11 @@ export function CorsoDetailClient({
   currentUserId,
   isAdmin,
   canConfirmSessions,
+  isSuperAdmin,
 }: CorsoDetailClientProps) {
   const router = useRouter()
   const [sessioni, setSessioni] = useState<Sessione[]>(initialSessioni)
+  const [deleteCorsoOpen, setDeleteCorsoOpen] = useState(false)
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
   const [calendarOpen, setCalendarOpen] = useState(false)
   const [formatorePickerOpen, setFormatorePickerOpen] = useState(false)
@@ -266,6 +270,18 @@ export function CorsoDetailClient({
               </span>
             )}
           </div>
+          {isSuperAdmin && (
+            <button
+              onClick={() => setDeleteCorsoOpen(true)}
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 px-3 py-1.5 rounded-[7px] transition-colors shrink-0"
+            >
+              <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
+                <polyline points="3 6 5 6 21 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                <path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Elimina corso
+            </button>
+          )}
         </div>
         {corso.tipo === 'PF' && (
           <div className="flex flex-wrap gap-2 mb-4">
@@ -780,6 +796,22 @@ export function CorsoDetailClient({
           </div>
         )}
       </Modal>
+
+      <DeleteConfirmModal
+        open={deleteCorsoOpen}
+        onClose={() => setDeleteCorsoOpen(false)}
+        title={`Elimina corso — ${corso.title}`}
+        description={`Sei sicuro di voler eliminare il corso "${corso.title}"? Questa azione è irreversibile. Tutte le sessioni e le note correlate verranno eliminate definitivamente.`}
+        confirmName={corso.title}
+        onConfirm={async () => {
+          const res = await fetch(`/api/corsi/${corso.id}`, { method: 'DELETE' })
+          if (!res.ok) {
+            const json = await res.json()
+            throw new Error(json.error || 'Errore durante l\'eliminazione')
+          }
+          router.push(`/progetti/${progettoId}`)
+        }}
+      />
     </div>
   )
 }
