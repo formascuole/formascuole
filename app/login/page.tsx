@@ -1,6 +1,5 @@
 'use client'
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -10,7 +9,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -37,8 +35,9 @@ export default function LoginPage() {
       .single()
 
     const dest = profile?.role === 'admin' ? '/dashboard' : '/formatore'
-    router.push(dest)
-    router.refresh()
+    // Hard navigation ensures session cookies are sent with the next request,
+    // avoiding the race condition between router.push and middleware cookie checks.
+    window.location.href = dest
   }
 
   return (
