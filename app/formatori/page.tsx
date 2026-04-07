@@ -56,19 +56,20 @@ export default async function FormatoriPage() {
   const utentiConStats = (utenti || []).map(u => {
     const corsiF = (corsiAll || []).filter(c => c.formatore_id === u.id)
     const corsiT = (corsiAll || []).filter(c => c.tutor_id === u.id)
-    // n_corsi = union (a corso where user is both formatore and tutor counts once)
-    const corsiIds = new Set([...corsiF, ...corsiT].map((_, i) => i)) // deduplicate by index is wrong, but both lists are already disjoint by filter
-    const n_corsi = corsiF.length + corsiT.length
-    // ORE column: only formatore corsi
-    const oreTotali = corsiF.reduce((s, c) => s + Number(c.ore_totali), 0)
-    const orePianificate = corsiF.reduce((s, c) => s + Number(c.ore_pianificate), 0)
-    // % PIANIFICATO: across all assigned corsi (formatore + tutor), like the single user page
+
+    const n_corsi_formatore = corsiF.length
+    const ore_formatore = corsiF.reduce((s, c) => s + Number(c.ore_totali), 0)
+    const n_corsi_tutor = corsiT.length
+    const ore_tutor = corsiT.reduce((s, c) => s + Number(c.ore_totali), 0)
+
+    // % PIANIFICATO: across all assigned corsi (formatore + tutor)
     const tuttiOreTotali = [...corsiF, ...corsiT].reduce((s, c) => s + Number(c.ore_totali), 0)
     const tuttiOrePianificate = [...corsiF, ...corsiT].reduce((s, c) => s + Number(c.ore_pianificate), 0)
     const pct = tuttiOreTotali > 0 ? Math.round((tuttiOrePianificate / tuttiOreTotali) * 100) : 0
+
     // Fallback to profiles.role if profiles_roles is empty (pre-migration)
     const roles = (rolesByUser.get(u.id) ?? [u.role]) as string[]
-    return { ...u, n_corsi, oreTotali, orePianificate, pct, roles }
+    return { ...u, n_corsi_formatore, ore_formatore, n_corsi_tutor, ore_tutor, pct, roles }
   })
 
   return (

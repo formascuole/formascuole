@@ -17,9 +17,13 @@ interface UtenteConStats {
   avatar_initials: string
   role: UserRole
   roles: UserRole[]
-  n_corsi: number
-  oreTotali: number
-  orePianificate: number
+  // Formatore stats
+  n_corsi_formatore: number
+  ore_formatore: number
+  // Tutor stats
+  n_corsi_tutor: number
+  ore_tutor: number
+  // Overall
   pct: number
 }
 
@@ -207,9 +211,11 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
             <tr className="border-b border-gray-100">
               <th className="text-left text-xs font-medium text-gray-400 px-6 py-3">UTENTE</th>
               <th className="text-left text-xs font-medium text-gray-400 px-6 py-3">RUOLO</th>
-              <th className="text-center text-xs font-medium text-gray-400 px-6 py-3">CORSI</th>
-              <th className="text-left text-xs font-medium text-gray-400 px-6 py-3">ORE</th>
-              <th className="text-left text-xs font-medium text-gray-400 px-6 py-3 min-w-[160px]">PIANIFICATO</th>
+              <th className="text-center text-xs font-medium text-gray-400 px-4 py-3">CORSI FORM.</th>
+              <th className="text-center text-xs font-medium text-gray-400 px-4 py-3">ORE FORM.</th>
+              <th className="text-center text-xs font-medium text-gray-400 px-4 py-3">CORSI TUTOR</th>
+              <th className="text-center text-xs font-medium text-gray-400 px-4 py-3">ORE TUTOR</th>
+              <th className="text-left text-xs font-medium text-gray-400 px-4 py-3 min-w-[130px]">PIANIFICATO %</th>
               <th className="px-6 py-3"></th>
             </tr>
           </thead>
@@ -234,16 +240,23 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
                     ))}
                   </div>
                 </td>
-                <td className="px-6 py-4 text-center text-sm font-medium text-gray-700">{u.n_corsi}</td>
-                <td className="px-6 py-4 text-sm text-gray-700">{u.oreTotali}h</td>
-                <td className="px-6 py-4">
-                  {u.oreTotali > 0 ? (
-                    <div className="space-y-1">
-                      <ProgressBar value={u.pct} size="sm" showLabel />
-                      <div className="text-xs text-gray-400">{u.orePianificate}h / {u.oreTotali}h</div>
-                    </div>
+                <td className="px-4 py-4 text-center text-sm text-gray-700">
+                  {u.n_corsi_formatore > 0 ? <span className="font-medium">{u.n_corsi_formatore}</span> : <span className="text-gray-300">—</span>}
+                </td>
+                <td className="px-4 py-4 text-center text-sm text-gray-700">
+                  {u.ore_formatore > 0 ? <span>{u.ore_formatore}h</span> : <span className="text-gray-300">—</span>}
+                </td>
+                <td className="px-4 py-4 text-center text-sm text-gray-700">
+                  {u.n_corsi_tutor > 0 ? <span className="font-medium">{u.n_corsi_tutor}</span> : <span className="text-gray-300">—</span>}
+                </td>
+                <td className="px-4 py-4 text-center text-sm text-gray-700">
+                  {u.ore_tutor > 0 ? <span>{u.ore_tutor}h</span> : <span className="text-gray-300">—</span>}
+                </td>
+                <td className="px-4 py-4">
+                  {(u.n_corsi_formatore + u.n_corsi_tutor) > 0 ? (
+                    <ProgressBar value={u.pct} size="sm" showLabel />
                   ) : (
-                    <span className="text-xs text-gray-400">—</span>
+                    <span className="text-xs text-gray-300">—</span>
                   )}
                 </td>
                 <td className="px-6 py-4 text-right">
@@ -263,7 +276,7 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-6 py-12 text-center text-sm text-gray-400">
+                <td colSpan={8} className="px-6 py-12 text-center text-sm text-gray-400">
                   {search ? 'Nessun utente trovato per questa ricerca' : 'Nessun utente registrato'}
                 </td>
               </tr>
