@@ -174,7 +174,7 @@ export async function sendEmail({
   body: string
 }) {
   await resend.emails.send({
-    from: 'Formascuole <noreply@formascuola.it>',
+    from: 'Formascuole <noreply@formascuole.it>',
     to,
     subject,
     text: body,
