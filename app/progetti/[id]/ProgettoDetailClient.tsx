@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ProgettoConStats, CorsoConOre, Profile, ChatMessaggio } from '@/lib/types'
+import { ProgettoConStats, CorsoConOre, Profile, ChatMessaggio, Referente } from '@/lib/types'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { Button } from '@/components/ui/Button'
@@ -17,24 +17,62 @@ interface ProgettoDetailClientProps {
   corsi: CorsoConOre[]
   formatori: Profile[]
   messaggi: ChatMessaggio[]
+  referenti: Referente[]
   currentUserId: string
 }
 
-export function ProgettoDetailClient({ progetto, corsi, formatori, messaggi: initialMessaggi, currentUserId }: ProgettoDetailClientProps) {
+type EditScuolaForm = {
+  school_name: string
+  address: string
+  anno_scolastico: string
+  status: string
+}
+
+type ReferenteForm = { nome: string; email: string; tel: string }
+const emptyReferenteForm: ReferenteForm = { nome: '', email: '', tel: '' }
+
+export function ProgettoDetailClient({
+  progetto,
+  corsi,
+  formatori,
+  messaggi: initialMessaggi,
+  referenti: initialReferenti,
+  currentUserId,
+}: ProgettoDetailClientProps) {
   const router = useRouter()
+
+  // ── Corso form ──────────────────────────────────────────────
   const [addCorsoOpen, setAddCorsoOpen] = useState(false)
-  const [saving, setSaving] = useState(false)
+  const [savingCorso, setSavingCorso] = useState(false)
   const [corsoForm, setCorsoForm] = useState({
-    title: '',
-    tipo: 'PF',
-    ore_totali: '',
-    modalita: 'presenza',
-    tutor_previsto: false,
-    tutor_nome: '',
-    ore_tutoraggio: '',
+    title: '', tipo: 'PF', ore_totali: '', modalita: 'presenza',
+    tutor_previsto: false, tutor_nome: '', ore_tutoraggio: '',
   })
 
-  // Chat state
+  // ── Edit scuola ─────────────────────────────────────────────
+  const [editScuolaOpen, setEditScuolaOpen] = useState(false)
+  const [editScuolaForm, setEditScuolaForm] = useState<EditScuolaForm>({
+    school_name: progetto.school_name,
+    address: progetto.address,
+    anno_scolastico: progetto.anno_scolastico,
+    status: progetto.status,
+  })
+  const [savingScuola, setSavingScuola] = useState(false)
+  const [scuolaError, setScuolaError] = useState('')
+
+  // ── Referenti ───────────────────────────────────────────────
+  const [referenti, setReferenti] = useState<Referente[]>(initialReferenti)
+  const [addRefOpen, setAddRefOpen] = useState(false)
+  const [addRefForm, setAddRefForm] = useState(emptyReferenteForm)
+  const [savingRef, setSavingRef] = useState(false)
+  const [refError, setRefError] = useState('')
+  const [editRef, setEditRef] = useState<Referente | null>(null)
+  const [editRefForm, setEditRefForm] = useState(emptyReferenteForm)
+  const [savingEditRef, setSavingEditRef] = useState(false)
+  const [editRefError, setEditRefError] = useState('')
+  const [deletingRefId, setDeletingRefId] = useState<string | null>(null)
+
+  // ── Chat ────────────────────────────────────────────────────
   const [messaggi, setMessaggi] = useState<ChatMessaggio[]>(initialMessaggi)
   const [newMsg, setNewMsg] = useState('')
   const [sendingMsg, setSendingMsg] = useState(false)
@@ -46,23 +84,22 @@ export function ProgettoDetailClient({ progetto, corsi, formatori, messaggi: ini
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messaggi])
 
-  // Mark unread messages as read on mount
   useEffect(() => {
     const unread = initialMessaggi
       .filter(m => !m.letto && m.autore_id !== currentUserId)
       .map(m => m.id)
     if (unread.length > 0) {
       fetch('/api/chat/read', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messaggio_ids: unread }),
       }).catch(() => {})
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // ── Handlers: corso ─────────────────────────────────────────
   const handleAddCorso = async () => {
-    setSaving(true)
+    setSavingCorso(true)
     try {
       const res = await fetch('/api/corsi', {
         method: 'POST',
@@ -84,10 +121,85 @@ export function ProgettoDetailClient({ progetto, corsi, formatori, messaggi: ini
         router.refresh()
       }
     } finally {
-      setSaving(false)
+      setSavingCorso(false)
     }
   }
 
+  // ── Handlers: edit scuola ────────────────────────────────────
+  const handleSaveScuola = async () => {
+    setScuolaError('')
+    setSavingScuola(true)
+    try {
+      const res = await fetch(`/api/progetti/${progetto.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editScuolaForm),
+      })
+      const json = await res.json()
+      if (!res.ok) { setScuolaError(json.error || 'Errore'); return }
+      setEditScuolaOpen(false)
+      router.refresh()
+    } finally {
+      setSavingScuola(false)
+    }
+  }
+
+  // ── Handlers: referenti ──────────────────────────────────────
+  const handleAddRef = async () => {
+    setRefError('')
+    setSavingRef(true)
+    try {
+      const res = await fetch('/api/referenti', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ progetto_id: progetto.id, ...addRefForm }),
+      })
+      const json = await res.json()
+      if (!res.ok) { setRefError(json.error || 'Errore'); return }
+      setReferenti(prev => [...prev, json])
+      setAddRefOpen(false)
+      setAddRefForm(emptyReferenteForm)
+    } finally {
+      setSavingRef(false)
+    }
+  }
+
+  const openEditRef = (r: Referente) => {
+    setEditRef(r)
+    setEditRefForm({ nome: r.nome, email: r.email, tel: r.tel || '' })
+    setEditRefError('')
+  }
+
+  const handleSaveEditRef = async () => {
+    if (!editRef) return
+    setEditRefError('')
+    setSavingEditRef(true)
+    try {
+      const res = await fetch(`/api/referenti/${editRef.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editRefForm),
+      })
+      const json = await res.json()
+      if (!res.ok) { setEditRefError(json.error || 'Errore'); return }
+      setReferenti(prev => prev.map(r => r.id === json.id ? json : r))
+      setEditRef(null)
+    } finally {
+      setSavingEditRef(false)
+    }
+  }
+
+  const handleDeleteRef = async (id: string) => {
+    setDeletingRefId(id)
+    try {
+      await fetch(`/api/referenti/${id}`, { method: 'DELETE' })
+      setReferenti(prev => prev.filter(r => r.id !== id))
+    } finally {
+      setDeletingRefId(null)
+    }
+  }
+
+  // ── Handlers: chat ───────────────────────────────────────────
   const handleSendMsg = async () => {
     if (!newMsg.trim()) return
     setSendingMsg(true)
@@ -126,11 +238,30 @@ export function ProgettoDetailClient({ progetto, corsi, formatori, messaggi: ini
             </div>
             <p className="text-sm text-gray-500">{progetto.address} · {progetto.anno_scolastico}</p>
           </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              setEditScuolaForm({
+                school_name: progetto.school_name,
+                address: progetto.address,
+                anno_scolastico: progetto.anno_scolastico,
+                status: progetto.status,
+              })
+              setEditScuolaOpen(true)
+            }}
+          >
+            <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
+              <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            Modifica
+          </Button>
         </div>
 
         <div className="grid grid-cols-3 gap-4 mb-5 p-4 bg-gray-50 rounded-xl">
           <div className="text-center">
-            <div className="font-semibold text-gray-400 text-xs mb-1">REFERENTE</div>
+            <div className="font-semibold text-gray-400 text-xs mb-1">REFERENTE PRINCIPALE</div>
             <div className="font-medium text-sm text-gray-800">{progetto.ref_name}</div>
           </div>
           <div className="text-center">
@@ -169,6 +300,78 @@ export function ProgettoDetailClient({ progetto, corsi, formatori, messaggi: ini
         </div>
       )}
 
+      {/* Referenti */}
+      <div className="bg-white rounded-xl mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <h2 className="font-semibold text-gray-900">Referenti</h2>
+          <Button size="sm" onClick={() => { setAddRefForm(emptyReferenteForm); setRefError(''); setAddRefOpen(true) }}>
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
+              <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+            Aggiungi referente
+          </Button>
+        </div>
+        <div className="divide-y divide-gray-50">
+          {/* Referente principale (from progetti) — always first */}
+          <div className="px-6 py-3 flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 shrink-0">
+              <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
+                <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.5"/>
+                <path d="M4 20a8 8 0 0116 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-gray-900">{progetto.ref_name}</span>
+                <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-blue-100 text-blue-700">Principale</span>
+              </div>
+              <div className="flex items-center gap-3 text-xs text-gray-400 mt-0.5">
+                <a href={`mailto:${progetto.ref_email}`} className="hover:text-blue-600">{progetto.ref_email}</a>
+                {progetto.ref_tel && <span>{progetto.ref_tel}</span>}
+              </div>
+            </div>
+          </div>
+          {/* Additional referenti */}
+          {referenti.map(r => (
+            <div key={r.id} className="px-6 py-3 flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 shrink-0">
+                <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
+                  <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.5"/>
+                  <path d="M4 20a8 8 0 0116 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium text-gray-900">{r.nome}</div>
+                <div className="flex items-center gap-3 text-xs text-gray-400 mt-0.5">
+                  <a href={`mailto:${r.email}`} className="hover:text-blue-600">{r.email}</a>
+                  {r.tel && <span>{r.tel}</span>}
+                </div>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  onClick={() => openEditRef(r)}
+                  className="text-xs text-gray-400 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100"
+                >
+                  Modifica
+                </button>
+                <button
+                  onClick={() => handleDeleteRef(r.id)}
+                  disabled={deletingRefId === r.id}
+                  className="text-xs text-red-400 hover:text-red-600 px-2 py-1 rounded hover:bg-red-50 disabled:opacity-50"
+                >
+                  {deletingRefId === r.id ? '...' : 'Rimuovi'}
+                </button>
+              </div>
+            </div>
+          ))}
+          {referenti.length === 0 && (
+            <div className="px-6 py-4 text-sm text-gray-400">
+              Nessun referente aggiuntivo. Il referente principale è il contatto di default.
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Corsi */}
       <div className="bg-white rounded-xl mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
@@ -180,16 +383,13 @@ export function ProgettoDetailClient({ progetto, corsi, formatori, messaggi: ini
             Aggiungi Corso
           </Button>
         </div>
-
         <div className="divide-y divide-gray-50">
           {corsi.length === 0 ? (
             <div className="px-6 py-12 text-center text-sm text-gray-400">
               Nessun corso aggiunto. Clicca &quot;Aggiungi Corso&quot; per iniziare.
             </div>
           ) : (
-            corsi.map((corso) => (
-              <CourseRow key={corso.id} corso={corso} progettoId={progetto.id} />
-            ))
+            corsi.map(corso => <CourseRow key={corso.id} corso={corso} progettoId={progetto.id} />)
           )}
         </div>
       </div>
@@ -203,30 +403,22 @@ export function ProgettoDetailClient({ progetto, corsi, formatori, messaggi: ini
           <h2 className="font-semibold text-gray-900">Chat progetto</h2>
           <span className="text-xs text-gray-400 ml-auto">{messaggi.length} messagg{messaggi.length === 1 ? 'io' : 'i'}</span>
         </div>
-
-        {/* Messages */}
         <div className="p-4 space-y-3 max-h-80 overflow-y-auto">
           {messaggi.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-8">
-              Nessun messaggio ancora. Inizia la conversazione!
-            </p>
+            <p className="text-sm text-gray-400 text-center py-8">Nessun messaggio ancora. Inizia la conversazione!</p>
           ) : (
-            messaggi.map((m) => {
+            messaggi.map(m => {
               const isMe = m.autore_id === currentUserId
               return (
                 <div key={m.id} className={`flex items-start gap-3 ${isMe ? 'flex-row-reverse' : ''}`}>
-                  {m.autore && (
-                    <Avatar nome={m.autore.nome} id={m.autore.id} initials={m.autore.avatar_initials} size="sm" />
-                  )}
+                  {m.autore && <Avatar nome={m.autore.nome} id={m.autore.id} initials={m.autore.avatar_initials} size="sm" />}
                   <div className={`max-w-xs flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                     <div className="flex items-center gap-2 mb-0.5">
                       {!isMe && <span className="text-xs font-medium text-gray-700">{m.autore?.nome}</span>}
                       <span className="text-xs text-gray-400">{formatDate(m.created_at)}</span>
                     </div>
                     <div
-                      className={`text-sm px-3 py-2 rounded-xl break-words ${
-                        isMe ? 'text-white rounded-tr-sm' : 'bg-gray-100 text-gray-800 rounded-tl-sm'
-                      }`}
+                      className={`text-sm px-3 py-2 rounded-xl break-words ${isMe ? 'text-white rounded-tr-sm' : 'bg-gray-100 text-gray-800 rounded-tl-sm'}`}
                       style={isMe ? { backgroundColor: '#d64b55' } : {}}
                     >
                       {m.testo}
@@ -238,8 +430,6 @@ export function ProgettoDetailClient({ progetto, corsi, formatori, messaggi: ini
           )}
           <div ref={chatBottomRef} />
         </div>
-
-        {/* Input */}
         <div className="px-4 pb-4 pt-2 border-t border-gray-100">
           <div className="flex gap-2">
             <input
@@ -250,14 +440,117 @@ export function ProgettoDetailClient({ progetto, corsi, formatori, messaggi: ini
               placeholder="Scrivi un messaggio..."
               className="flex-1 text-sm border border-gray-200 rounded-[7px] px-3 py-2 focus:outline-none focus:border-[#d64b55] transition-colors"
             />
-            <Button size="sm" onClick={handleSendMsg} loading={sendingMsg} disabled={!newMsg.trim()}>
-              Invia
-            </Button>
+            <Button size="sm" onClick={handleSendMsg} loading={sendingMsg} disabled={!newMsg.trim()}>Invia</Button>
           </div>
         </div>
       </div>
 
-      {/* Add corso modal */}
+      {/* ── Modal: Modifica dati scuola ─────────────────────────────── */}
+      <Modal
+        open={editScuolaOpen}
+        onClose={() => setEditScuolaOpen(false)}
+        title="Modifica dati scuola"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setEditScuolaOpen(false)}>Annulla</Button>
+            <Button
+              onClick={handleSaveScuola}
+              loading={savingScuola}
+              disabled={!editScuolaForm.school_name.trim() || !editScuolaForm.address.trim() || !editScuolaForm.anno_scolastico.trim()}
+            >
+              Salva modifiche
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <Input
+            label="Nome scuola *"
+            value={editScuolaForm.school_name}
+            onChange={e => setEditScuolaForm(f => ({ ...f, school_name: e.target.value }))}
+          />
+          <Input
+            label="Indirizzo *"
+            value={editScuolaForm.address}
+            onChange={e => setEditScuolaForm(f => ({ ...f, address: e.target.value }))}
+          />
+          <Input
+            label="Anno scolastico *"
+            value={editScuolaForm.anno_scolastico}
+            onChange={e => setEditScuolaForm(f => ({ ...f, anno_scolastico: e.target.value }))}
+            placeholder="Es. 2024-2025"
+          />
+          <Select
+            label="Stato *"
+            value={editScuolaForm.status}
+            onChange={e => setEditScuolaForm(f => ({ ...f, status: e.target.value }))}
+            options={[
+              { value: 'active', label: 'Attivo' },
+              { value: 'pending', label: 'In attesa' },
+              { value: 'completed', label: 'Completato' },
+            ]}
+          />
+          {scuolaError && (
+            <p className="text-sm text-red-600">{scuolaError}</p>
+          )}
+        </div>
+      </Modal>
+
+      {/* ── Modal: Aggiungi referente ───────────────────────────────── */}
+      <Modal
+        open={addRefOpen}
+        onClose={() => setAddRefOpen(false)}
+        title="Aggiungi referente"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setAddRefOpen(false)}>Annulla</Button>
+            <Button
+              onClick={handleAddRef}
+              loading={savingRef}
+              disabled={!addRefForm.nome.trim() || !addRefForm.email.trim()}
+            >
+              Aggiungi
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <Input label="Nome *" value={addRefForm.nome} onChange={e => setAddRefForm(f => ({ ...f, nome: e.target.value }))} placeholder="Es. Prof. Mario Rossi" />
+          <Input label="Email *" type="email" value={addRefForm.email} onChange={e => setAddRefForm(f => ({ ...f, email: e.target.value }))} placeholder="mario.rossi@scuola.it" />
+          <Input label="Telefono" value={addRefForm.tel} onChange={e => setAddRefForm(f => ({ ...f, tel: e.target.value }))} placeholder="Es. 02-12345678" />
+          {refError && <p className="text-sm text-red-600">{refError}</p>}
+        </div>
+      </Modal>
+
+      {/* ── Modal: Modifica referente ───────────────────────────────── */}
+      <Modal
+        open={!!editRef}
+        onClose={() => setEditRef(null)}
+        title="Modifica referente"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setEditRef(null)}>Annulla</Button>
+            <Button
+              onClick={handleSaveEditRef}
+              loading={savingEditRef}
+              disabled={!editRefForm.nome.trim() || !editRefForm.email.trim()}
+            >
+              Salva
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <Input label="Nome *" value={editRefForm.nome} onChange={e => setEditRefForm(f => ({ ...f, nome: e.target.value }))} />
+          <Input label="Email *" type="email" value={editRefForm.email} onChange={e => setEditRefForm(f => ({ ...f, email: e.target.value }))} />
+          <Input label="Telefono" value={editRefForm.tel} onChange={e => setEditRefForm(f => ({ ...f, tel: e.target.value }))} />
+          {editRefError && <p className="text-sm text-red-600">{editRefError}</p>}
+        </div>
+      </Modal>
+
+      {/* ── Modal: Aggiungi corso ────────────────────────────────────── */}
       <Modal
         open={addCorsoOpen}
         onClose={() => setAddCorsoOpen(false)}
@@ -267,13 +560,8 @@ export function ProgettoDetailClient({ progetto, corsi, formatori, messaggi: ini
             <Button variant="secondary" onClick={() => setAddCorsoOpen(false)}>Annulla</Button>
             <Button
               onClick={handleAddCorso}
-              loading={saving}
-              disabled={
-                !corsoForm.title ||
-                !corsoForm.ore_totali ||
-                (corsoForm.tipo === 'PF' && !corsoForm.modalita) ||
-                (corsoForm.tutor_previsto && !corsoForm.tutor_nome)
-              }
+              loading={savingCorso}
+              disabled={!corsoForm.title || !corsoForm.ore_totali || (corsoForm.tipo === 'PF' && !corsoForm.modalita) || (corsoForm.tutor_previsto && !corsoForm.tutor_nome)}
             >
               Aggiungi
             </Button>
@@ -281,12 +569,7 @@ export function ProgettoDetailClient({ progetto, corsi, formatori, messaggi: ini
         }
       >
         <div className="space-y-4">
-          <Input
-            label="Titolo corso *"
-            value={corsoForm.title}
-            onChange={e => setCorsoForm(f => ({ ...f, title: e.target.value }))}
-            placeholder="Es. Sicurezza sul lavoro"
-          />
+          <Input label="Titolo corso *" value={corsoForm.title} onChange={e => setCorsoForm(f => ({ ...f, title: e.target.value }))} placeholder="Es. Sicurezza sul lavoro" />
           <div className="grid grid-cols-2 gap-3">
             <Select
               label="Tipo *"
@@ -297,16 +580,8 @@ export function ProgettoDetailClient({ progetto, corsi, formatori, messaggi: ini
                 { value: 'Lab', label: 'Laboratorio sul Campo (Lab)' },
               ]}
             />
-            <Input
-              label="Ore totali *"
-              type="number"
-              min={1}
-              value={corsoForm.ore_totali}
-              onChange={e => setCorsoForm(f => ({ ...f, ore_totali: e.target.value }))}
-              placeholder="Es. 20"
-            />
+            <Input label="Ore totali *" type="number" min={1} value={corsoForm.ore_totali} onChange={e => setCorsoForm(f => ({ ...f, ore_totali: e.target.value }))} placeholder="Es. 20" />
           </div>
-
           {corsoForm.tipo === 'PF' && (
             <Select
               label="Modalità erogazione *"
@@ -319,7 +594,6 @@ export function ProgettoDetailClient({ progetto, corsi, formatori, messaggi: ini
               ]}
             />
           )}
-
           {corsoForm.tipo === 'PF' && (
             <div className="space-y-3 pt-1">
               <label className="flex items-center gap-2.5 cursor-pointer">
@@ -331,23 +605,10 @@ export function ProgettoDetailClient({ progetto, corsi, formatori, messaggi: ini
                 />
                 <span className="text-sm font-medium text-gray-700">È previsto un tutor?</span>
               </label>
-
               {corsoForm.tutor_previsto && (
                 <div className="grid grid-cols-2 gap-3 pl-6">
-                  <Input
-                    label="Nome tutor *"
-                    value={corsoForm.tutor_nome}
-                    onChange={e => setCorsoForm(f => ({ ...f, tutor_nome: e.target.value }))}
-                    placeholder="Es. Anna Verdi"
-                  />
-                  <Input
-                    label="Ore tutoraggio"
-                    type="number"
-                    min={1}
-                    value={corsoForm.ore_tutoraggio}
-                    onChange={e => setCorsoForm(f => ({ ...f, ore_tutoraggio: e.target.value }))}
-                    placeholder="Es. 10"
-                  />
+                  <Input label="Nome tutor *" value={corsoForm.tutor_nome} onChange={e => setCorsoForm(f => ({ ...f, tutor_nome: e.target.value }))} placeholder="Es. Anna Verdi" />
+                  <Input label="Ore tutoraggio" type="number" min={1} value={corsoForm.ore_tutoraggio} onChange={e => setCorsoForm(f => ({ ...f, ore_tutoraggio: e.target.value }))} placeholder="Es. 10" />
                 </div>
               )}
             </div>
@@ -387,11 +648,9 @@ function CourseRow({ corso, progettoId }: { corso: CorsoConOre; progettoId: stri
             )}
           </div>
         </div>
-
         <div className="w-36">
           <ProgressBar value={pct} size="sm" showLabel />
         </div>
-
         <div className="w-40 shrink-0">
           {formatore ? (
             <div className="flex items-center gap-2">
@@ -399,12 +658,9 @@ function CourseRow({ corso, progettoId }: { corso: CorsoConOre; progettoId: stri
               <span className="text-xs text-gray-700 truncate">{formatore.nome}</span>
             </div>
           ) : (
-            <span className="text-xs text-amber-600 bg-amber-50 px-2.5 py-1 rounded-[7px]">
-              Nessun formatore
-            </span>
+            <span className="text-xs text-amber-600 bg-amber-50 px-2.5 py-1 rounded-[7px]">Nessun formatore</span>
           )}
         </div>
-
         <svg className="text-gray-300" width="16" height="16" fill="none" viewBox="0 0 24 24">
           <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>

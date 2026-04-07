@@ -51,6 +51,12 @@ export default async function ProgettoDetailPage({ params }: { params: Promise<{
   }
   const messaggiConLetto = (messaggi || []).map(m => ({ ...m, letto: readSet.has(m.id) }))
 
+  const { data: referenti } = await supabase
+    .from('referenti_progetto')
+    .select('*')
+    .eq('progetto_id', id)
+    .order('created_at')
+
   const { count: notifiche } = await supabase
     .from('solleciti_log')
     .select('*', { count: 'exact', head: true })
@@ -69,6 +75,7 @@ export default async function ProgettoDetailPage({ params }: { params: Promise<{
         corsi={corsi || []}
         formatori={formatori || []}
         messaggi={messaggiConLetto}
+        referenti={referenti || []}
         currentUserId={user.id}
       />
     </AppLayout>

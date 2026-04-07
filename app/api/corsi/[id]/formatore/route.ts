@@ -34,6 +34,22 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         .single()
 
       if (corso && corso.formatore && corso.project) {
+        // Resolve referente: prefer corso-specific referente, fall back to project referente
+        let ref_name = corso.project.ref_name
+        let ref_email = corso.project.ref_email
+
+        if (corso.referente_id) {
+          const { data: referente } = await adminClient
+            .from('referenti_progetto')
+            .select('nome,email')
+            .eq('id', corso.referente_id)
+            .single()
+          if (referente) {
+            ref_name = referente.nome
+            ref_email = referente.email
+          }
+        }
+
         // Fire and forget email
         fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/email/assegnazione`, {
           method: 'POST',
@@ -45,8 +61,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
             formatore_email: corso.formatore.email,
             corso_title: corso.title,
             school_name: corso.project.school_name,
-            ref_name: corso.project.ref_name,
-            ref_email: corso.project.ref_email,
+            ref_name,
+            ref_email,
           }),
         }).catch(() => {}) // Non-blocking
       }

@@ -40,6 +40,15 @@ export interface ProgettoConStats extends Progetto {
   unread_chat?: number
 }
 
+export interface Referente {
+  id: string
+  progetto_id: string
+  nome: string
+  email: string
+  tel?: string
+  created_at: string
+}
+
 export interface Corso {
   id: string
   project_id: string
@@ -48,6 +57,7 @@ export interface Corso {
   ore_totali: number
   formatore_id?: string
   tutor_id?: string
+  referente_id?: string
   modalita?: ModalitaCorso
   tutor_previsto: boolean
   tutor_nome?: string
@@ -61,6 +71,7 @@ export interface CorsoConOre extends Corso {
   calendario_completo: boolean
   formatore?: Profile
   tutor?: Profile
+  referente?: Referente
 }
 
 export interface Sessione {

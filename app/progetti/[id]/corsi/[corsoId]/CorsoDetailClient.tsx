@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { CorsoConOre, Sessione, Profile, Progetto, NotaCorso } from '@/lib/types'
+import { CorsoConOre, Sessione, Profile, Progetto, NotaCorso, Referente } from '@/lib/types'
 import { OreCounter } from '@/components/ui/OreCounter'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { Button } from '@/components/ui/Button'
@@ -12,11 +12,13 @@ import { Avatar } from '@/components/ui/Avatar'
 import { formatDate } from '@/lib/utils'
 
 interface CorsoDetailClientProps {
-  corso: CorsoConOre & { formatore?: Profile; tutor?: Profile }
+  corso: CorsoConOre & { formatore?: Profile; tutor?: Profile; referente?: Referente }
   progetto: Pick<Progetto, 'school_name' | 'anno_scolastico' | 'ref_name' | 'ref_email'> | null
   sessioni: Sessione[]
   formatori: Profile[]
   tutori: Profile[]
+  dualRoleIds?: string[]
+  referenti: Referente[]
   note: NotaCorso[]
   progettoId: string
   currentUserId: string
@@ -29,6 +31,8 @@ export function CorsoDetailClient({
   sessioni,
   formatori,
   tutori,
+  dualRoleIds = [],
+  referenti,
   note: initialNote,
   progettoId,
   currentUserId,
@@ -38,12 +42,17 @@ export function CorsoDetailClient({
   const [calendarOpen, setCalendarOpen] = useState(false)
   const [formatorePickerOpen, setFormatorePickerOpen] = useState(false)
   const [tutorePickerOpen, setTutorePickerOpen] = useState(false)
+  const [referentePickerOpen, setReferentePickerOpen] = useState(false)
   const [newData, setNewData] = useState('')
   const [newOre, setNewOre] = useState('')
   const [newModalitaSessione, setNewModalitaSessione] = useState<'presenza' | 'online'>('presenza')
   const [saving, setSaving] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [assigningId, setAssigningId] = useState<string | null>(null)
+  const [assigningReferente, setAssigningReferente] = useState(false)
+
+  // Dual-role dialog state
+  const [dualRoleUser, setDualRoleUser] = useState<Profile | null>(null)
 
   // Notes state
   const [note, setNote] = useState<NotaCorso[]>(initialNote)
@@ -95,7 +104,7 @@ export function CorsoDetailClient({
     }
   }
 
-  const handleAssignFormatore = async (formatoreId: string) => {
+  const doAssignFormatore = async (formatoreId: string) => {
     setAssigningId(formatoreId)
     try {
       const res = await fetch(`/api/corsi/${corso.id}/formatore`, {
@@ -109,6 +118,16 @@ export function CorsoDetailClient({
       }
     } finally {
       setAssigningId(null)
+    }
+  }
+
+  const handleAssignFormatore = (f: Profile) => {
+    if (dualRoleIds.includes(f.id)) {
+      // User has both formatore + tutor roles — ask which role to assign
+      setDualRoleUser(f)
+      setFormatorePickerOpen(false)
+    } else {
+      doAssignFormatore(f.id)
     }
   }
 
@@ -131,6 +150,7 @@ export function CorsoDetailClient({
       })
       if (res.ok) {
         setTutorePickerOpen(false)
+        setDualRoleUser(null)
         router.refresh()
       }
     } finally {
@@ -145,6 +165,23 @@ export function CorsoDetailClient({
       body: JSON.stringify({ tutor_id: null }),
     })
     router.refresh()
+  }
+
+  const handleAssignReferente = async (referenteId: string | null) => {
+    setAssigningReferente(true)
+    try {
+      const res = await fetch(`/api/corsi/${corso.id}/referente`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ referente_id: referenteId }),
+      })
+      if (res.ok) {
+        setReferentePickerOpen(false)
+        router.refresh()
+      }
+    } finally {
+      setAssigningReferente(false)
+    }
   }
 
   const handleAddNota = async () => {
@@ -278,6 +315,41 @@ export function CorsoDetailClient({
           )}
         </div>
       )}
+
+      {/* Referente */}
+      <div className="bg-white rounded-xl p-6 mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
+        <h2 className="font-semibold text-gray-900 mb-4">Referente scolastico</h2>
+        {corso.referente ? (
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="font-medium text-gray-900">{corso.referente.nome}</div>
+              <a href={`mailto:${corso.referente.email}`} className="text-sm text-blue-600 hover:underline">{corso.referente.email}</a>
+              {corso.referente.tel && <div className="text-sm text-gray-400 mt-0.5">{corso.referente.tel}</div>}
+            </div>
+            {isAdmin && (
+              <div className="flex gap-2">
+                {referenti.length > 1 && (
+                  <Button variant="secondary" size="sm" onClick={() => setReferentePickerOpen(true)} loading={assigningReferente}>Cambia</Button>
+                )}
+                <Button variant="danger" size="sm" onClick={() => handleAssignReferente(null)} loading={assigningReferente}>Rimuovi</Button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center justify-between py-2">
+            <p className="text-sm text-gray-400">
+              {referenti.length === 0
+                ? 'Nessun referente disponibile per questa scuola.'
+                : 'Nessun referente assegnato a questo corso.'}
+            </p>
+            {isAdmin && referenti.length > 0 && (
+              <Button size="sm" onClick={() => setReferentePickerOpen(true)} loading={assigningReferente}>
+                {referenti.length === 1 ? 'Assegna' : 'Seleziona referente'}
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Sessioni */}
       <div className="bg-white rounded-xl mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
@@ -469,7 +541,7 @@ export function CorsoDetailClient({
           {formatori.map((f) => (
             <button
               key={f.id}
-              onClick={() => handleAssignFormatore(f.id)}
+              onClick={() => handleAssignFormatore(f)}
               disabled={assigningId === f.id || f.id === corso.formatore_id}
               className="flex items-center gap-3 p-3 rounded-[7px] border text-left transition-all hover:border-[#d64b55] hover:bg-[#fbeced] disabled:opacity-50 disabled:cursor-not-allowed"
               style={{
@@ -479,7 +551,12 @@ export function CorsoDetailClient({
             >
               <Avatar nome={f.nome} id={f.id} initials={f.avatar_initials} size="md" />
               <div className="flex-1 min-w-0">
-                <div className="font-medium text-sm text-gray-900">{f.nome}</div>
+                <div className="font-medium text-sm text-gray-900 flex items-center gap-2">
+                  {f.nome}
+                  {dualRoleIds.includes(f.id) && (
+                    <span className="text-xs font-normal px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700">Formatore + Tutor</span>
+                  )}
+                </div>
                 <div className="text-xs text-gray-400">{f.email}</div>
               </div>
               {f.id === corso.formatore_id && <span className="text-xs text-[#d64b55] font-medium">Corrente</span>}
@@ -534,6 +611,82 @@ export function CorsoDetailClient({
             <p className="text-sm text-gray-400 text-center py-4">Nessun tutor disponibile. Crea prima un utente con ruolo tutor.</p>
           )}
         </div>
+      </Modal>
+
+      {/* Referente Picker Modal */}
+      <Modal
+        open={referentePickerOpen}
+        onClose={() => setReferentePickerOpen(false)}
+        title="Seleziona Referente"
+        size="md"
+      >
+        <div className="grid grid-cols-1 gap-3">
+          {referenti.map((r) => (
+            <button
+              key={r.id}
+              onClick={() => handleAssignReferente(r.id)}
+              disabled={assigningReferente || r.id === corso.referente_id}
+              className="flex items-center gap-3 p-3 rounded-[7px] border text-left transition-all hover:border-[#d64b55] hover:bg-[#fbeced] disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{
+                borderColor: r.id === corso.referente_id ? '#d64b55' : '#e5e5e5',
+                backgroundColor: r.id === corso.referente_id ? '#fbeced' : 'white',
+              }}
+            >
+              <div className="flex-1 min-w-0">
+                <div className="font-medium text-sm text-gray-900">{r.nome}</div>
+                <div className="text-xs text-gray-400">{r.email}</div>
+                {r.tel && <div className="text-xs text-gray-400">{r.tel}</div>}
+              </div>
+              {r.id === corso.referente_id && <span className="text-xs text-[#d64b55] font-medium">Corrente</span>}
+              {assigningReferente && r.id !== corso.referente_id && (
+                <svg className="animate-spin h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                </svg>
+              )}
+            </button>
+          ))}
+          {referenti.length === 0 && (
+            <p className="text-sm text-gray-400 text-center py-4">Nessun referente disponibile per questa scuola.</p>
+          )}
+        </div>
+      </Modal>
+
+      {/* Dual-role assignment dialog */}
+      <Modal
+        open={!!dualRoleUser}
+        onClose={() => setDualRoleUser(null)}
+        title="Aggiungi come Formatore o come Tutor?"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setDualRoleUser(null)}>Annulla</Button>
+            <Button
+              variant="secondary"
+              onClick={() => { if (dualRoleUser) handleAssignTutor(dualRoleUser.id) }}
+              loading={assigningId === 'tutor-' + dualRoleUser?.id}
+            >
+              Come Tutor
+            </Button>
+            <Button
+              onClick={() => { if (dualRoleUser) doAssignFormatore(dualRoleUser.id) }}
+              loading={assigningId === dualRoleUser?.id}
+            >
+              Come Formatore
+            </Button>
+          </>
+        }
+      >
+        {dualRoleUser && (
+          <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-[7px]">
+            <Avatar nome={dualRoleUser.nome} id={dualRoleUser.id} initials={dualRoleUser.avatar_initials} size="lg" />
+            <div>
+              <div className="font-medium text-gray-900">{dualRoleUser.nome}</div>
+              <div className="text-sm text-gray-400">{dualRoleUser.email}</div>
+              <div className="text-xs text-indigo-600 mt-0.5">Ha entrambi i ruoli: Formatore e Tutor</div>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   )

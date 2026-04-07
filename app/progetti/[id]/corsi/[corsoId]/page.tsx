@@ -2,6 +2,7 @@ import { redirect, notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { CorsoDetailClient } from './CorsoDetailClient'
+import { Profile } from '@/lib/types'
 
 export default async function CorsoDetailPage({
   params,
@@ -26,17 +27,20 @@ export default async function CorsoDetailPage({
 
   if (!corsoData || corsoData.project_id !== id) notFound()
 
-  // Fetch formatore and tutor in parallel via their IDs
-  const [{ data: formatore }, { data: tutor }] = await Promise.all([
+  // Fetch formatore, tutor, and referente in parallel via their IDs
+  const [{ data: formatore }, { data: tutor }, { data: referente }] = await Promise.all([
     corsoData.formatore_id
       ? supabase.from('profiles').select('id,nome,email,avatar_initials').eq('id', corsoData.formatore_id).single()
       : Promise.resolve({ data: null }),
     corsoData.tutor_id
       ? supabase.from('profiles').select('id,nome,email,avatar_initials').eq('id', corsoData.tutor_id).single()
       : Promise.resolve({ data: null }),
+    corsoData.referente_id
+      ? supabase.from('referenti_progetto').select('*').eq('id', corsoData.referente_id).single()
+      : Promise.resolve({ data: null }),
   ])
 
-  const corso = { ...corsoData, formatore, tutor }
+  const corso = { ...corsoData, formatore, tutor, referente }
 
   const { data: progetto } = await supabase
     .from('progetti')
@@ -50,17 +54,35 @@ export default async function CorsoDetailPage({
     .eq('corso_id', corsoId)
     .order('data')
 
-  const { data: formatori } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('role', 'formatore')
-    .order('nome')
+  // Fetch formatori and tutori via profiles_roles to catch dual-role users
+  const [{ data: formatoreRoles }, { data: tutorRoles }] = await Promise.all([
+    supabase.from('profiles_roles').select('profile_id').eq('role', 'formatore'),
+    supabase.from('profiles_roles').select('profile_id').eq('role', 'tutor'),
+  ])
 
-  const { data: tutori } = await supabase
-    .from('profiles')
+  const formatoreIds = new Set((formatoreRoles || []).map((r: { profile_id: string }) => r.profile_id))
+  const tutorIds = new Set((tutorRoles || []).map((r: { profile_id: string }) => r.profile_id))
+  const dualRoleIds = [...formatoreIds].filter(pid => tutorIds.has(pid))
+
+  const allProfileIds = [...new Set([...formatoreIds, ...tutorIds])]
+  let formatori: Profile[] = []
+  let tutori: Profile[] = []
+  if (allProfileIds.length > 0) {
+    const { data: allProfiles } = await supabase
+      .from('profiles')
+      .select('*')
+      .in('id', allProfileIds)
+      .order('nome')
+    formatori = (allProfiles || []).filter((p: Profile) => formatoreIds.has(p.id))
+    tutori = (allProfiles || []).filter((p: Profile) => tutorIds.has(p.id))
+  }
+
+  // Fetch referenti for the project
+  const { data: referenti } = await supabase
+    .from('referenti_progetto')
     .select('*')
-    .eq('role', 'tutor')
-    .order('nome')
+    .eq('progetto_id', id)
+    .order('created_at')
 
   const { data: note } = await supabase
     .from('note_corso')
@@ -85,8 +107,10 @@ export default async function CorsoDetailPage({
         corso={corso}
         progetto={progetto}
         sessioni={sessioni || []}
-        formatori={formatori || []}
-        tutori={tutori || []}
+        formatori={formatori}
+        tutori={tutori}
+        dualRoleIds={dualRoleIds}
+        referenti={referenti || []}
         note={note || []}
         progettoId={id}
         currentUserId={user.id}
