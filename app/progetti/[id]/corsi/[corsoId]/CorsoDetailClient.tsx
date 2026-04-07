@@ -285,8 +285,8 @@ export function CorsoDetailClient({
         )}
       </div>
 
-      {/* Tutor — shown only when corso.tutor_previsto */}
-      {corso.tutor_previsto && (
+      {/* Tutor — shown for all PF courses */}
+      {corso.tipo === 'PF' && (
         <div className="bg-white rounded-xl p-6 mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
           <h2 className="font-semibold text-gray-900 mb-4">Tutor assegnato</h2>
           {corso.tutor ? (
