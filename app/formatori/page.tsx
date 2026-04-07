@@ -28,6 +28,19 @@ export default async function FormatoriPage() {
     .in('role', ['formatore', 'tutor', 'admin'])
     .order('nome')
 
+  // Fetch all assigned roles so the edit modal can pre-check the right boxes
+  const { data: allRoles } = await supabase
+    .from('profiles_roles')
+    .select('profile_id, role')
+    .in('profile_id', (utenti || []).map(u => u.id))
+
+  // Group roles by profile_id
+  const rolesByUser = new Map<string, string[]>()
+  for (const row of allRoles || []) {
+    if (!rolesByUser.has(row.profile_id)) rolesByUser.set(row.profile_id, [])
+    rolesByUser.get(row.profile_id)!.push(row.role)
+  }
+
   // Fetch all corsi (both formatore_id and tutor_id) for stats
   const { data: corsiAll } = await supabase
     .from('corsi_con_ore')
@@ -39,14 +52,15 @@ export default async function FormatoriPage() {
     .eq('tipo', 'sollecito_3')
 
   const utentiConStats = (utenti || []).map(u => {
-    // A user may be formatore or tutor on a corso
     const corsi = (corsiAll || []).filter(c =>
       c.formatore_id === u.id || c.tutor_id === u.id
     )
     const oreTotali = corsi.reduce((s, c) => s + Number(c.ore_totali), 0)
     const orePianificate = corsi.reduce((s, c) => s + Number(c.ore_pianificate), 0)
     const pct = oreTotali > 0 ? Math.round((orePianificate / oreTotali) * 100) : 0
-    return { ...u, n_corsi: corsi.length, oreTotali, orePianificate, pct }
+    // Fallback to profiles.role if profiles_roles is empty (pre-migration)
+    const roles = (rolesByUser.get(u.id) ?? [u.role]) as string[]
+    return { ...u, n_corsi: corsi.length, oreTotali, orePianificate, pct, roles }
   })
 
   return (

@@ -15,6 +15,7 @@ interface UtenteConStats {
   email: string
   avatar_initials: string
   role: UserRole
+  roles: UserRole[]
   n_corsi: number
   oreTotali: number
   orePianificate: number
@@ -32,27 +33,40 @@ const SELECTABLE_ROLES: { value: UserRole; label: string; desc: string }[] = [
   { value: 'admin', label: 'Admin', desc: 'Accesso completo alla piattaforma' },
 ]
 
-const initialForm = { nome: '', email: '', password: '', roles: ['formatore'] as UserRole[] }
+const initialCreateForm = { nome: '', email: '', password: '', roles: ['formatore'] as UserRole[] }
+
+type EditForm = { nome: string; roles: UserRole[] }
 
 export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) {
   const router = useRouter()
-  const [modalOpen, setModalOpen] = useState(false)
-  const [form, setForm] = useState(initialForm)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
 
-  const handleClose = () => {
-    setModalOpen(false)
-    setForm(initialForm)
-    setError('')
-    setSuccess('')
+  // --- Create state ---
+  const [createOpen, setCreateOpen] = useState(false)
+  const [createForm, setCreateForm] = useState(initialCreateForm)
+  const [creating, setCreating] = useState(false)
+  const [createError, setCreateError] = useState('')
+  const [createSuccess, setCreateSuccess] = useState('')
+
+  // --- Edit state ---
+  const [editTarget, setEditTarget] = useState<UtenteConStats | null>(null)
+  const [editForm, setEditForm] = useState<EditForm>({ nome: '', roles: [] })
+  const [saving, setSaving] = useState(false)
+  const [editError, setEditError] = useState('')
+  const [editSuccess, setEditSuccess] = useState('')
+
+  const visibleRoles = SELECTABLE_ROLES.filter(r => r.value !== 'admin' || isSuperAdmin)
+
+  // ─── Create handlers ───────────────────────────────────────────────────────
+  const handleCloseCreate = () => {
+    setCreateOpen(false)
+    setCreateForm(initialCreateForm)
+    setCreateError('')
+    setCreateSuccess('')
   }
 
-  const toggleRole = (role: UserRole) => {
-    setForm(f => {
+  const toggleCreateRole = (role: UserRole) => {
+    setCreateForm(f => {
       if (f.roles.includes(role)) {
-        // Always keep at least one role
         if (f.roles.length === 1) return f
         return { ...f, roles: f.roles.filter(r => r !== role) }
       }
@@ -60,37 +74,88 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
     })
   }
 
-  const handleSave = async () => {
-    setError('')
-    setSaving(true)
+  const handleCreate = async () => {
+    setCreateError('')
+    setCreating(true)
     try {
       const res = await fetch('/api/formatori', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          nome: form.nome,
-          email: form.email,
-          password: form.password,
-          roles: form.roles,
+          nome: createForm.nome,
+          email: createForm.email,
+          password: createForm.password,
+          roles: createForm.roles,
         }),
       })
       const json = await res.json()
       if (!res.ok) {
-        setError(json.error || 'Errore durante la creazione')
+        setCreateError(json.error || 'Errore durante la creazione')
         return
       }
-      const roleLabel = form.roles.map(r => ROLE_LABELS[r]).join(', ')
-      setSuccess(`Utente "${form.nome}" (${roleLabel}) creato con successo!`)
-      setForm(initialForm)
+      const roleLabel = createForm.roles.map(r => ROLE_LABELS[r]).join(', ')
+      setCreateSuccess(`Utente "${createForm.nome}" (${roleLabel}) creato con successo!`)
+      setCreateForm(initialCreateForm)
+      router.refresh()
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  const canCreate = createForm.nome.trim() && createForm.email.trim() && createForm.password.length >= 6 && createForm.roles.length > 0
+
+  // ─── Edit handlers ─────────────────────────────────────────────────────────
+  const openEdit = (u: UtenteConStats) => {
+    setEditTarget(u)
+    setEditForm({
+      nome: u.nome,
+      // Only include editable roles (filter out super_admin if present)
+      roles: (u.roles || [u.role]).filter(r => r !== 'super_admin') as UserRole[],
+    })
+    setEditError('')
+    setEditSuccess('')
+  }
+
+  const handleCloseEdit = () => {
+    setEditTarget(null)
+    setEditForm({ nome: '', roles: [] })
+    setEditError('')
+    setEditSuccess('')
+  }
+
+  const toggleEditRole = (role: UserRole) => {
+    setEditForm(f => {
+      if (f.roles.includes(role)) {
+        if (f.roles.length === 1) return f
+        return { ...f, roles: f.roles.filter(r => r !== role) }
+      }
+      return { ...f, roles: [...f.roles, role] }
+    })
+  }
+
+  const handleSaveEdit = async () => {
+    if (!editTarget) return
+    setEditError('')
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/formatori/${editTarget.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nome: editForm.nome, roles: editForm.roles }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        setEditError(json.error || 'Errore durante il salvataggio')
+        return
+      }
+      setEditSuccess(`Modifiche salvate per "${editForm.nome}".`)
       router.refresh()
     } finally {
       setSaving(false)
     }
   }
 
-  const canSubmit = form.nome.trim() && form.email.trim() && form.password.length >= 6 && form.roles.length > 0
-
-  const visibleRoles = SELECTABLE_ROLES.filter(r => r.value !== 'admin' || isSuperAdmin)
+  const canSave = editForm.nome.trim().length > 0 && editForm.roles.length > 0
 
   return (
     <div className="p-8 max-w-5xl mx-auto">
@@ -99,7 +164,7 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
           <h1 className="text-2xl font-bold text-gray-900">Utenti</h1>
           <p className="text-sm text-gray-500 mt-1">{utenti.length} utenti registrati</p>
         </div>
-        <Button onClick={() => setModalOpen(true)}>
+        <Button onClick={() => setCreateOpen(true)}>
           <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
             <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
           </svg>
@@ -114,8 +179,9 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
               <th className="text-left text-xs font-medium text-gray-400 px-6 py-3">UTENTE</th>
               <th className="text-left text-xs font-medium text-gray-400 px-6 py-3">RUOLO</th>
               <th className="text-center text-xs font-medium text-gray-400 px-6 py-3">CORSI</th>
-              <th className="text-left text-xs font-medium text-gray-400 px-6 py-3">ORE TOTALI</th>
-              <th className="text-left text-xs font-medium text-gray-400 px-6 py-3 min-w-[180px]">PIANIFICATO</th>
+              <th className="text-left text-xs font-medium text-gray-400 px-6 py-3">ORE</th>
+              <th className="text-left text-xs font-medium text-gray-400 px-6 py-3 min-w-[160px]">PIANIFICATO</th>
+              <th className="px-6 py-3"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
@@ -131,9 +197,13 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
                   </div>
                 </td>
                 <td className="px-6 py-4">
-                  <span className={`inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-md ${ROLE_COLORS[u.role]}`}>
-                    {ROLE_LABELS[u.role]}
-                  </span>
+                  <div className="flex flex-wrap gap-1">
+                    {(u.roles || [u.role]).filter(r => r !== 'super_admin').map(r => (
+                      <span key={r} className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md ${ROLE_COLORS[r as UserRole]}`}>
+                        {ROLE_LABELS[r as UserRole]}
+                      </span>
+                    ))}
+                  </div>
                 </td>
                 <td className="px-6 py-4 text-center text-sm font-medium text-gray-700">{u.n_corsi}</td>
                 <td className="px-6 py-4 text-sm text-gray-700">{u.oreTotali}h</td>
@@ -147,11 +217,24 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
                     <span className="text-xs text-gray-400">—</span>
                   )}
                 </td>
+                <td className="px-6 py-4 text-right">
+                  <button
+                    onClick={() => openEdit(u)}
+                    className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-800 px-2.5 py-1.5 rounded-[7px] hover:bg-gray-100 transition-colors"
+                    title="Modifica utente"
+                  >
+                    <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
+                      <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    Modifica
+                  </button>
+                </td>
               </tr>
             ))}
             {utenti.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-6 py-12 text-center text-sm text-gray-400">
+                <td colSpan={6} className="px-6 py-12 text-center text-sm text-gray-400">
                   Nessun utente registrato
                 </td>
               </tr>
@@ -160,32 +243,32 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
         </table>
       </div>
 
-      {/* Modal aggiungi utente */}
+      {/* ── Modal: Crea utente ──────────────────────────────────────────────── */}
       <Modal
-        open={modalOpen}
-        onClose={handleClose}
+        open={createOpen}
+        onClose={handleCloseCreate}
         title="Aggiungi Utente"
         size="sm"
         footer={
-          success ? (
-            <Button onClick={handleClose}>Chiudi</Button>
+          createSuccess ? (
+            <Button onClick={handleCloseCreate}>Chiudi</Button>
           ) : (
             <>
-              <Button variant="secondary" onClick={handleClose}>Annulla</Button>
-              <Button onClick={handleSave} loading={saving} disabled={!canSubmit}>
+              <Button variant="secondary" onClick={handleCloseCreate}>Annulla</Button>
+              <Button onClick={handleCreate} loading={creating} disabled={!canCreate}>
                 Crea Account
               </Button>
             </>
           )
         }
       >
-        {success ? (
+        {createSuccess ? (
           <div className="space-y-4">
             <div className="flex items-start gap-3 bg-green-50 border border-green-200 rounded-[7px] px-4 py-3">
               <svg className="text-green-500 shrink-0 mt-0.5" width="16" height="16" fill="none" viewBox="0 0 24 24">
                 <polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
-              <p className="text-sm text-green-800">{success}</p>
+              <p className="text-sm text-green-800">{createSuccess}</p>
             </div>
             <p className="text-sm text-gray-500">
               L&apos;utente può accedere alla piattaforma con le credenziali fornite.
@@ -196,81 +279,158 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
             <Input
               label="Nome completo *"
               placeholder="Es. Mario Rossi"
-              value={form.nome}
-              onChange={e => setForm(f => ({ ...f, nome: e.target.value }))}
+              value={createForm.nome}
+              onChange={e => setCreateForm(f => ({ ...f, nome: e.target.value }))}
               autoComplete="off"
             />
             <Input
               label="Email *"
               type="email"
               placeholder="mario.rossi@esempio.it"
-              value={form.email}
-              onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+              value={createForm.email}
+              onChange={e => setCreateForm(f => ({ ...f, email: e.target.value }))}
               autoComplete="off"
             />
             <Input
               label="Password temporanea *"
               type="password"
               placeholder="Minimo 6 caratteri"
-              value={form.password}
-              onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+              value={createForm.password}
+              onChange={e => setCreateForm(f => ({ ...f, password: e.target.value }))}
               hint="L'utente dovrà cambiarla al primo accesso"
               autoComplete="new-password"
             />
-
-            {/* Role selection */}
-            <div>
-              <div className="text-sm font-medium text-gray-700 mb-2">Ruolo/i *</div>
-              <div className="space-y-2">
-                {visibleRoles.map(({ value, label, desc }) => {
-                  const checked = form.roles.includes(value)
-                  return (
-                    <label
-                      key={value}
-                      className="flex items-start gap-3 p-3 rounded-[7px] border cursor-pointer transition-all"
-                      style={{
-                        borderColor: checked ? '#d64b55' : '#e5e5e5',
-                        backgroundColor: checked ? '#fbeced' : 'white',
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => toggleRole(value)}
-                        className="mt-0.5 accent-[#d64b55]"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-gray-800">{label}</span>
-                          <span className={`text-xs font-medium px-2 py-0.5 rounded-md ${ROLE_COLORS[value]}`}>
-                            {label}
-                          </span>
-                        </div>
-                        <div className="text-xs text-gray-500 mt-0.5">{desc}</div>
-                      </div>
-                    </label>
-                  )
-                })}
-              </div>
-              {!isSuperAdmin && (
-                <p className="text-xs text-gray-400 mt-2">
-                  Solo il Super Admin può creare account Admin.
-                </p>
-              )}
-            </div>
-
-            {error && (
-              <div className="flex items-start gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-[7px] px-3 py-2">
-                <svg className="shrink-0 mt-0.5" width="14" height="14" fill="none" viewBox="0 0 24 24">
-                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5"/>
-                  <path d="M12 8v4M12 16h.01" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                </svg>
-                {error}
-              </div>
-            )}
+            <RoleCheckboxes
+              selected={createForm.roles}
+              onToggle={toggleCreateRole}
+              visibleRoles={visibleRoles}
+              isSuperAdmin={isSuperAdmin}
+            />
+            {createError && <ErrorBanner message={createError} />}
           </div>
         )}
       </Modal>
+
+      {/* ── Modal: Modifica utente ──────────────────────────────────────────── */}
+      <Modal
+        open={!!editTarget}
+        onClose={handleCloseEdit}
+        title={editTarget ? `Modifica — ${editTarget.nome}` : ''}
+        size="sm"
+        footer={
+          editSuccess ? (
+            <Button onClick={handleCloseEdit}>Chiudi</Button>
+          ) : (
+            <>
+              <Button variant="secondary" onClick={handleCloseEdit}>Annulla</Button>
+              <Button onClick={handleSaveEdit} loading={saving} disabled={!canSave}>
+                Salva modifiche
+              </Button>
+            </>
+          )
+        }
+      >
+        {editSuccess ? (
+          <div className="flex items-start gap-3 bg-green-50 border border-green-200 rounded-[7px] px-4 py-3">
+            <svg className="text-green-500 shrink-0 mt-0.5" width="16" height="16" fill="none" viewBox="0 0 24 24">
+              <polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            <p className="text-sm text-green-800">{editSuccess}</p>
+          </div>
+        ) : editTarget ? (
+          <div className="space-y-4">
+            <Input
+              label="Nome completo *"
+              value={editForm.nome}
+              onChange={e => setEditForm(f => ({ ...f, nome: e.target.value }))}
+              autoComplete="off"
+            />
+            {/* Email: read-only */}
+            <div>
+              <div className="text-sm font-medium text-gray-700 mb-1">Email</div>
+              <div className="text-sm text-gray-500 bg-gray-50 border border-gray-200 rounded-[7px] px-3 py-2 select-all">
+                {editTarget.email}
+              </div>
+              <p className="text-xs text-gray-400 mt-1">L&apos;email non può essere modificata da qui.</p>
+            </div>
+            <RoleCheckboxes
+              selected={editForm.roles}
+              onToggle={toggleEditRole}
+              visibleRoles={visibleRoles}
+              isSuperAdmin={isSuperAdmin}
+            />
+            {editError && <ErrorBanner message={editError} />}
+          </div>
+        ) : null}
+      </Modal>
+    </div>
+  )
+}
+
+// ─── Shared sub-components ───────────────────────────────────────────────────
+
+function RoleCheckboxes({
+  selected,
+  onToggle,
+  visibleRoles,
+  isSuperAdmin,
+}: {
+  selected: UserRole[]
+  onToggle: (r: UserRole) => void
+  visibleRoles: typeof SELECTABLE_ROLES
+  isSuperAdmin: boolean
+}) {
+  return (
+    <div>
+      <div className="text-sm font-medium text-gray-700 mb-2">Ruolo/i *</div>
+      <div className="space-y-2">
+        {visibleRoles.map(({ value, label, desc }) => {
+          const checked = selected.includes(value)
+          return (
+            <label
+              key={value}
+              className="flex items-start gap-3 p-3 rounded-[7px] border cursor-pointer transition-all"
+              style={{
+                borderColor: checked ? '#d64b55' : '#e5e5e5',
+                backgroundColor: checked ? '#fbeced' : 'white',
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={checked}
+                onChange={() => onToggle(value)}
+                className="mt-0.5 accent-[#d64b55]"
+              />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-800">{label}</span>
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded-md ${ROLE_COLORS[value]}`}>
+                    {label}
+                  </span>
+                </div>
+                <div className="text-xs text-gray-500 mt-0.5">{desc}</div>
+              </div>
+            </label>
+          )
+        })}
+      </div>
+      {!isSuperAdmin && (
+        <p className="text-xs text-gray-400 mt-2">
+          Solo il Super Admin può assegnare il ruolo Admin.
+        </p>
+      )}
+    </div>
+  )
+}
+
+function ErrorBanner({ message }: { message: string }) {
+  return (
+    <div className="flex items-start gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-[7px] px-3 py-2">
+      <svg className="shrink-0 mt-0.5" width="14" height="14" fill="none" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5"/>
+        <path d="M12 8v4M12 16h.01" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      </svg>
+      {message}
     </div>
   )
 }
