@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { FormatoreClient } from './FormatoreClient'
+import { NoProfileError } from './NoProfileError'
 
 export default async function FormatorePage() {
   const supabase = await createClient()
@@ -9,7 +10,18 @@ export default async function FormatorePage() {
   if (!user) redirect('/login')
 
   const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-  if (!profile || profile.role !== 'formatore') redirect('/dashboard')
+
+  // SAFE guard: only redirect when we POSITIVELY know the role is 'admin'.
+  // If profile is null (DB not migrated, trigger missing, RLS issue) we stay
+  // here and show an error. Redirecting to /dashboard would cause an infinite
+  // loop because dashboard/page.tsx does:
+  //   if (!profile || role !== 'admin') redirect('/formatore')
+  // and then we'd redirect back, and so on.
+  if (profile && profile.role !== 'formatore') redirect('/dashboard')
+
+  if (!profile) {
+    return <NoProfileError />
+  }
 
   const { data: corsi } = await supabase
     .from('corsi_con_ore')

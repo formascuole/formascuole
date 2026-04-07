@@ -23,103 +23,64 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // IMPORTANT: always call getUser() to refresh the session cookie
+  // IMPORTANT: getUser() must be called to keep the session cookie fresh.
+  // Do NOT add business logic between createServerClient and getUser().
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const pathname = request.nextUrl.pathname
+  const { pathname } = request.nextUrl
 
-  // --- Always-public routes (no auth needed) ---
-  // API routes handle their own auth — never redirect them
-  if (pathname.startsWith('/api/')) {
+  // ── Always-public: pass through without any redirect ──────────────────
+  if (
+    pathname.startsWith('/api/') ||        // API routes handle their own auth
+    pathname === '/auth/callback' ||        // Supabase PKCE / email confirmation
+    pathname.startsWith('/auth/')
+  ) {
     return supabaseResponse
   }
-  // Static/public assets already excluded by matcher, but belt+suspenders:
-  if (pathname === '/auth/callback') {
-    return supabaseResponse
-  }
 
-  // --- /login: allow if not logged in; redirect away if logged in ---
+  // ── /login ─────────────────────────────────────────────────────────────
   if (pathname === '/login') {
-    if (!user) return supabaseResponse
-
-    // User is logged in — send them where they belong.
-    // If profile lookup fails for any reason, default to /dashboard
-    // (avoids the null-profile redirect loop).
-    try {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single()
-      const dest = profile?.role === 'formatore' ? '/formatore' : '/dashboard'
-      const redirectUrl = new URL(dest, request.url)
-      const res = NextResponse.redirect(redirectUrl)
-      // Forward session cookies onto the redirect response
-      supabaseResponse.cookies.getAll().forEach(({ name, value }) => {
-        res.cookies.set(name, value)
-      })
-      return res
-    } catch {
-      return NextResponse.redirect(new URL('/dashboard', request.url))
-    }
-  }
-
-  // --- Protected routes: must be authenticated ---
-  if (!user) {
-    const loginUrl = new URL('/login', request.url)
-    return NextResponse.redirect(loginUrl)
-  }
-
-  // --- Role-based access (only when profile is available) ---
-  // If the profile lookup fails, let the page itself handle the error
-  // rather than creating a redirect loop.
-  const adminRoutes = ['/dashboard', '/progetti', '/formatori', '/calendario', '/notifiche']
-  const isAdminRoute = adminRoutes.some((r) => pathname === r || pathname.startsWith(r + '/'))
-  const isFormatoreRoute = pathname === '/formatore' || pathname.startsWith('/formatore/')
-
-  if (isAdminRoute || isFormatoreRoute) {
-    let role: string | undefined
-    try {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single()
-      role = profile?.role
-    } catch {
-      // DB unavailable — let the page render and show its own error
+    if (!user) {
+      // Not logged in → show login page
       return supabaseResponse
     }
-
-    // Only redirect if we have a definitive role; if null, let the page handle it
-    if (role) {
-      if (isAdminRoute && role !== 'admin') {
-        const res = NextResponse.redirect(new URL('/formatore', request.url))
-        supabaseResponse.cookies.getAll().forEach(({ name, value }) => res.cookies.set(name, value))
-        return res
-      }
-      if (isFormatoreRoute && role !== 'formatore') {
-        const res = NextResponse.redirect(new URL('/dashboard', request.url))
-        supabaseResponse.cookies.getAll().forEach(({ name, value }) => res.cookies.set(name, value))
-        return res
-      }
-    }
+    // Already logged in → send to dashboard as safe default.
+    // Role-based routing (admin vs formatore) is done by the server components;
+    // we purposely avoid a DB query here to keep the middleware simple and
+    // to prevent the loop caused by null-profile ↔ DB-error scenarios.
+    const url = request.nextUrl.clone()
+    url.pathname = '/dashboard'
+    const res = NextResponse.redirect(url)
+    supabaseResponse.cookies.getAll().forEach(({ name, value }) =>
+      res.cookies.set(name, value)
+    )
+    return res
   }
 
+  // ── All other routes: must be authenticated ────────────────────────────
+  if (!user) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/login'
+    // Preserve the original destination so we can redirect after login if needed
+    url.searchParams.set('next', pathname)
+    const res = NextResponse.redirect(url)
+    supabaseResponse.cookies.getAll().forEach(({ name, value }) =>
+      res.cookies.set(name, value)
+    )
+    return res
+  }
+
+  // Authenticated — let the server component decide role-based access.
+  // NO DB queries here. Role checks in the middleware caused the loop
+  // when profiles were null (dashboard→formatore→dashboard→...).
   return supabaseResponse
 }
 
 export const config = {
   matcher: [
-    /*
-     * Match all paths EXCEPT:
-     * - _next/static (static files)
-     * - _next/image (image optimization)
-     * - favicon.ico, sitemap.xml, robots.txt
-     * - public images/assets
-     */
+    // Match everything except Next.js internals and static assets
     '/((?!_next/static|_next/image|favicon\\.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|xml)$).*)',
   ],
 }
