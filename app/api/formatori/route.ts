@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { sendEmail, generateBenvenutoEmail } from '@/lib/email'
 
 export async function GET() {
   const supabase = await createClient()
@@ -98,6 +99,17 @@ export async function POST(request: NextRequest) {
       { error: 'Errore nella creazione del profilo: ' + profileError.message },
       { status: 500 }
     )
+  }
+
+  // Send welcome email (non-blocking — don't fail the request if email fails)
+  try {
+    await sendEmail({
+      to: email,
+      subject: 'Benvenuto in Formascuole - Le tue credenziali di accesso',
+      body: generateBenvenutoEmail({ nome, email, password }),
+    })
+  } catch (emailErr) {
+    console.error('Welcome email failed (non-fatal):', emailErr)
   }
 
   return NextResponse.json(profileData, { status: 201 })

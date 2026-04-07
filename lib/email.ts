@@ -4,7 +4,41 @@ import { Resend } from 'resend'
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 const resend = new Resend(process.env.RESEND_API_KEY)
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://formascuole.vercel.app'
+
+interface BenvenutoEmailParams {
+  nome: string
+  email: string
+  password: string
+}
+
+export function generateBenvenutoEmail({ nome, email, password }: BenvenutoEmailParams): string {
+  return `Gentile ${nome},
+
+il tuo account sulla piattaforma Formascuole è stato creato con successo.
+
+Di seguito trovi le tue credenziali di accesso:
+
+  Email:    ${email}
+  Password: ${password}
+
+Accedi alla piattaforma cliccando sul seguente link:
+${APP_URL}
+
+ISTRUZIONI PER IL PRIMO ACCESSO:
+1. Vai su ${APP_URL}
+2. Inserisci email e password indicati sopra
+3. Nella sezione "Il mio account" cambia immediatamente la password con una di tua scelta (minimo 8 caratteri)
+
+Ti consigliamo di conservare queste credenziali in modo sicuro e di non condividerle con nessuno.
+
+In caso di problemi di accesso, contatta il tuo amministratore di sistema.
+
+Benvenuto/a nel team Formascuole!
+
+Cordiali saluti,
+Il team Formascuole`
+}
 
 interface AssegnazioneEmailParams {
   formatore_nome: string
