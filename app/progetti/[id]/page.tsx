@@ -32,6 +32,25 @@ export default async function ProgettoDetailPage({ params }: { params: Promise<{
     .eq('role', 'formatore')
     .order('nome')
 
+  const { data: messaggi } = await supabase
+    .from('chat_messaggi')
+    .select('*, autore:profiles(id,nome,avatar_initials)')
+    .eq('progetto_id', id)
+    .order('created_at', { ascending: true })
+
+  // Fetch which messages the current user has read
+  const msgIds = (messaggi || []).map(m => m.id)
+  let readSet = new Set<string>()
+  if (msgIds.length > 0) {
+    const { data: letture } = await supabase
+      .from('chat_letture')
+      .select('messaggio_id')
+      .eq('utente_id', user.id)
+      .in('messaggio_id', msgIds)
+    readSet = new Set((letture || []).map(l => l.messaggio_id))
+  }
+  const messaggiConLetto = (messaggi || []).map(m => ({ ...m, letto: readSet.has(m.id) }))
+
   const { count: notifiche } = await supabase
     .from('solleciti_log')
     .select('*', { count: 'exact', head: true })
@@ -49,6 +68,8 @@ export default async function ProgettoDetailPage({ params }: { params: Promise<{
         progetto={progetto}
         corsi={corsi || []}
         formatori={formatori || []}
+        messaggi={messaggiConLetto}
+        currentUserId={user.id}
       />
     </AppLayout>
   )

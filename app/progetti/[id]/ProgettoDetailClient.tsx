@@ -1,8 +1,8 @@
 'use client'
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ProgettoConStats, CorsoConOre, Profile } from '@/lib/types'
+import { ProgettoConStats, CorsoConOre, Profile, ChatMessaggio } from '@/lib/types'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { Button } from '@/components/ui/Button'
@@ -10,14 +10,17 @@ import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Avatar } from '@/components/ui/Avatar'
+import { formatDate } from '@/lib/utils'
 
 interface ProgettoDetailClientProps {
   progetto: ProgettoConStats
   corsi: CorsoConOre[]
   formatori: Profile[]
+  messaggi: ChatMessaggio[]
+  currentUserId: string
 }
 
-export function ProgettoDetailClient({ progetto, corsi, formatori }: ProgettoDetailClientProps) {
+export function ProgettoDetailClient({ progetto, corsi, formatori, messaggi: initialMessaggi, currentUserId }: ProgettoDetailClientProps) {
   const router = useRouter()
   const [addCorsoOpen, setAddCorsoOpen] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -30,7 +33,33 @@ export function ProgettoDetailClient({ progetto, corsi, formatori }: ProgettoDet
     tutor_nome: '',
     ore_tutoraggio: '',
   })
+
+  // Chat state
+  const [messaggi, setMessaggi] = useState<ChatMessaggio[]>(initialMessaggi)
+  const [newMsg, setNewMsg] = useState('')
+  const [sendingMsg, setSendingMsg] = useState(false)
+  const chatBottomRef = useRef<HTMLDivElement>(null)
+
   const pct = Number(progetto.percentuale_completamento)
+
+  useEffect(() => {
+    chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messaggi])
+
+  // Mark unread messages as read on mount
+  useEffect(() => {
+    const unread = initialMessaggi
+      .filter(m => !m.letto && m.autore_id !== currentUserId)
+      .map(m => m.id)
+    if (unread.length > 0) {
+      fetch('/api/chat/read', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messaggio_ids: unread }),
+      }).catch(() => {})
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleAddCorso = async () => {
     setSaving(true)
@@ -56,6 +85,25 @@ export function ProgettoDetailClient({ progetto, corsi, formatori }: ProgettoDet
       }
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleSendMsg = async () => {
+    if (!newMsg.trim()) return
+    setSendingMsg(true)
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ progetto_id: progetto.id, testo: newMsg.trim() }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setMessaggi(prev => [...prev, data])
+        setNewMsg('')
+      }
+    } finally {
+      setSendingMsg(false)
     }
   }
 
@@ -122,7 +170,7 @@ export function ProgettoDetailClient({ progetto, corsi, formatori }: ProgettoDet
       )}
 
       {/* Corsi */}
-      <div className="bg-white rounded-xl" style={{ border: '0.5px solid #e5e5e5' }}>
+      <div className="bg-white rounded-xl mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <h2 className="font-semibold text-gray-900">Corsi ({corsi.length})</h2>
           <Button size="sm" onClick={() => setAddCorsoOpen(true)}>
@@ -143,6 +191,69 @@ export function ProgettoDetailClient({ progetto, corsi, formatori }: ProgettoDet
               <CourseRow key={corso.id} corso={corso} progettoId={progetto.id} />
             ))
           )}
+        </div>
+      </div>
+
+      {/* Chat */}
+      <div className="bg-white rounded-xl" style={{ border: '0.5px solid #e5e5e5' }}>
+        <div className="flex items-center gap-2 px-6 py-4 border-b border-gray-100">
+          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" className="text-gray-400">
+            <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          <h2 className="font-semibold text-gray-900">Chat progetto</h2>
+          <span className="text-xs text-gray-400 ml-auto">{messaggi.length} messagg{messaggi.length === 1 ? 'io' : 'i'}</span>
+        </div>
+
+        {/* Messages */}
+        <div className="p-4 space-y-3 max-h-80 overflow-y-auto">
+          {messaggi.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-8">
+              Nessun messaggio ancora. Inizia la conversazione!
+            </p>
+          ) : (
+            messaggi.map((m) => {
+              const isMe = m.autore_id === currentUserId
+              return (
+                <div key={m.id} className={`flex items-start gap-3 ${isMe ? 'flex-row-reverse' : ''}`}>
+                  {m.autore && (
+                    <Avatar nome={m.autore.nome} id={m.autore.id} initials={m.autore.avatar_initials} size="sm" />
+                  )}
+                  <div className={`max-w-xs flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                    <div className="flex items-center gap-2 mb-0.5">
+                      {!isMe && <span className="text-xs font-medium text-gray-700">{m.autore?.nome}</span>}
+                      <span className="text-xs text-gray-400">{formatDate(m.created_at)}</span>
+                    </div>
+                    <div
+                      className={`text-sm px-3 py-2 rounded-xl break-words ${
+                        isMe ? 'text-white rounded-tr-sm' : 'bg-gray-100 text-gray-800 rounded-tl-sm'
+                      }`}
+                      style={isMe ? { backgroundColor: '#d64b55' } : {}}
+                    >
+                      {m.testo}
+                    </div>
+                  </div>
+                </div>
+              )
+            })
+          )}
+          <div ref={chatBottomRef} />
+        </div>
+
+        {/* Input */}
+        <div className="px-4 pb-4 pt-2 border-t border-gray-100">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newMsg}
+              onChange={e => setNewMsg(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMsg() } }}
+              placeholder="Scrivi un messaggio..."
+              className="flex-1 text-sm border border-gray-200 rounded-[7px] px-3 py-2 focus:outline-none focus:border-[#d64b55] transition-colors"
+            />
+            <Button size="sm" onClick={handleSendMsg} loading={sendingMsg} disabled={!newMsg.trim()}>
+              Invia
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -196,7 +307,6 @@ export function ProgettoDetailClient({ progetto, corsi, formatori }: ProgettoDet
             />
           </div>
 
-          {/* Modalità — solo per PF */}
           {corsoForm.tipo === 'PF' && (
             <Select
               label="Modalità erogazione *"
@@ -210,7 +320,6 @@ export function ProgettoDetailClient({ progetto, corsi, formatori }: ProgettoDet
             />
           )}
 
-          {/* Tutor — solo per PF */}
           {corsoForm.tipo === 'PF' && (
             <div className="space-y-3 pt-1">
               <label className="flex items-center gap-2.5 cursor-pointer">

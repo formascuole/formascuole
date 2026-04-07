@@ -65,6 +65,21 @@ const adminNav: NavItem[] = [
   },
 ]
 
+const tutorNav: NavItem[] = [
+  {
+    href: '/tutor',
+    label: 'I miei corsi',
+    icon: (
+      <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
+        <rect x="3" y="3" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.5"/>
+        <rect x="14" y="3" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.5"/>
+        <rect x="3" y="14" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.5"/>
+        <rect x="14" y="14" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.5"/>
+      </svg>
+    ),
+  },
+]
+
 const formatoreNav: NavItem[] = [
   {
     href: '/formatore',
@@ -101,7 +116,7 @@ interface SidebarProps {
 export function Sidebar({ role, nome, email, avatarInitials, notificheBadge }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
-  const nav = role === 'admin' ? adminNav : formatoreNav
+  const nav = role === 'admin' || role === 'super_admin' ? adminNav : role === 'tutor' ? tutorNav : formatoreNav
 
   const handleLogout = async () => {
     const supabase = createClient()

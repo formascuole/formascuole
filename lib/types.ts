@@ -1,4 +1,4 @@
-export type UserRole = 'admin' | 'formatore'
+export type UserRole = 'super_admin' | 'admin' | 'formatore' | 'tutor'
 export type ProjectStatus = 'active' | 'pending' | 'completed'
 export type CorsoTipo = 'PF' | 'Lab'
 export type ModalitaCorso = 'presenza' | 'online' | 'ibrido'
@@ -7,11 +7,12 @@ export type SollectipoTipo = 'assegnazione' | 'sollecito_1' | 'sollecito_2' | 's
 
 export interface Profile {
   id: string
-  role: UserRole
+  role: UserRole          // primary (highest) role — kept for backward compat
   nome: string
   email: string
   avatar_initials: string
   created_at: string
+  roles?: UserRole[]      // all assigned roles (from profiles_roles)
 }
 
 export interface Progetto {
@@ -36,6 +37,7 @@ export interface ProgettoConStats extends Progetto {
   corsi_senza_calendario: number
   ore_tutoraggio_totali: number
   ore_tutoraggio_pianificate: number
+  unread_chat?: number
 }
 
 export interface Corso {
@@ -45,6 +47,7 @@ export interface Corso {
   tipo: CorsoTipo
   ore_totali: number
   formatore_id?: string
+  tutor_id?: string
   modalita?: ModalitaCorso
   tutor_previsto: boolean
   tutor_nome?: string
@@ -57,6 +60,7 @@ export interface CorsoConOre extends Corso {
   ore_residue: number
   calendario_completo: boolean
   formatore?: Profile
+  tutor?: Profile
 }
 
 export interface Sessione {
@@ -66,6 +70,25 @@ export interface Sessione {
   ore: number
   modalita_sessione?: ModalitaSessione
   created_at: string
+}
+
+export interface NotaCorso {
+  id: string
+  corso_id: string
+  autore_id: string
+  testo: string
+  created_at: string
+  autore?: Profile
+}
+
+export interface ChatMessaggio {
+  id: string
+  progetto_id: string
+  autore_id: string
+  testo: string
+  created_at: string
+  autore?: Profile
+  letto?: boolean
 }
 
 export interface SollecitoLog {

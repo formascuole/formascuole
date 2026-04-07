@@ -2,36 +2,56 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { CorsoConOre, Sessione, Profile, Progetto } from '@/lib/types'
+import { CorsoConOre, Sessione, Profile, Progetto, NotaCorso } from '@/lib/types'
 import { OreCounter } from '@/components/ui/OreCounter'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
-import { Select } from '@/components/ui/Select'
 import { Avatar } from '@/components/ui/Avatar'
 import { formatDate } from '@/lib/utils'
 
 interface CorsoDetailClientProps {
-  corso: CorsoConOre & { formatore?: Profile }
+  corso: CorsoConOre & { formatore?: Profile; tutor?: Profile }
   progetto: Pick<Progetto, 'school_name' | 'anno_scolastico' | 'ref_name' | 'ref_email'> | null
   sessioni: Sessione[]
   formatori: Profile[]
+  tutori: Profile[]
+  note: NotaCorso[]
   progettoId: string
+  currentUserId: string
+  isAdmin: boolean
 }
 
-export function CorsoDetailClient({ corso, progetto, sessioni, formatori, progettoId }: CorsoDetailClientProps) {
+export function CorsoDetailClient({
+  corso,
+  progetto,
+  sessioni,
+  formatori,
+  tutori,
+  note: initialNote,
+  progettoId,
+  currentUserId,
+  isAdmin,
+}: CorsoDetailClientProps) {
   const router = useRouter()
   const [calendarOpen, setCalendarOpen] = useState(false)
   const [formatorePickerOpen, setFormatorePickerOpen] = useState(false)
+  const [tutorePickerOpen, setTutorePickerOpen] = useState(false)
   const [newData, setNewData] = useState('')
   const [newOre, setNewOre] = useState('')
   const [newModalitaSessione, setNewModalitaSessione] = useState<'presenza' | 'online'>('presenza')
   const [saving, setSaving] = useState(false)
-
-  const isIbrido = corso.tipo === 'PF' && corso.modalita === 'ibrido'
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [assigningId, setAssigningId] = useState<string | null>(null)
+
+  // Notes state
+  const [note, setNote] = useState<NotaCorso[]>(initialNote)
+  const [newNota, setNewNota] = useState('')
+  const [savingNota, setSavingNota] = useState(false)
+  const [deletingNota, setDeletingNota] = useState<string | null>(null)
+
+  const isIbrido = corso.tipo === 'PF' && corso.modalita === 'ibrido'
 
   const orePianificate = Number(corso.ore_pianificate)
   const oreResidue = Math.max(Number(corso.ore_totali) - orePianificate, 0)
@@ -101,6 +121,61 @@ export function CorsoDetailClient({ corso, progetto, sessioni, formatori, proget
     router.refresh()
   }
 
+  const handleAssignTutor = async (tutorId: string) => {
+    setAssigningId('tutor-' + tutorId)
+    try {
+      const res = await fetch(`/api/corsi/${corso.id}/tutor`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tutor_id: tutorId }),
+      })
+      if (res.ok) {
+        setTutorePickerOpen(false)
+        router.refresh()
+      }
+    } finally {
+      setAssigningId(null)
+    }
+  }
+
+  const handleRemoveTutor = async () => {
+    await fetch(`/api/corsi/${corso.id}/tutor`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tutor_id: null }),
+    })
+    router.refresh()
+  }
+
+  const handleAddNota = async () => {
+    if (!newNota.trim()) return
+    setSavingNota(true)
+    try {
+      const res = await fetch('/api/note', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ corso_id: corso.id, testo: newNota.trim() }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setNote(prev => [...prev, data])
+        setNewNota('')
+      }
+    } finally {
+      setSavingNota(false)
+    }
+  }
+
+  const handleDeleteNota = async (notaId: string) => {
+    setDeletingNota(notaId)
+    try {
+      await fetch(`/api/note/${notaId}`, { method: 'DELETE' })
+      setNote(prev => prev.filter(n => n.id !== notaId))
+    } finally {
+      setDeletingNota(null)
+    }
+  }
+
   return (
     <div className="p-8 max-w-4xl mx-auto">
       {/* Breadcrumb */}
@@ -128,7 +203,6 @@ export function CorsoDetailClient({ corso, progetto, sessioni, formatori, proget
             )}
           </div>
         </div>
-        {/* Info modalità e tutor per corsi PF */}
         {corso.tipo === 'PF' && (
           <div className="flex flex-wrap gap-2 mb-4">
             {corso.modalita && (
@@ -159,39 +233,70 @@ export function CorsoDetailClient({ corso, progetto, sessioni, formatori, proget
                 <a href={`mailto:${corso.formatore.email}`} className="text-sm text-blue-600 hover:underline">{corso.formatore.email}</a>
               </div>
             </div>
-            <div className="flex gap-2">
-              <Button variant="secondary" size="sm" onClick={() => setFormatorePickerOpen(true)}>Cambia</Button>
-              <Button variant="danger" size="sm" onClick={handleRemoveFormatore}>Rimuovi</Button>
-            </div>
+            {isAdmin && (
+              <div className="flex gap-2">
+                <Button variant="secondary" size="sm" onClick={() => setFormatorePickerOpen(true)}>Cambia</Button>
+                <Button variant="danger" size="sm" onClick={handleRemoveFormatore}>Rimuovi</Button>
+              </div>
+            )}
           </div>
         ) : (
           <div className="flex items-center justify-between py-2">
             <p className="text-sm text-gray-400">Nessun formatore assegnato a questo corso.</p>
-            <Button size="sm" onClick={() => setFormatorePickerOpen(true)}>Assegna Formatore</Button>
+            {isAdmin && <Button size="sm" onClick={() => setFormatorePickerOpen(true)}>Assegna Formatore</Button>}
           </div>
         )}
       </div>
 
+      {/* Tutor — shown only when corso.tutor_previsto */}
+      {corso.tutor_previsto && (
+        <div className="bg-white rounded-xl p-6 mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
+          <h2 className="font-semibold text-gray-900 mb-4">Tutor assegnato</h2>
+          {corso.tutor ? (
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Avatar nome={corso.tutor.nome} id={corso.tutor.id} initials={corso.tutor.avatar_initials} size="lg" />
+                <div>
+                  <div className="font-medium text-gray-900">{corso.tutor.nome}</div>
+                  <a href={`mailto:${corso.tutor.email}`} className="text-sm text-blue-600 hover:underline">{corso.tutor.email}</a>
+                </div>
+              </div>
+              {isAdmin && (
+                <div className="flex gap-2">
+                  <Button variant="secondary" size="sm" onClick={() => setTutorePickerOpen(true)}>Cambia</Button>
+                  <Button variant="danger" size="sm" onClick={handleRemoveTutor}>Rimuovi</Button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center justify-between py-2">
+              <p className="text-sm text-gray-400">
+                Nessun tutor assegnato.{corso.tutor_nome && <span className="text-gray-500"> ({corso.tutor_nome})</span>}
+              </p>
+              {isAdmin && <Button size="sm" onClick={() => setTutorePickerOpen(true)}>Assegna Tutor</Button>}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Sessioni */}
-      <div className="bg-white rounded-xl" style={{ border: '0.5px solid #e5e5e5' }}>
+      <div className="bg-white rounded-xl mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <h2 className="font-semibold text-gray-900">Sessioni pianificate ({sessioni.length})</h2>
-          <Button
-            size="sm"
-            onClick={() => setCalendarOpen(true)}
-            disabled={oreResidue === 0}
-          >
-            <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
-              <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
-            Aggiungi Sessione
-          </Button>
+          {isAdmin && (
+            <Button size="sm" onClick={() => setCalendarOpen(true)} disabled={oreResidue === 0}>
+              <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
+                <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+              Aggiungi Sessione
+            </Button>
+          )}
         </div>
 
         {sessioni.length === 0 ? (
           <div className="px-6 py-12 text-center text-sm text-gray-400">
             Nessuna sessione pianificata.
-            {oreResidue > 0 && (
+            {oreResidue > 0 && isAdmin && (
               <div className="mt-1 text-xs">Clicca &quot;Aggiungi Sessione&quot; per iniziare.</div>
             )}
           </div>
@@ -203,7 +308,7 @@ export function CorsoDetailClient({ corso, progetto, sessioni, formatori, proget
                 <th className="text-left text-xs font-medium text-gray-400 px-6 py-3">ORE</th>
                 {isIbrido && <th className="text-left text-xs font-medium text-gray-400 px-6 py-3">MODALITÀ</th>}
                 <th className="text-left text-xs font-medium text-gray-400 px-6 py-3">CREATA IL</th>
-                <th className="px-6 py-3"></th>
+                {isAdmin && <th className="px-6 py-3"></th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -221,20 +326,73 @@ export function CorsoDetailClient({ corso, progetto, sessioni, formatori, proget
                     </td>
                   )}
                   <td className="px-6 py-3 text-xs text-gray-400">{formatDate(s.created_at)}</td>
-                  <td className="px-6 py-3 text-right">
-                    <button
-                      onClick={() => handleDeleteSession(s.id)}
-                      disabled={deletingId === s.id}
-                      className="text-xs text-red-400 hover:text-red-600 transition-colors disabled:opacity-50"
-                    >
-                      {deletingId === s.id ? 'Eliminando...' : 'Elimina'}
-                    </button>
-                  </td>
+                  {isAdmin && (
+                    <td className="px-6 py-3 text-right">
+                      <button
+                        onClick={() => handleDeleteSession(s.id)}
+                        disabled={deletingId === s.id}
+                        className="text-xs text-red-400 hover:text-red-600 transition-colors disabled:opacity-50"
+                      >
+                        {deletingId === s.id ? 'Eliminando...' : 'Elimina'}
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
           </table>
         )}
+      </div>
+
+      {/* Note */}
+      <div className="bg-white rounded-xl" style={{ border: '0.5px solid #e5e5e5' }}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <h2 className="font-semibold text-gray-900">Note ({note.length})</h2>
+        </div>
+        <div className="p-6 space-y-4">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newNota}
+              onChange={e => setNewNota(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAddNota() } }}
+              placeholder="Scrivi una nota sul corso..."
+              className="flex-1 text-sm border border-gray-200 rounded-[7px] px-3 py-2 focus:outline-none focus:border-[#d64b55] transition-colors"
+            />
+            <Button size="sm" onClick={handleAddNota} loading={savingNota} disabled={!newNota.trim()}>
+              Aggiungi
+            </Button>
+          </div>
+          {note.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-4">Nessuna nota ancora.</p>
+          ) : (
+            <div className="space-y-2">
+              {note.map((n) => (
+                <div key={n.id} className="flex items-start gap-3 p-3 bg-gray-50 rounded-[7px]">
+                  {n.autore && (
+                    <Avatar nome={n.autore.nome} id={n.autore.id} initials={n.autore.avatar_initials} size="sm" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-xs font-medium text-gray-700">{n.autore?.nome}</span>
+                      <span className="text-xs text-gray-400">{formatDate(n.created_at)}</span>
+                    </div>
+                    <p className="text-sm text-gray-700 break-words">{n.testo}</p>
+                  </div>
+                  {(isAdmin || n.autore_id === currentUserId) && (
+                    <button
+                      onClick={() => handleDeleteNota(n.id)}
+                      disabled={deletingNota === n.id}
+                      className="text-xs text-red-400 hover:text-red-600 shrink-0 disabled:opacity-50"
+                    >
+                      {deletingNota === n.id ? '...' : 'Elimina'}
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Calendar Modal */}
@@ -270,7 +428,6 @@ export function CorsoDetailClient({ corso, progetto, sessioni, formatori, proget
             error={oreError}
             placeholder={`Es. ${Math.min(oreResidue, 4)}`}
           />
-          {/* Modalità sessione — obbligatoria solo per corsi ibridi */}
           {isIbrido && (
             <div>
               <div className="text-sm font-medium text-gray-700 mb-2">Modalità sessione *</div>
@@ -293,7 +450,6 @@ export function CorsoDetailClient({ corso, progetto, sessioni, formatori, proget
               </div>
             </div>
           )}
-
           {oreResidue === 0 && (
             <div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-[7px] px-3 py-2">
               Calendario completo! Tutte le ore sono state pianificate.
@@ -326,9 +482,7 @@ export function CorsoDetailClient({ corso, progetto, sessioni, formatori, proget
                 <div className="font-medium text-sm text-gray-900">{f.nome}</div>
                 <div className="text-xs text-gray-400">{f.email}</div>
               </div>
-              {f.id === corso.formatore_id && (
-                <span className="text-xs text-[#d64b55] font-medium">Corrente</span>
-              )}
+              {f.id === corso.formatore_id && <span className="text-xs text-[#d64b55] font-medium">Corrente</span>}
               {assigningId === f.id && (
                 <svg className="animate-spin h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
@@ -339,6 +493,45 @@ export function CorsoDetailClient({ corso, progetto, sessioni, formatori, proget
           ))}
           {formatori.length === 0 && (
             <p className="text-sm text-gray-400 text-center py-4">Nessun formatore disponibile.</p>
+          )}
+        </div>
+      </Modal>
+
+      {/* Tutor Picker Modal */}
+      <Modal
+        open={tutorePickerOpen}
+        onClose={() => setTutorePickerOpen(false)}
+        title="Seleziona Tutor"
+        size="md"
+      >
+        <div className="grid grid-cols-1 gap-3">
+          {tutori.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => handleAssignTutor(t.id)}
+              disabled={assigningId === 'tutor-' + t.id || t.id === corso.tutor_id}
+              className="flex items-center gap-3 p-3 rounded-[7px] border text-left transition-all hover:border-[#d64b55] hover:bg-[#fbeced] disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{
+                borderColor: t.id === corso.tutor_id ? '#d64b55' : '#e5e5e5',
+                backgroundColor: t.id === corso.tutor_id ? '#fbeced' : 'white',
+              }}
+            >
+              <Avatar nome={t.nome} id={t.id} initials={t.avatar_initials} size="md" />
+              <div className="flex-1 min-w-0">
+                <div className="font-medium text-sm text-gray-900">{t.nome}</div>
+                <div className="text-xs text-gray-400">{t.email}</div>
+              </div>
+              {t.id === corso.tutor_id && <span className="text-xs text-[#d64b55] font-medium">Corrente</span>}
+              {assigningId === 'tutor-' + t.id && (
+                <svg className="animate-spin h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                </svg>
+              )}
+            </button>
+          ))}
+          {tutori.length === 0 && (
+            <p className="text-sm text-gray-400 text-center py-4">Nessun tutor disponibile. Crea prima un utente con ruolo tutor.</p>
           )}
         </div>
       </Modal>
