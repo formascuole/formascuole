@@ -4,11 +4,11 @@ interface AvatarProps {
   nome: string
   id: string
   initials?: string
-  size?: 'sm' | 'md' | 'lg'
+  size?: 'sm' | 'md' | 'lg' | 'xl'
 }
 
 export function Avatar({ nome, id, initials, size = 'md' }: AvatarProps) {
-  const sizeClass = size === 'sm' ? 'w-7 h-7 text-xs' : size === 'md' ? 'w-9 h-9 text-sm' : 'w-12 h-12 text-base'
+  const sizeClass = size === 'sm' ? 'w-7 h-7 text-xs' : size === 'md' ? 'w-9 h-9 text-sm' : size === 'lg' ? 'w-12 h-12 text-base' : 'w-16 h-16 text-xl'
   const letters = initials || nome.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
   const color = generateAvatarColor(id)
 

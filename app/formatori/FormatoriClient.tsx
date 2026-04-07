@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { Avatar } from '@/components/ui/Avatar'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { Button } from '@/components/ui/Button'
@@ -188,13 +189,13 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
             {utenti.map(u => (
               <tr key={u.id} className="hover:bg-gray-50">
                 <td className="px-6 py-4">
-                  <div className="flex items-center gap-3">
+                  <Link href={`/utenti/${u.id}`} className="flex items-center gap-3 group">
                     <Avatar nome={u.nome} id={u.id} initials={u.avatar_initials} size="md" />
                     <div>
-                      <div className="font-medium text-sm text-gray-900">{u.nome}</div>
+                      <div className="font-medium text-sm text-gray-900 group-hover:text-[#d64b55] transition-colors">{u.nome}</div>
                       <div className="text-xs text-gray-400">{u.email}</div>
                     </div>
-                  </div>
+                  </Link>
                 </td>
                 <td className="px-6 py-4">
                   <div className="flex flex-wrap gap-1">
