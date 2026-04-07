@@ -1,5 +1,5 @@
 'use client'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Avatar } from '@/components/ui/Avatar'
@@ -9,6 +9,7 @@ import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
 import { UserRole } from '@/lib/types'
 import { ROLE_LABELS, ROLE_COLORS } from '@/lib/auth'
+import type { UtenteStats } from '@/app/api/utenti/stats/route'
 
 interface UtenteConStats {
   id: string
@@ -60,6 +61,17 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
   const [editSuccess, setEditSuccess] = useState('')
 
   const [search, setSearch] = useState('')
+  const [statsMap, setStatsMap] = useState<Record<string, UtenteStats>>({})
+  const [statsLoading, setStatsLoading] = useState(true)
+
+  // Fetch stats client-side via service-role API to bypass RLS
+  useEffect(() => {
+    fetch('/api/utenti/stats')
+      .then(r => r.json())
+      .then(data => { setStatsMap(data); setStatsLoading(false) })
+      .catch(() => setStatsLoading(false))
+  }, [])
+
   const visibleRoles = SELECTABLE_ROLES.filter(r => r.value !== 'admin' || isSuperAdmin)
 
   const filtered = useMemo(() => {
@@ -240,25 +252,45 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
                     ))}
                   </div>
                 </td>
-                <td className="px-4 py-4 text-center text-sm text-gray-700">
-                  {u.n_corsi_formatore > 0 ? <span className="font-medium">{u.n_corsi_formatore}</span> : <span className="text-gray-300">—</span>}
-                </td>
-                <td className="px-4 py-4 text-center text-sm text-gray-700">
-                  {u.ore_formatore > 0 ? <span>{u.ore_formatore}h</span> : <span className="text-gray-300">—</span>}
-                </td>
-                <td className="px-4 py-4 text-center text-sm text-gray-700">
-                  {u.n_corsi_tutor > 0 ? <span className="font-medium">{u.n_corsi_tutor}</span> : <span className="text-gray-300">—</span>}
-                </td>
-                <td className="px-4 py-4 text-center text-sm text-gray-700">
-                  {u.ore_tutor > 0 ? <span>{u.ore_tutor}h</span> : <span className="text-gray-300">—</span>}
-                </td>
-                <td className="px-4 py-4">
-                  {(u.n_corsi_formatore + u.n_corsi_tutor) > 0 ? (
-                    <ProgressBar value={u.pct} size="sm" showLabel />
-                  ) : (
-                    <span className="text-xs text-gray-300">—</span>
-                  )}
-                </td>
+                {statsLoading ? (
+                  <>
+                    <td className="px-4 py-4 text-center"><span className="inline-block w-8 h-3 bg-gray-100 rounded animate-pulse" /></td>
+                    <td className="px-4 py-4 text-center"><span className="inline-block w-10 h-3 bg-gray-100 rounded animate-pulse" /></td>
+                    <td className="px-4 py-4 text-center"><span className="inline-block w-8 h-3 bg-gray-100 rounded animate-pulse" /></td>
+                    <td className="px-4 py-4 text-center"><span className="inline-block w-10 h-3 bg-gray-100 rounded animate-pulse" /></td>
+                    <td className="px-4 py-4"><span className="inline-block w-20 h-3 bg-gray-100 rounded animate-pulse" /></td>
+                  </>
+                ) : (() => {
+                  const s = statsMap[u.id]
+                  const nF = s?.n_corsi_formatore ?? 0
+                  const oF = s?.ore_formatore ?? 0
+                  const nT = s?.n_corsi_tutor ?? 0
+                  const oT = s?.ore_tutor ?? 0
+                  const pct = s?.pct ?? 0
+                  return (
+                    <>
+                      <td className="px-4 py-4 text-center text-sm text-gray-700">
+                        {nF > 0 ? <span className="font-medium">{nF}</span> : <span className="text-gray-300">—</span>}
+                      </td>
+                      <td className="px-4 py-4 text-center text-sm text-gray-700">
+                        {oF > 0 ? <span>{oF}h</span> : <span className="text-gray-300">—</span>}
+                      </td>
+                      <td className="px-4 py-4 text-center text-sm text-gray-700">
+                        {nT > 0 ? <span className="font-medium">{nT}</span> : <span className="text-gray-300">—</span>}
+                      </td>
+                      <td className="px-4 py-4 text-center text-sm text-gray-700">
+                        {oT > 0 ? <span>{oT}h</span> : <span className="text-gray-300">—</span>}
+                      </td>
+                      <td className="px-4 py-4">
+                        {(nF + nT) > 0 ? (
+                          <ProgressBar value={pct} size="sm" showLabel />
+                        ) : (
+                          <span className="text-xs text-gray-300">—</span>
+                        )}
+                      </td>
+                    </>
+                  )
+                })()}
                 <td className="px-6 py-4 text-right">
                   <button
                     onClick={() => openEdit(u)}

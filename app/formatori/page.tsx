@@ -1,6 +1,5 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { createAdminClient } from '@/lib/supabase/admin'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { FormatoriClient } from './FormatoriClient'
 
@@ -42,35 +41,21 @@ export default async function FormatoriPage() {
     rolesByUser.get(row.profile_id)!.push(row.role)
   }
 
-  // Use admin client to bypass RLS and fetch all corsi stats
-  const adminClient = createAdminClient()
-  const { data: corsiAll } = await adminClient
-    .from('corsi_con_ore')
-    .select('formatore_id, tutor_id, ore_totali, ore_pianificate')
+  // Stats (zeros) — populated client-side via /api/utenti/stats (service role, bypasses RLS)
+  const utentiConStats = (utenti || []).map(u => ({
+    ...u,
+    roles: (rolesByUser.get(u.id) ?? [u.role]) as string[],
+    n_corsi_formatore: 0,
+    ore_formatore: 0,
+    n_corsi_tutor: 0,
+    ore_tutor: 0,
+    pct: 0,
+  }))
 
   const { count: notifiche } = await supabase
     .from('solleciti_log')
     .select('*', { count: 'exact', head: true })
     .eq('tipo', 'sollecito_3')
-
-  const utentiConStats = (utenti || []).map(u => {
-    const corsiF = (corsiAll || []).filter(c => c.formatore_id === u.id)
-    const corsiT = (corsiAll || []).filter(c => c.tutor_id === u.id)
-
-    const n_corsi_formatore = corsiF.length
-    const ore_formatore = corsiF.reduce((s, c) => s + Number(c.ore_totali), 0)
-    const n_corsi_tutor = corsiT.length
-    const ore_tutor = corsiT.reduce((s, c) => s + Number(c.ore_totali), 0)
-
-    // % PIANIFICATO: across all assigned corsi (formatore + tutor)
-    const tuttiOreTotali = [...corsiF, ...corsiT].reduce((s, c) => s + Number(c.ore_totali), 0)
-    const tuttiOrePianificate = [...corsiF, ...corsiT].reduce((s, c) => s + Number(c.ore_pianificate), 0)
-    const pct = tuttiOreTotali > 0 ? Math.round((tuttiOrePianificate / tuttiOreTotali) * 100) : 0
-
-    // Fallback to profiles.role if profiles_roles is empty (pre-migration)
-    const roles = (rolesByUser.get(u.id) ?? [u.role]) as string[]
-    return { ...u, n_corsi_formatore, ore_formatore, n_corsi_tutor, ore_tutor, pct, roles }
-  })
 
   return (
     <AppLayout
