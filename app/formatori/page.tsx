@@ -11,7 +11,15 @@ export default async function FormatoriPage() {
   const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
   if (!profile || !['admin', 'super_admin'].includes(profile.role)) redirect('/formatore')
 
-  const isSuperAdmin = profile.role === 'super_admin'
+  // Check super_admin via profiles_roles (source of truth) in addition to profiles.role
+  const { data: superAdminRow } = await supabase
+    .from('profiles_roles')
+    .select('role')
+    .eq('profile_id', user.id)
+    .eq('role', 'super_admin')
+    .maybeSingle()
+
+  const isSuperAdmin = profile.role === 'super_admin' || !!superAdminRow
 
   // Fetch all non-super_admin users (formatori, tutori, admins)
   const { data: utenti } = await supabase

@@ -16,13 +16,27 @@ export default async function CorsoDetailPage({
   const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
   if (!profile || !['admin','super_admin'].includes(profile.role)) redirect('/formatore')
 
-  const { data: corso } = await supabase
+  // Fetch the corso without profile joins — PostgREST can't reliably disambiguate
+  // two FKs pointing to the same table (formatore_id and tutor_id both → profiles)
+  const { data: corsoData } = await supabase
     .from('corsi_con_ore')
-    .select('*, formatore:profiles!formatore_id(id,nome,email,avatar_initials), tutor:profiles!tutor_id(id,nome,email,avatar_initials)')
+    .select('*')
     .eq('id', corsoId)
     .single()
 
-  if (!corso || corso.project_id !== id) notFound()
+  if (!corsoData || corsoData.project_id !== id) notFound()
+
+  // Fetch formatore and tutor in parallel via their IDs
+  const [{ data: formatore }, { data: tutor }] = await Promise.all([
+    corsoData.formatore_id
+      ? supabase.from('profiles').select('id,nome,email,avatar_initials').eq('id', corsoData.formatore_id).single()
+      : Promise.resolve({ data: null }),
+    corsoData.tutor_id
+      ? supabase.from('profiles').select('id,nome,email,avatar_initials').eq('id', corsoData.tutor_id).single()
+      : Promise.resolve({ data: null }),
+  ])
+
+  const corso = { ...corsoData, formatore, tutor }
 
   const { data: progetto } = await supabase
     .from('progetti')

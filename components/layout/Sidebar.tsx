@@ -35,7 +35,7 @@ const adminNav: NavItem[] = [
   },
   {
     href: '/formatori',
-    label: 'Formatori',
+    label: 'Utenti',
     icon: (
       <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
         <circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="1.5"/>
