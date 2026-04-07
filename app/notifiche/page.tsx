@@ -24,7 +24,7 @@ export default async function NotifichePage() {
   if (!user) redirect('/login')
 
   const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-  if (!profile || profile.role !== 'admin') redirect('/formatore')
+  if (!profile || !['admin','super_admin'].includes(profile.role)) redirect('/formatore')
 
   const { data: solleciti } = await supabase
     .from('solleciti_log')
@@ -44,7 +44,7 @@ export default async function NotifichePage() {
     .eq('tipo', 'sollecito_3')
 
   return (
-    <AppLayout role="admin" nome={profile.nome} email={profile.email} avatarInitials={profile.avatar_initials} notificheBadge={notifiche || 0}>
+    <AppLayout role={profile.role} nome={profile.nome} email={profile.email} avatarInitials={profile.avatar_initials} notificheBadge={notifiche || 0}>
       <div className="p-8 max-w-4xl mx-auto">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900">Notifiche</h1>

@@ -12,7 +12,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   if (!sessione) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  if (profile?.role !== 'admin') {
+  if (!['admin','super_admin'].includes(profile?.role)) {
     const { data: corso } = await supabase.from('corsi').select('formatore_id').eq('id', sessione.corso_id).single()
     if (corso?.formatore_id !== user.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })

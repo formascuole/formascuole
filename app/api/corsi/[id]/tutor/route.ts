@@ -15,7 +15,7 @@ export async function PATCH(
     .select('role')
     .eq('id', user.id)
     .single()
-  if (profile?.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  if (!['admin','super_admin'].includes(profile?.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { tutor_id } = await request.json()
 

@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendEmail, generateBenvenutoEmail } from '@/lib/email'
+import { UserRole } from '@/lib/types'
+
+const ADMIN_ROLES: UserRole[] = ['admin', 'super_admin']
 
 export async function GET() {
   const supabase = await createClient()
@@ -9,12 +12,12 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  if (profile?.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  if (!ADMIN_ROLES.includes(profile?.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { data, error } = await supabase
     .from('profiles')
     .select('*')
-    .eq('role', 'formatore')
+    .in('role', ['formatore', 'tutor', 'admin'])
     .order('nome')
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -22,7 +25,6 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  // Verify the calling user is admin
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -32,13 +34,16 @@ export async function POST(request: NextRequest) {
     .select('role')
     .eq('id', user.id)
     .single()
-  if (callerProfile?.role !== 'admin') {
+
+  const callerRole: UserRole | undefined = callerProfile?.role
+  if (!callerRole || !ADMIN_ROLES.includes(callerRole)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
   const body = await request.json()
-  const { nome, email, password } = body
+  const { nome, email, password, roles } = body
 
+  // Validate required fields
   if (!nome || !email || !password) {
     return NextResponse.json({ error: 'Nome, email e password sono obbligatori' }, { status: 400 })
   }
@@ -46,7 +51,34 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'La password deve essere di almeno 6 caratteri' }, { status: 400 })
   }
 
-  // Admin client (service role) to create user without email confirmation
+  // Determine roles to assign (defaults to formatore if not provided)
+  const requestedRoles: UserRole[] = Array.isArray(roles) && roles.length > 0
+    ? roles
+    : ['formatore']
+
+  // Validate requested roles are valid
+  const validRoles: UserRole[] = ['formatore', 'tutor', 'admin', 'super_admin']
+  for (const r of requestedRoles) {
+    if (!validRoles.includes(r)) {
+      return NextResponse.json({ error: `Ruolo non valido: ${r}` }, { status: 400 })
+    }
+  }
+
+  // Only super_admin can create admin accounts
+  if (requestedRoles.includes('admin') && callerRole !== 'super_admin') {
+    return NextResponse.json({ error: 'Solo il Super Admin può creare account Admin' }, { status: 403 })
+  }
+  // Nobody can create super_admin accounts via UI
+  if (requestedRoles.includes('super_admin')) {
+    return NextResponse.json({ error: 'Non è possibile creare account Super Admin' }, { status: 403 })
+  }
+
+  // The "primary" role stored in profiles.role (highest priority)
+  const primaryRole: UserRole = requestedRoles.includes('admin') ? 'admin'
+    : requestedRoles.includes('formatore') ? 'formatore'
+    : requestedRoles.includes('tutor') ? 'tutor'
+    : requestedRoles[0]
+
   const adminClient = createAdminClient()
 
   const avatarInitials = nome
@@ -62,7 +94,7 @@ export async function POST(request: NextRequest) {
     email_confirm: true,
     user_metadata: {
       nome,
-      role: 'formatore',
+      role: primaryRole,
       avatar_initials: avatarInitials,
     },
   })
@@ -79,12 +111,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Errore nella creazione utente' }, { status: 500 })
   }
 
-  // Upsert profile — guarantees correct data even if the DB trigger already ran
+  // Upsert profile with primary role
   const { data: profileData, error: profileError } = await adminClient
     .from('profiles')
     .upsert({
       id: newUser.user.id,
-      role: 'formatore',
+      role: primaryRole,
       nome,
       email,
       avatar_initials: avatarInitials,
@@ -93,7 +125,6 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (profileError) {
-    // Clean up the auth user to avoid orphaned accounts
     await adminClient.auth.admin.deleteUser(newUser.user.id)
     return NextResponse.json(
       { error: 'Errore nella creazione del profilo: ' + profileError.message },
@@ -101,7 +132,17 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // Send welcome email (non-blocking — don't fail the request if email fails)
+  // Insert all requested roles into profiles_roles
+  const roleRows = requestedRoles.map(r => ({ profile_id: newUser.user!.id, role: r }))
+  const { error: rolesError } = await adminClient
+    .from('profiles_roles')
+    .upsert(roleRows, { onConflict: 'profile_id,role' })
+
+  if (rolesError) {
+    console.error('profiles_roles insert failed (non-fatal):', rolesError)
+  }
+
+  // Send welcome email (non-blocking)
   try {
     await sendEmail({
       to: email,

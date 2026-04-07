@@ -3,8 +3,9 @@ import { createClient } from '@/lib/supabase/server'
 
 // Root page: redirect based on session.
 // - Not logged in → /login
-// - Admin → /dashboard
-// - Formatore → /formatore
+// - super_admin / admin → /dashboard
+// - formatore → /formatore
+// - tutor → /tutor
 export default async function RootPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -18,6 +19,10 @@ export default async function RootPage() {
     .select('role')
     .eq('id', user.id)
     .single()
+
+  if (profile?.role === 'tutor') {
+    redirect('/tutor')
+  }
 
   if (profile?.role === 'formatore') {
     redirect('/formatore')

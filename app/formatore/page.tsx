@@ -17,7 +17,9 @@ export default async function FormatorePage() {
   // loop because dashboard/page.tsx does:
   //   if (!profile || role !== 'admin') redirect('/formatore')
   // and then we'd redirect back, and so on.
-  if (profile && profile.role !== 'formatore') redirect('/dashboard')
+  // Redirect non-formatori to the appropriate home
+  if (profile && profile.role === 'tutor') redirect('/tutor')
+  if (profile && !['formatore', 'tutor'].includes(profile.role)) redirect('/dashboard')
 
   if (!profile) {
     return <NoProfileError />

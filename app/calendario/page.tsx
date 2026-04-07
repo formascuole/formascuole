@@ -9,7 +9,7 @@ export default async function CalendarioPage() {
   if (!user) redirect('/login')
 
   const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-  if (!profile || profile.role !== 'admin') redirect('/formatore')
+  if (!profile || !['admin','super_admin'].includes(profile.role)) redirect('/formatore')
 
   const { data: sessioni } = await supabase
     .from('sessioni')
@@ -22,7 +22,7 @@ export default async function CalendarioPage() {
     .eq('tipo', 'sollecito_3')
 
   return (
-    <AppLayout role="admin" nome={profile.nome} email={profile.email} avatarInitials={profile.avatar_initials} notificheBadge={notifiche || 0}>
+    <AppLayout role={profile.role} nome={profile.nome} email={profile.email} avatarInitials={profile.avatar_initials} notificheBadge={notifiche || 0}>
       <CalendarioClient sessioni={sessioni || []} />
     </AppLayout>
   )

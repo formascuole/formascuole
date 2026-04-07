@@ -14,7 +14,7 @@ export default async function CorsoDetailPage({
   if (!user) redirect('/login')
 
   const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-  if (!profile || profile.role !== 'admin') redirect('/formatore')
+  if (!profile || !['admin','super_admin'].includes(profile.role)) redirect('/formatore')
 
   const { data: corso } = await supabase
     .from('corsi_con_ore')
@@ -61,7 +61,7 @@ export default async function CorsoDetailPage({
 
   return (
     <AppLayout
-      role="admin"
+      role={profile.role}
       nome={profile.nome}
       email={profile.email}
       avatarInitials={profile.avatar_initials}
