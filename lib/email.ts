@@ -98,17 +98,17 @@ export async function sendEmail({
   body: string
 }) {
   await resend.emails.send({
-    from: 'FormaScuola <noreply@formascuola.it>',
+    from: 'Formascuole <noreply@formascuola.it>',
     to,
     subject,
     text: body,
     html: `<div style="font-family: system-ui, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
       <div style="margin-bottom: 24px;">
-        <span style="font-size: 20px; font-weight: bold; color: #d64b55;">FormaScuola</span>
+        <span style="font-size: 20px; font-weight: bold; color: #d64b55;">Formascuole</span>
       </div>
       <div style="white-space: pre-wrap; color: #1a1a1a; line-height: 1.6;">${body.replace(/\n/g, '<br/>')}</div>
       <div style="margin-top: 32px; padding-top: 16px; border-top: 1px solid #e5e5e5; font-size: 12px; color: #888;">
-        <p>FormaScuola — Piattaforma gestione progetti formativi</p>
+        <p>Formascuole — Piattaforma gestione progetti formativi</p>
         <p><a href="${APP_URL}" style="color: #d64b55;">${APP_URL}</a></p>
       </div>
     </div>`,

@@ -105,19 +105,24 @@ export function Sidebar({ role, nome, email, avatarInitials, notificheBadge }: S
       style={{ borderRight: '0.5px solid #e5e5e5' }}
     >
       {/* Logo */}
-      <div className="px-5 py-5 border-b border-gray-100">
-        <div className="flex items-center gap-2.5">
-          <div
-            className="w-8 h-8 rounded-lg flex items-center justify-center"
-            style={{ backgroundColor: '#d64b55' }}
-          >
-            <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
-              <path d="M12 3L3 8v13h18V8L12 3z" stroke="white" strokeWidth="1.5" strokeLinejoin="round"/>
-              <rect x="9" y="13" width="6" height="8" stroke="white" strokeWidth="1.5"/>
-            </svg>
-          </div>
-          <span className="font-bold text-gray-900 text-base">FormaScuola</span>
-        </div>
+      <div className="px-5 py-4 border-b border-gray-100">
+        <img
+          src="https://www.formascuole.it/wp-content/uploads/2024/01/logo-formascuole-black-red-flag-2048x361.png"
+          alt="Formascuole"
+          style={{ height: '40px', width: 'auto', maxWidth: '172px', objectFit: 'contain' }}
+          onError={(e) => {
+            const img = e.currentTarget
+            img.style.display = 'none'
+            const fallback = img.nextElementSibling as HTMLElement | null
+            if (fallback) fallback.style.display = 'block'
+          }}
+        />
+        <span
+          className="font-bold text-gray-900 text-base"
+          style={{ display: 'none' }}
+        >
+          Formascuole
+        </span>
       </div>
 
       {/* Nav */}

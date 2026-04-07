@@ -1,5 +1,5 @@
 -- ============================================
--- FormaScuola - Seed data
+-- Formascuole - Seed data
 -- Run AFTER creating users in Supabase Auth dashboard
 -- ============================================
 --
@@ -14,7 +14,7 @@
 -- Update profiles (run after creating auth users)
 -- Replace UUIDs with actual user IDs from auth.users
 /*
-UPDATE profiles SET role='admin', nome='Admin FormaScuola', avatar_initials='AF'
+UPDATE profiles SET role='admin', nome='Admin Formascuole', avatar_initials='AF'
   WHERE email='admin@formascuole.it';
 
 UPDATE profiles SET nome='Mario Rossi', avatar_initials='MR'

@@ -123,7 +123,7 @@ export async function GET(request: NextRequest) {
 
         await sendEmail({
           to: formatore.email,
-          subject: `FormaScuola — ${numeroSollecito === 1 ? 'Promemoria' : `Sollecito ${numeroSollecito}`}: ${corso.title}`,
+          subject: `Formascuole — ${numeroSollecito === 1 ? 'Promemoria' : `Sollecito ${numeroSollecito}`}: ${corso.title}`,
           body: emailBody,
         })
 

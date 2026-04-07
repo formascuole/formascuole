@@ -45,17 +45,26 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
-          <div
-            className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4"
-            style={{ backgroundColor: '#d64b55' }}
-          >
-            <svg width="28" height="28" fill="none" viewBox="0 0 24 24">
-              <path d="M12 3L3 8v13h18V8L12 3z" stroke="white" strokeWidth="1.5" strokeLinejoin="round"/>
-              <rect x="9" y="13" width="6" height="8" stroke="white" strokeWidth="1.5"/>
-            </svg>
+          <div className="mb-5">
+            <img
+              src="https://www.formascuole.it/wp-content/uploads/2024/01/logo-formascuole-black-red-flag-2048x361.png"
+              alt="Formascuole"
+              style={{ height: '40px', width: 'auto', maxWidth: '220px', objectFit: 'contain' }}
+              onError={(e) => {
+                const img = e.currentTarget
+                img.style.display = 'none'
+                const fallback = img.nextElementSibling as HTMLElement | null
+                if (fallback) fallback.style.display = 'block'
+              }}
+            />
+            <span
+              className="text-2xl font-bold text-gray-900"
+              style={{ display: 'none' }}
+            >
+              Formascuole
+            </span>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">FormaScuola</h1>
-          <p className="text-sm text-gray-500 mt-1">Accedi alla piattaforma</p>
+          <p className="text-sm text-gray-500">Accedi alla piattaforma</p>
         </div>
 
         {/* Form */}
@@ -94,7 +103,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-xs text-gray-400 mt-6">
-          © {new Date().getFullYear()} FormaScuola — Tutti i diritti riservati
+          © {new Date().getFullYear()} Formascuole — Tutti i diritti riservati
         </p>
       </div>
     </div>

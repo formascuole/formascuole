@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
 
     await sendEmail({
       to: formatore_email,
-      subject: `FormaScuola — Assegnazione corso: ${corso_title}`,
+      subject: `Formascuole — Assegnazione corso: ${corso_title}`,
       body: emailBody,
     })
 
