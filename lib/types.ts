@@ -1,6 +1,8 @@
 export type UserRole = 'admin' | 'formatore'
 export type ProjectStatus = 'active' | 'pending' | 'completed'
 export type CorsoTipo = 'PF' | 'Lab'
+export type ModalitaCorso = 'presenza' | 'online' | 'ibrido'
+export type ModalitaSessione = 'presenza' | 'online'
 export type SollectipoTipo = 'assegnazione' | 'sollecito_1' | 'sollecito_2' | 'sollecito_3'
 
 export interface Profile {
@@ -32,6 +34,8 @@ export interface ProgettoConStats extends Progetto {
   percentuale_completamento: number
   corsi_senza_formatore: number
   corsi_senza_calendario: number
+  ore_tutoraggio_totali: number
+  ore_tutoraggio_pianificate: number
 }
 
 export interface Corso {
@@ -41,6 +45,10 @@ export interface Corso {
   tipo: CorsoTipo
   ore_totali: number
   formatore_id?: string
+  modalita?: ModalitaCorso
+  tutor_previsto: boolean
+  tutor_nome?: string
+  ore_tutoraggio?: number
   created_at: string
 }
 
@@ -56,6 +64,7 @@ export interface Sessione {
   corso_id: string
   data: string
   ore: number
+  modalita_sessione?: ModalitaSessione
   created_at: string
 }
 

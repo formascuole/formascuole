@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
-  const { corso_id, data: sessioneData, ore } = body
+  const { corso_id, data: sessioneData, ore, modalita_sessione } = body
 
   if (!corso_id || !sessioneData || !ore) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
   // Validate ore residue
   const { data: corso } = await supabase
     .from('corsi_con_ore')
-    .select('ore_residue, formatore_id')
+    .select('ore_residue, formatore_id, tipo, modalita')
     .eq('id', corso_id)
     .single()
 
@@ -58,9 +58,20 @@ export async function POST(request: NextRequest) {
     )
   }
 
+  // modalita_sessione obbligatoria per corsi PF ibridi
+  if (corso.tipo === 'PF' && corso.modalita === 'ibrido' && !modalita_sessione) {
+    return NextResponse.json(
+      { error: 'La modalità sessione è obbligatoria per i corsi ibridi' },
+      { status: 400 }
+    )
+  }
+
+  const insertData: Record<string, unknown> = { corso_id, data: sessioneData, ore: Number(ore) }
+  if (modalita_sessione) insertData.modalita_sessione = modalita_sessione
+
   const { data, error } = await supabase
     .from('sessioni')
-    .insert({ corso_id, data: sessioneData, ore: Number(ore) })
+    .insert(insertData)
     .select()
     .single()
 

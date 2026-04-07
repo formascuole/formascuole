@@ -8,6 +8,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
+import { Select } from '@/components/ui/Select'
 import { Avatar } from '@/components/ui/Avatar'
 import { formatDate } from '@/lib/utils'
 
@@ -25,7 +26,10 @@ export function CorsoDetailClient({ corso, progetto, sessioni, formatori, proget
   const [formatorePickerOpen, setFormatorePickerOpen] = useState(false)
   const [newData, setNewData] = useState('')
   const [newOre, setNewOre] = useState('')
+  const [newModalitaSessione, setNewModalitaSessione] = useState<'presenza' | 'online'>('presenza')
   const [saving, setSaving] = useState(false)
+
+  const isIbrido = corso.tipo === 'PF' && corso.modalita === 'ibrido'
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [assigningId, setAssigningId] = useState<string | null>(null)
 
@@ -33,7 +37,8 @@ export function CorsoDetailClient({ corso, progetto, sessioni, formatori, proget
   const oreResidue = Math.max(Number(corso.ore_totali) - orePianificate, 0)
   const newOreNum = Number(newOre)
   const oreError = newOre && newOreNum > oreResidue ? `Max ${oreResidue}h residue` : ''
-  const canSubmitSession = newData && newOre && !oreError && newOreNum > 0 && oreResidue > 0
+  const canSubmitSession = newData && newOre && !oreError && newOreNum > 0 && oreResidue > 0 &&
+    (!isIbrido || !!newModalitaSessione)
 
   const handleAddSession = async () => {
     setSaving(true)
@@ -41,12 +46,18 @@ export function CorsoDetailClient({ corso, progetto, sessioni, formatori, proget
       const res = await fetch('/api/sessioni', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ corso_id: corso.id, data: newData, ore: newOreNum }),
+        body: JSON.stringify({
+          corso_id: corso.id,
+          data: newData,
+          ore: newOreNum,
+          ...(isIbrido && { modalita_sessione: newModalitaSessione }),
+        }),
       })
       if (res.ok) {
         setCalendarOpen(false)
         setNewData('')
         setNewOre('')
+        setNewModalitaSessione('presenza')
         router.refresh()
       }
     } finally {
@@ -117,6 +128,22 @@ export function CorsoDetailClient({ corso, progetto, sessioni, formatori, proget
             )}
           </div>
         </div>
+        {/* Info modalità e tutor per corsi PF */}
+        {corso.tipo === 'PF' && (
+          <div className="flex flex-wrap gap-2 mb-4">
+            {corso.modalita && (
+              <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-md bg-gray-100 text-gray-600">
+                {corso.modalita === 'presenza' ? '🏫 In presenza' : corso.modalita === 'online' ? '💻 Online' : '🔀 Ibrido'}
+              </span>
+            )}
+            {corso.tutor_previsto && (
+              <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-md bg-indigo-100 text-indigo-700">
+                👤 Tutor: {corso.tutor_nome || 'Da definire'}
+                {corso.ore_tutoraggio ? ` · ${corso.ore_tutoraggio}h` : ''}
+              </span>
+            )}
+          </div>
+        )}
         <OreCounter oreTotali={Number(corso.ore_totali)} orePianificate={orePianificate} />
       </div>
 
@@ -174,6 +201,7 @@ export function CorsoDetailClient({ corso, progetto, sessioni, formatori, proget
               <tr className="border-b border-gray-100">
                 <th className="text-left text-xs font-medium text-gray-400 px-6 py-3">DATA</th>
                 <th className="text-left text-xs font-medium text-gray-400 px-6 py-3">ORE</th>
+                {isIbrido && <th className="text-left text-xs font-medium text-gray-400 px-6 py-3">MODALITÀ</th>}
                 <th className="text-left text-xs font-medium text-gray-400 px-6 py-3">CREATA IL</th>
                 <th className="px-6 py-3"></th>
               </tr>
@@ -183,6 +211,15 @@ export function CorsoDetailClient({ corso, progetto, sessioni, formatori, proget
                 <tr key={s.id} className="hover:bg-gray-50">
                   <td className="px-6 py-3 text-sm text-gray-800">{formatDate(s.data)}</td>
                   <td className="px-6 py-3 text-sm font-medium text-gray-800">{s.ore}h</td>
+                  {isIbrido && (
+                    <td className="px-6 py-3">
+                      {s.modalita_sessione ? (
+                        <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-md ${s.modalita_sessione === 'presenza' ? 'bg-blue-100 text-blue-700' : 'bg-violet-100 text-violet-700'}`}>
+                          {s.modalita_sessione === 'presenza' ? '🏫 Presenza' : '💻 Online'}
+                        </span>
+                      ) : <span className="text-xs text-gray-400">—</span>}
+                    </td>
+                  )}
                   <td className="px-6 py-3 text-xs text-gray-400">{formatDate(s.created_at)}</td>
                   <td className="px-6 py-3 text-right">
                     <button
@@ -203,11 +240,11 @@ export function CorsoDetailClient({ corso, progetto, sessioni, formatori, proget
       {/* Calendar Modal */}
       <Modal
         open={calendarOpen}
-        onClose={() => { setCalendarOpen(false); setNewData(''); setNewOre('') }}
+        onClose={() => { setCalendarOpen(false); setNewData(''); setNewOre(''); setNewModalitaSessione('presenza') }}
         title="Aggiungi Sessione"
         footer={
           <>
-            <Button variant="secondary" onClick={() => { setCalendarOpen(false); setNewData(''); setNewOre('') }}>Annulla</Button>
+            <Button variant="secondary" onClick={() => { setCalendarOpen(false); setNewData(''); setNewOre(''); setNewModalitaSessione('presenza') }}>Annulla</Button>
             <Button onClick={handleAddSession} loading={saving} disabled={!canSubmitSession}>
               Aggiungi Sessione
             </Button>
@@ -223,7 +260,7 @@ export function CorsoDetailClient({ corso, progetto, sessioni, formatori, proget
             onChange={e => setNewData(e.target.value)}
           />
           <Input
-            label={`Ore *`}
+            label="Ore *"
             type="number"
             min={1}
             max={oreResidue}
@@ -233,6 +270,30 @@ export function CorsoDetailClient({ corso, progetto, sessioni, formatori, proget
             error={oreError}
             placeholder={`Es. ${Math.min(oreResidue, 4)}`}
           />
+          {/* Modalità sessione — obbligatoria solo per corsi ibridi */}
+          {isIbrido && (
+            <div>
+              <div className="text-sm font-medium text-gray-700 mb-2">Modalità sessione *</div>
+              <div className="flex gap-3">
+                {(['presenza', 'online'] as const).map(m => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setNewModalitaSessione(m)}
+                    className="flex-1 py-2 px-3 rounded-[7px] border text-sm font-medium transition-all"
+                    style={{
+                      borderColor: newModalitaSessione === m ? '#d64b55' : '#e5e5e5',
+                      backgroundColor: newModalitaSessione === m ? '#fbeced' : 'white',
+                      color: newModalitaSessione === m ? '#d64b55' : '#555',
+                    }}
+                  >
+                    {m === 'presenza' ? '🏫 In presenza' : '💻 Online'}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {oreResidue === 0 && (
             <div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-[7px] px-3 py-2">
               Calendario completo! Tutte le ore sono state pianificate.

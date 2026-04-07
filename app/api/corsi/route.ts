@@ -30,15 +30,26 @@ export async function POST(request: NextRequest) {
   if (profile?.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const body = await request.json()
-  const { project_id, title, tipo, ore_totali } = body
+  const { project_id, title, tipo, ore_totali, modalita, tutor_previsto, tutor_nome, ore_tutoraggio } = body
 
   if (!project_id || !title || !tipo || !ore_totali) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
+  if (tipo === 'PF' && !modalita) {
+    return NextResponse.json({ error: 'La modalità è obbligatoria per i corsi PF' }, { status: 400 })
+  }
+
+  const insertData: Record<string, unknown> = {
+    project_id, title, tipo, ore_totali: Number(ore_totali),
+    tutor_previsto: Boolean(tutor_previsto),
+  }
+  if (modalita) insertData.modalita = modalita
+  if (tutor_previsto && tutor_nome) insertData.tutor_nome = tutor_nome
+  if (tutor_previsto && ore_tutoraggio) insertData.ore_tutoraggio = Number(ore_tutoraggio)
 
   const { data, error } = await supabase
     .from('corsi')
-    .insert({ project_id, title, tipo, ore_totali: Number(ore_totali) })
+    .insert(insertData)
     .select()
     .single()
 

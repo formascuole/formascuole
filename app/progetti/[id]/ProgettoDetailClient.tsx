@@ -21,7 +21,15 @@ export function ProgettoDetailClient({ progetto, corsi, formatori }: ProgettoDet
   const router = useRouter()
   const [addCorsoOpen, setAddCorsoOpen] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [corsoForm, setCorsoForm] = useState({ title: '', tipo: 'PF', ore_totali: '' })
+  const [corsoForm, setCorsoForm] = useState({
+    title: '',
+    tipo: 'PF',
+    ore_totali: '',
+    modalita: 'presenza',
+    tutor_previsto: false,
+    tutor_nome: '',
+    ore_tutoraggio: '',
+  })
   const pct = Number(progetto.percentuale_completamento)
 
   const handleAddCorso = async () => {
@@ -35,11 +43,15 @@ export function ProgettoDetailClient({ progetto, corsi, formatori }: ProgettoDet
           title: corsoForm.title,
           tipo: corsoForm.tipo,
           ore_totali: Number(corsoForm.ore_totali),
+          ...(corsoForm.tipo === 'PF' && { modalita: corsoForm.modalita }),
+          tutor_previsto: corsoForm.tutor_previsto,
+          ...(corsoForm.tutor_previsto && corsoForm.tutor_nome && { tutor_nome: corsoForm.tutor_nome }),
+          ...(corsoForm.tutor_previsto && corsoForm.ore_tutoraggio && { ore_tutoraggio: Number(corsoForm.ore_tutoraggio) }),
         }),
       })
       if (res.ok) {
         setAddCorsoOpen(false)
-        setCorsoForm({ title: '', tipo: 'PF', ore_totali: '' })
+        setCorsoForm({ title: '', tipo: 'PF', ore_totali: '', modalita: 'presenza', tutor_previsto: false, tutor_nome: '', ore_tutoraggio: '' })
         router.refresh()
       }
     } finally {
@@ -142,24 +154,95 @@ export function ProgettoDetailClient({ progetto, corsi, formatori }: ProgettoDet
         footer={
           <>
             <Button variant="secondary" onClick={() => setAddCorsoOpen(false)}>Annulla</Button>
-            <Button onClick={handleAddCorso} loading={saving} disabled={!corsoForm.title || !corsoForm.ore_totali}>
+            <Button
+              onClick={handleAddCorso}
+              loading={saving}
+              disabled={
+                !corsoForm.title ||
+                !corsoForm.ore_totali ||
+                (corsoForm.tipo === 'PF' && !corsoForm.modalita) ||
+                (corsoForm.tutor_previsto && !corsoForm.tutor_nome)
+              }
+            >
               Aggiungi
             </Button>
           </>
         }
       >
         <div className="space-y-4">
-          <Input label="Titolo corso *" value={corsoForm.title} onChange={e => setCorsoForm(f => ({ ...f, title: e.target.value }))} placeholder="Es. Sicurezza sul lavoro" />
-          <Select
-            label="Tipo *"
-            value={corsoForm.tipo}
-            onChange={e => setCorsoForm(f => ({ ...f, tipo: e.target.value }))}
-            options={[
-              { value: 'PF', label: 'Percorso Formativo (PF)' },
-              { value: 'Lab', label: 'Laboratorio sul Campo (Lab)' },
-            ]}
+          <Input
+            label="Titolo corso *"
+            value={corsoForm.title}
+            onChange={e => setCorsoForm(f => ({ ...f, title: e.target.value }))}
+            placeholder="Es. Sicurezza sul lavoro"
           />
-          <Input label="Ore totali *" type="number" min={1} value={corsoForm.ore_totali} onChange={e => setCorsoForm(f => ({ ...f, ore_totali: e.target.value }))} placeholder="Es. 20" />
+          <div className="grid grid-cols-2 gap-3">
+            <Select
+              label="Tipo *"
+              value={corsoForm.tipo}
+              onChange={e => setCorsoForm(f => ({ ...f, tipo: e.target.value, modalita: e.target.value === 'PF' ? 'presenza' : '' }))}
+              options={[
+                { value: 'PF', label: 'Percorso Formativo (PF)' },
+                { value: 'Lab', label: 'Laboratorio sul Campo (Lab)' },
+              ]}
+            />
+            <Input
+              label="Ore totali *"
+              type="number"
+              min={1}
+              value={corsoForm.ore_totali}
+              onChange={e => setCorsoForm(f => ({ ...f, ore_totali: e.target.value }))}
+              placeholder="Es. 20"
+            />
+          </div>
+
+          {/* Modalità — solo per PF */}
+          {corsoForm.tipo === 'PF' && (
+            <Select
+              label="Modalità erogazione *"
+              value={corsoForm.modalita}
+              onChange={e => setCorsoForm(f => ({ ...f, modalita: e.target.value }))}
+              options={[
+                { value: 'presenza', label: 'In presenza' },
+                { value: 'online', label: 'Online' },
+                { value: 'ibrido', label: 'Ibrido (presenza + online)' },
+              ]}
+            />
+          )}
+
+          {/* Tutor — solo per PF */}
+          {corsoForm.tipo === 'PF' && (
+            <div className="space-y-3 pt-1">
+              <label className="flex items-center gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={corsoForm.tutor_previsto}
+                  onChange={e => setCorsoForm(f => ({ ...f, tutor_previsto: e.target.checked, tutor_nome: '', ore_tutoraggio: '' }))}
+                  className="w-4 h-4 rounded accent-[#d64b55]"
+                />
+                <span className="text-sm font-medium text-gray-700">È previsto un tutor?</span>
+              </label>
+
+              {corsoForm.tutor_previsto && (
+                <div className="grid grid-cols-2 gap-3 pl-6">
+                  <Input
+                    label="Nome tutor *"
+                    value={corsoForm.tutor_nome}
+                    onChange={e => setCorsoForm(f => ({ ...f, tutor_nome: e.target.value }))}
+                    placeholder="Es. Anna Verdi"
+                  />
+                  <Input
+                    label="Ore tutoraggio"
+                    type="number"
+                    min={1}
+                    value={corsoForm.ore_tutoraggio}
+                    onChange={e => setCorsoForm(f => ({ ...f, ore_tutoraggio: e.target.value }))}
+                    placeholder="Es. 10"
+                  />
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </Modal>
     </div>

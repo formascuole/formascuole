@@ -15,7 +15,6 @@ export default async function DashboardPage() {
   const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
   if (!profile || profile.role !== 'admin') redirect('/formatore')
 
-  // Stats
   const { data: progetti } = await supabase
     .from('progetti_con_stats')
     .select('*')
@@ -27,8 +26,9 @@ export default async function DashboardPage() {
   const oreTotali = progettiList.reduce((s, p) => s + Number(p.ore_totali), 0)
   const orePianificate = progettiList.reduce((s, p) => s + Number(p.ore_pianificate), 0)
   const pctGlobale = oreTotali > 0 ? Math.round((orePianificate / oreTotali) * 100) : 0
+  const oreTutoraggioTotali = progettiList.reduce((s, p) => s + Number(p.ore_tutoraggio_totali || 0), 0)
+  const oreTutor_aggioPianificate = progettiList.reduce((s, p) => s + Number(p.ore_tutoraggio_pianificate || 0), 0)
 
-  // Notifiche non lette (corsi con 3 solleciti inviati)
   const { count: notifiche } = await supabase
     .from('solleciti_log')
     .select('*', { count: 'exact', head: true })
@@ -43,70 +43,66 @@ export default async function DashboardPage() {
       notificheBadge={notifiche || 0}
     >
       <div className="p-8 max-w-7xl mx-auto">
-        {/* Header */}
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
           <p className="text-sm text-gray-500 mt-1">Panoramica di tutti i progetti formativi</p>
         </div>
 
-        {/* Stat cards */}
-        <div className="grid grid-cols-4 gap-4 mb-8">
+        {/* Stat cards — riga 1 */}
+        <div className="grid grid-cols-4 gap-4 mb-4">
           <StatCard
             label="Progetti attivi"
             value={nProgetti}
             subtitle={`${progettiList.filter(p => p.status === 'active').length} in corso`}
-            icon={
-              <svg width="20" height="20" fill="none" viewBox="0 0 24 24">
-                <path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" stroke="currentColor" strokeWidth="1.5"/>
-              </svg>
-            }
+            icon={<svg width="20" height="20" fill="none" viewBox="0 0 24 24"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" stroke="currentColor" strokeWidth="1.5"/></svg>}
           />
           <StatCard
             label="Corsi totali"
             value={nCorsi}
             subtitle="in tutti i progetti"
-            icon={
-              <svg width="20" height="20" fill="none" viewBox="0 0 24 24">
-                <path d="M12 3l9 4.5-9 4.5-9-4.5L12 3zM3 12l9 4.5 9-4.5M3 17l9 4.5 9-4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            }
+            icon={<svg width="20" height="20" fill="none" viewBox="0 0 24 24"><path d="M12 3l9 4.5-9 4.5-9-4.5L12 3zM3 12l9 4.5 9-4.5M3 17l9 4.5 9-4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
           />
           <StatCard
-            label="Ore totali"
+            label="Ore formazione totali"
             value={`${oreTotali}h`}
             subtitle={`${orePianificate}h pianificate`}
-            icon={
-              <svg width="20" height="20" fill="none" viewBox="0 0 24 24">
-                <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5"/>
-                <path d="M12 7v5l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-              </svg>
-            }
+            icon={<svg width="20" height="20" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5"/><path d="M12 7v5l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>}
           />
           <StatCard
             label="Completamento globale"
             value={`${pctGlobale}%`}
             subtitle="calendari pianificati"
-            icon={
-              <svg width="20" height="20" fill="none" viewBox="0 0 24 24">
-                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            }
+            icon={<svg width="20" height="20" fill="none" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
           />
         </div>
+
+        {/* Stat cards — riga 2: tutoraggio */}
+        {oreTutoraggioTotali > 0 && (
+          <div className="grid grid-cols-4 gap-4 mb-8">
+            <StatCard
+              label="Ore tutoraggio totali"
+              value={`${oreTutoraggioTotali}h`}
+              subtitle="corsi PF con tutor previsto"
+              icon={<svg width="20" height="20" fill="none" viewBox="0 0 24 24"><circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="1.5"/><path d="M3 20a6 6 0 0112 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><path d="M19 13v6M16 16h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>}
+            />
+            <StatCard
+              label="Ore tutoraggio pianificate"
+              value={`${oreTutor_aggioPianificate}h`}
+              subtitle="stima proporzionale al completamento"
+              icon={<svg width="20" height="20" fill="none" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.5"/><path d="M3 9h18M8 2v4M16 2v4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>}
+            />
+          </div>
+        )}
+        {oreTutoraggioTotali === 0 && <div className="mb-8" />}
 
         {/* Tabella progetti */}
         <div className="bg-white rounded-xl" style={{ border: '0.5px solid #e5e5e5' }}>
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
             <h2 className="font-semibold text-gray-900">Tutti i progetti</h2>
-            <Link
-              href="/progetti"
-              className="text-sm font-medium hover:underline"
-              style={{ color: '#d64b55' }}
-            >
+            <Link href="/progetti" className="text-sm font-medium hover:underline" style={{ color: '#d64b55' }}>
               Vedi tutti →
             </Link>
           </div>
-
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -114,7 +110,7 @@ export default async function DashboardPage() {
                   <th className="text-left text-xs font-medium text-gray-400 px-6 py-3">SCUOLA</th>
                   <th className="text-left text-xs font-medium text-gray-400 px-6 py-3">ANNO</th>
                   <th className="text-center text-xs font-medium text-gray-400 px-6 py-3">CORSI</th>
-                  <th className="text-left text-xs font-medium text-gray-400 px-6 py-3 min-w-[180px]">PROGRESSO</th>
+                  <th className="text-left text-xs font-medium text-gray-400 px-6 py-3 min-w-[180px]">PIANIFICAZIONE</th>
                   <th className="text-left text-xs font-medium text-gray-400 px-6 py-3">STATO</th>
                   <th className="px-6 py-3"></th>
                 </tr>
@@ -140,10 +136,7 @@ export default async function DashboardPage() {
                       <StatusBadge variant={p.status} size="sm" />
                     </td>
                     <td className="px-6 py-4">
-                      <Link
-                        href={`/progetti/${p.id}`}
-                        className="text-xs text-gray-400 hover:text-gray-700 transition-colors"
-                      >
+                      <Link href={`/progetti/${p.id}`} className="text-xs text-gray-400 hover:text-gray-700 transition-colors">
                         Dettagli →
                       </Link>
                     </td>
@@ -152,7 +145,10 @@ export default async function DashboardPage() {
                 {progettiList.length === 0 && (
                   <tr>
                     <td colSpan={6} className="px-6 py-12 text-center text-sm text-gray-400">
-                      Nessun progetto trovato. <Link href="/progetti" className="underline" style={{ color: '#d64b55' }}>Crea il primo progetto</Link>
+                      Nessun progetto trovato.{' '}
+                      <Link href="/progetti" className="underline" style={{ color: '#d64b55' }}>
+                        Crea il primo progetto
+                      </Link>
                     </td>
                   </tr>
                 )}
