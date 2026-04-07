@@ -12,6 +12,14 @@ export default async function ProgettoDetailPage({ params }: { params: Promise<{
   const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
   if (!profile || !['admin','super_admin'].includes(profile.role)) redirect('/formatore')
 
+  const { data: superAdminRow } = await supabase
+    .from('profiles_roles')
+    .select('role')
+    .eq('profile_id', user.id)
+    .eq('role', 'super_admin')
+    .maybeSingle()
+  const isSuperAdmin = profile.role === 'super_admin' || !!superAdminRow
+
   const { data: progetto } = await supabase
     .from('progetti_con_stats')
     .select('*')
@@ -77,7 +85,7 @@ export default async function ProgettoDetailPage({ params }: { params: Promise<{
         messaggi={messaggiConLetto}
         referenti={referenti || []}
         currentUserId={user.id}
-        isSuperAdmin={profile.role === 'super_admin'}
+        isSuperAdmin={isSuperAdmin}
       />
     </AppLayout>
   )

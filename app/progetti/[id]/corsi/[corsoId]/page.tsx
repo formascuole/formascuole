@@ -17,6 +17,14 @@ export default async function CorsoDetailPage({
   const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
   if (!profile || !['admin','super_admin'].includes(profile.role)) redirect('/formatore')
 
+  const { data: superAdminRow } = await supabase
+    .from('profiles_roles')
+    .select('role')
+    .eq('profile_id', user.id)
+    .eq('role', 'super_admin')
+    .maybeSingle()
+  const isSuperAdmin = profile.role === 'super_admin' || !!superAdminRow
+
   // Fetch the corso without profile joins — PostgREST can't reliably disambiguate
   // two FKs pointing to the same table (formatore_id and tutor_id both → profiles)
   const { data: corsoData } = await supabase
@@ -116,7 +124,7 @@ export default async function CorsoDetailPage({
         currentUserId={user.id}
         isAdmin={true}
         canConfirmSessions={true}
-        isSuperAdmin={profile.role === 'super_admin'}
+        isSuperAdmin={isSuperAdmin}
       />
     </AppLayout>
   )

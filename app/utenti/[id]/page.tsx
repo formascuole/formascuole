@@ -14,6 +14,14 @@ export default async function UtenteDetailPage({ params }: { params: Promise<{ i
   const { data: currentProfile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
   if (!currentProfile || !['admin', 'super_admin'].includes(currentProfile.role)) redirect('/formatore')
 
+  const { data: superAdminRow } = await supabase
+    .from('profiles_roles')
+    .select('role')
+    .eq('profile_id', user.id)
+    .eq('role', 'super_admin')
+    .maybeSingle()
+  const isSuperAdmin = currentProfile.role === 'super_admin' || !!superAdminRow
+
   // Fetch the target user profile
   const { data: profile } = await supabase
     .from('profiles')
@@ -64,7 +72,7 @@ export default async function UtenteDetailPage({ params }: { params: Promise<{ i
         profile={{ ...profile, roles }}
         corsiFormatore={corsiFormatore || []}
         corsiTutor={corsiTutor || []}
-        isSuperAdmin={currentProfile.role === 'super_admin'}
+        isSuperAdmin={isSuperAdmin}
         currentUserId={user.id}
       />
     </AppLayout>
