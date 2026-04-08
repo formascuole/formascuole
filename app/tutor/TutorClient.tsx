@@ -1,5 +1,5 @@
 'use client'
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { CorsoConOre, NotaCorso, Profile } from '@/lib/types'
 import { OreCounter } from '@/components/ui/OreCounter'
@@ -47,28 +47,19 @@ interface CorsoConProgetto extends Omit<CorsoConOre, 'referente'> {
 }
 
 interface TutorClientProps {
+  corsi: CorsoConProgetto[]
   profile: Profile
   finanziamenti: { id: string; nome: string }[]
 }
 
-export function TutorClient({ profile, finanziamenti }: TutorClientProps) {
+export function TutorClient({ corsi, profile, finanziamenti }: TutorClientProps) {
   const router = useRouter()
-  const [corsi, setCorsi] = useState<CorsoConProgetto[]>([])
-  const [loading, setLoading] = useState(true)
   const [selectedCorso, setSelectedCorso] = useState<CorsoConProgetto | null>(null)
   const [note, setNote] = useState<NotaCorso[]>([])
   const [loadingNote, setLoadingNote] = useState(false)
   const [newNota, setNewNota] = useState('')
   const [savingNota, setSavingNota] = useState(false)
   const [deletingNota, setDeletingNota] = useState<string | null>(null)
-
-  // Carica i corsi bypassando RLS con service role
-  useEffect(() => {
-    fetch('/api/tutor/corsi')
-      .then(r => r.json())
-      .then(data => { setCorsi(Array.isArray(data) ? data : []); setLoading(false) })
-      .catch(() => setLoading(false))
-  }, [])
 
   const totalOre = corsi.reduce((s, c) => s + Number(c.ore_totali), 0)
   const totalPianificate = corsi.reduce((s, c) => s + Number(c.ore_pianificate), 0)
@@ -156,11 +147,7 @@ export function TutorClient({ profile, finanziamenti }: TutorClientProps) {
       </div>
 
       {/* Corsi raggruppati per progetto */}
-      {loading ? (
-        <div className="bg-white rounded-xl p-12 text-center" style={{ border: '0.5px solid #e5e5e5' }}>
-          <div className="text-sm text-gray-400">Caricamento corsi...</div>
-        </div>
-      ) : corsi.length === 0 ? (
+      {corsi.length === 0 ? (
         <div className="bg-white rounded-xl p-12 text-center" style={{ border: '0.5px solid #e5e5e5' }}>
           <h3 className="font-semibold text-gray-700 mb-1">Nessun corso assegnato</h3>
           <p className="text-sm text-gray-400">Contatta l&apos;amministratore per l&apos;assegnazione</p>
