@@ -59,6 +59,7 @@ export function CorsoDetailClient({
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [assigningId, setAssigningId] = useState<string | null>(null)
   const [assigningReferente, setAssigningReferente] = useState(false)
+  const [assignError, setAssignError] = useState<string | null>(null)
 
   // Dual-role dialog state
   const [dualRoleUser, setDualRoleUser] = useState<Profile | null>(null)
@@ -115,6 +116,7 @@ export function CorsoDetailClient({
 
   const doAssignFormatore = async (formatoreId: string) => {
     setAssigningId(formatoreId)
+    setAssignError(null)
     try {
       const res = await fetch(`/api/corsi/${corso.id}/formatore`, {
         method: 'PATCH',
@@ -124,6 +126,9 @@ export function CorsoDetailClient({
       if (res.ok) {
         setFormatorePickerOpen(false)
         router.refresh()
+      } else {
+        const j = await res.json().catch(() => ({}))
+        setAssignError(j.error || 'Errore durante l\'assegnazione')
       }
     } finally {
       setAssigningId(null)
@@ -662,10 +667,15 @@ export function CorsoDetailClient({
       {/* Formatore Picker Modal */}
       <Modal
         open={formatorePickerOpen}
-        onClose={() => setFormatorePickerOpen(false)}
+        onClose={() => { setFormatorePickerOpen(false); setAssignError(null) }}
         title="Seleziona Formatore"
         size="md"
       >
+        {assignError && (
+          <div className="mb-3 bg-red-50 border border-red-200 rounded-[7px] px-3 py-2 text-sm text-red-700">
+            {assignError}
+          </div>
+        )}
         <div className="grid grid-cols-1 gap-3">
           {formatori.map((f) => (
             <button

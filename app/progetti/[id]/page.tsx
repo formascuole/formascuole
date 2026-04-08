@@ -1,5 +1,6 @@
 import { redirect, notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { checkIsSuperAdmin } from '@/lib/supabase/admin'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { ProgettoDetailClient } from './ProgettoDetailClient'
 
@@ -12,13 +13,7 @@ export default async function ProgettoDetailPage({ params }: { params: Promise<{
   const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
   if (!profile || !['admin','super_admin'].includes(profile.role)) redirect('/formatore')
 
-  const { data: superAdminRow } = await supabase
-    .from('profiles_roles')
-    .select('role')
-    .eq('profile_id', user.id)
-    .eq('role', 'super_admin')
-    .maybeSingle()
-  const isSuperAdmin = profile.role === 'super_admin' || !!superAdminRow
+  const isSuperAdmin = await checkIsSuperAdmin(user.id)
 
   const { data: progetto } = await supabase
     .from('progetti_con_stats')

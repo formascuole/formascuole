@@ -1,5 +1,6 @@
 import { redirect, notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { checkIsSuperAdmin } from '@/lib/supabase/admin'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { UtenteDetailClient } from './UtenteDetailClient'
 import { UserRole } from '@/lib/types'
@@ -14,13 +15,7 @@ export default async function UtenteDetailPage({ params }: { params: Promise<{ i
   const { data: currentProfile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
   if (!currentProfile || !['admin', 'super_admin'].includes(currentProfile.role)) redirect('/formatore')
 
-  const { data: superAdminRow } = await supabase
-    .from('profiles_roles')
-    .select('role')
-    .eq('profile_id', user.id)
-    .eq('role', 'super_admin')
-    .maybeSingle()
-  const isSuperAdmin = currentProfile.role === 'super_admin' || !!superAdminRow
+  const isSuperAdmin = await checkIsSuperAdmin(user.id)
 
   // Fetch the target user profile
   const { data: profile } = await supabase

@@ -31,7 +31,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         rifiuto_motivazione: null,
       }
 
-  const { data, error } = await supabase
+  // Use admin client to bypass RLS — the auth check above already verified the caller is admin
+  const adminClient = createAdminClient()
+  const { data, error } = await adminClient
     .from('corsi')
     .update(updateData)
     .eq('id', id)
@@ -43,7 +45,6 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   // Trigger assignment email if a formatore was assigned
   if (formatore_id) {
     try {
-      const adminClient = createAdminClient()
       const { data: corso } = await adminClient
         .from('corsi')
         .select('*, project:progetti(school_name,address,ref_name,ref_email), formatore:profiles!formatore_id(nome,email)')

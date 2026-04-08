@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { createAdminClient, checkIsSuperAdmin } from '@/lib/supabase/admin'
 import { sendEmail } from '@/lib/email'
 import { UserRole } from '@/lib/types'
 import { ROLE_LABELS } from '@/lib/auth'
@@ -73,7 +73,8 @@ export async function PATCH(
   }
 
   // Only super_admin can assign admin role
-  if ((roles as UserRole[]).includes('admin') && callerRole !== 'super_admin') {
+  const callerIsSuperAdmin = await checkIsSuperAdmin(user.id)
+  if ((roles as UserRole[]).includes('admin') && !callerIsSuperAdmin) {
     return NextResponse.json({ error: 'Solo il Super Admin può assegnare il ruolo Admin' }, { status: 403 })
   }
 
@@ -172,12 +173,7 @@ export async function DELETE(
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   // Only super_admin can delete users
-  const { data: callerProfile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-  if (callerProfile?.role !== 'super_admin') {
+  if (!await checkIsSuperAdmin(user.id)) {
     return NextResponse.json({ error: 'Riservato al Super Admin' }, { status: 403 })
   }
 

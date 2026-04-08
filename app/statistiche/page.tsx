@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { createAdminClient, checkIsSuperAdmin } from '@/lib/supabase/admin'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { StatisticheClient } from './StatisticheClient'
 
@@ -61,9 +61,7 @@ export default async function StatistichePage() {
   const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
   if (!profile || !['admin', 'super_admin'].includes(profile.role)) redirect('/formatore')
 
-  const { data: superAdminRow } = await supabase
-    .from('profiles_roles').select('role').eq('profile_id', user.id).eq('role', 'super_admin').maybeSingle()
-  const isSuperAdmin = profile.role === 'super_admin' || !!superAdminRow
+  const isSuperAdmin = await checkIsSuperAdmin(user.id)
 
   const { count: notifiche } = await supabase
     .from('solleciti_log').select('*', { count: 'exact', head: true }).eq('tipo', 'sollecito_3')
