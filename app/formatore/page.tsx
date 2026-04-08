@@ -18,34 +18,16 @@ export default async function FormatorePage() {
     return <NoProfileError />
   }
 
-  const { data: corsi } = await supabase
-    .from('corsi_con_ore')
-    .select('*, progetti(id,school_name,address,anno_scolastico,ref_name,ref_email,ref_tel,finanziamento_id)')
-    .eq('formatore_id', user.id)
-    .order('created_at')
-
-  // Fetch referenti specifici dei corsi (override del referente principale)
-  const referenteIds = [...new Set((corsi || []).filter(c => c.referente_id).map(c => c.referente_id as string))]
-  let referentiMap = new Map<string, { id: string; nome: string; email: string; tel?: string }>()
-  if (referenteIds.length > 0) {
-    const { data: referenti } = await supabase
-      .from('referenti_progetto')
-      .select('id,nome,email,tel')
-      .in('id', referenteIds)
-    for (const r of referenti || []) referentiMap.set(r.id, r)
-  }
-
-  // Fetch finanziamenti per i badge
-  const { data: finanziamenti } = await supabase.from('finanziamenti').select('id,nome').order('nome')
-
-  const corsiConReferente = (corsi || []).map(c => ({
-    ...c,
-    referente: c.referente_id ? referentiMap.get(c.referente_id) || null : null,
-  }))
+  // Finanziamenti: lettura libera per tutti gli autenticati (RLS consente)
+  const { data: finanziamenti } = await supabase
+    .from('finanziamenti')
+    .select('id,nome')
+    .order('nome')
 
   return (
     <AppLayout role="formatore" nome={profile.nome} email={profile.email} avatarInitials={profile.avatar_initials}>
-      <FormatoreClient corsi={corsiConReferente} profile={profile} finanziamenti={finanziamenti || []} />
+      {/* I corsi sono caricati client-side via /api/formatore/corsi (bypassa RLS) */}
+      <FormatoreClient profile={profile} finanziamenti={finanziamenti || []} />
     </AppLayout>
   )
 }

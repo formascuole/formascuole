@@ -1,5 +1,5 @@
 'use client'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { CorsoConOre, Profile } from '@/lib/types'
 import { OreCounter } from '@/components/ui/OreCounter'
@@ -48,19 +48,28 @@ interface CorsoConProgetto extends Omit<CorsoConOre, 'referente'> {
 }
 
 interface FormatoreClientProps {
-  corsi: CorsoConProgetto[]
   profile: Profile
   finanziamenti: { id: string; nome: string }[]
 }
 
-export function FormatoreClient({ corsi, profile, finanziamenti }: FormatoreClientProps) {
+export function FormatoreClient({ profile, finanziamenti }: FormatoreClientProps) {
   const router = useRouter()
+  const [corsi, setCorsi] = useState<CorsoConProgetto[]>([])
+  const [loading, setLoading] = useState(true)
   const [selectedCorso, setSelectedCorso] = useState<CorsoConProgetto | null>(null)
   const [sessioni, setSessioni] = useState<{ id: string; data: string; ore: number; created_at: string }[]>([])
   const [loadingSessioni, setLoadingSessioni] = useState(false)
   const [newData, setNewData] = useState('')
   const [newOre, setNewOre] = useState('')
   const [saving, setSaving] = useState(false)
+
+  // Carica i corsi bypasando RLS con service role
+  useEffect(() => {
+    fetch('/api/formatore/corsi')
+      .then(r => r.json())
+      .then(data => { setCorsi(Array.isArray(data) ? data : []); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [])
 
   const totalOre = corsi.reduce((s, c) => s + Number(c.ore_totali), 0)
   const totalPianificate = corsi.reduce((s, c) => s + Number(c.ore_pianificate), 0)
@@ -130,7 +139,11 @@ export function FormatoreClient({ corsi, profile, finanziamenti }: FormatoreClie
       </div>
 
       {/* Corsi raggruppati per progetto */}
-      {corsi.length === 0 ? (
+      {loading ? (
+        <div className="bg-white rounded-xl p-12 text-center" style={{ border: '0.5px solid #e5e5e5' }}>
+          <div className="text-sm text-gray-400">Caricamento corsi...</div>
+        </div>
+      ) : corsi.length === 0 ? (
         <div className="bg-white rounded-xl p-12 text-center" style={{ border: '0.5px solid #e5e5e5' }}>
           <div className="text-sm text-gray-400">Nessun corso assegnato al momento.</div>
         </div>
