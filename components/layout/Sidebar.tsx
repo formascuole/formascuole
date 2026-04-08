@@ -82,6 +82,15 @@ const tutorNav: NavItem[] = [
 
 const formatoreNav: NavItem[] = [
   {
+    href: '/formatore/progetti',
+    label: 'Progetti',
+    icon: (
+      <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
+        <path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" stroke="currentColor" strokeWidth="1.5"/>
+      </svg>
+    ),
+  },
+  {
     href: '/formatore',
     label: 'I miei corsi',
     icon: (
@@ -168,7 +177,7 @@ export function Sidebar({ role, nome, email, avatarInitials, notificheBadge, isS
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
         {nav.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
+          const isActive = pathname === item.href || (item.href !== '/formatore' && pathname.startsWith(item.href + '/'))
           const badgeCount = item.href === '/notifiche' ? notificheBadge : undefined
           return (
             <Link
