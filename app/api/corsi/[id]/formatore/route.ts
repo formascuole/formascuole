@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { generateAssegnazioneEmail, sendEmail } from '@/lib/email'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://formascuole.vercel.app'
 
@@ -42,7 +43,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Trigger assignment email if a formatore was assigned
+  // Send assignment email directly (no internal HTTP call)
   if (formatore_id) {
     try {
       const { data: corso } = await adminClient
@@ -51,9 +52,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         .eq('id', id)
         .single()
 
-      if (corso && corso.formatore && corso.project) {
+      if (corso && corso.formatore?.email && corso.project) {
         let ref_name = corso.project.ref_name
-        let ref_email = corso.project.ref_email
+        let ref_email_addr = corso.project.ref_email
 
         if (corso.referente_id) {
           const { data: referente } = await adminClient
@@ -61,27 +62,45 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
             .select('nome,email')
             .eq('id', corso.referente_id)
             .single()
-          if (referente) { ref_name = referente.nome; ref_email = referente.email }
+          if (referente) { ref_name = referente.nome; ref_email_addr = referente.email }
         }
 
-        fetch(`${APP_URL}/api/email/assegnazione`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            corso_id: id,
-            formatore_id,
-            formatore_nome: corso.formatore.nome,
-            formatore_email: corso.formatore.email,
-            corso_title: corso.title,
-            school_name: corso.project.school_name,
-            ref_name,
-            ref_email,
-            ore_totali: corso.ore_totali,
-            tipo: corso.tipo,
-          }),
-        }).catch(() => {})
+        const accetta_url = `${APP_URL}/formatore/corsi/${id}/accetta`
+        const rifiuta_url = `${APP_URL}/formatore/corsi/${id}/rifiuta`
+
+        const emailBody = await generateAssegnazioneEmail({
+          formatore_nome: corso.formatore.nome,
+          formatore_email: corso.formatore.email,
+          corso_title: corso.title,
+          school_name: corso.project.school_name,
+          ref_name,
+          ref_email: ref_email_addr,
+          ore_totali: corso.ore_totali,
+          tipo: corso.tipo,
+          accetta_url,
+          rifiuta_url,
+        })
+
+        await sendEmail({
+          to: corso.formatore.email,
+          subject: `Formascuole — Nuovo corso assegnato: ${corso.title} — ${corso.project.school_name}`,
+          body: emailBody,
+          actions: [
+            { label: '✓ Accetta incarico', url: accetta_url, primary: true },
+            { label: '✗ Rifiuta incarico', url: rifiuta_url },
+          ],
+        })
+
+        await adminClient.from('solleciti_log').insert({
+          corso_id: id,
+          formatore_id,
+          tipo: 'assegnazione',
+        })
       }
-    } catch { /* ignore email errors */ }
+    } catch (emailErr) {
+      console.error('[formatore/route] Email assegnazione error:', emailErr)
+      // Non-fatal: assignment was already saved, just log the error
+    }
   }
 
   return NextResponse.json(data)

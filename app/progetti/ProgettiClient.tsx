@@ -30,9 +30,10 @@ export function getFinanziamentoColor(nome: string) {
 interface ProgettiClientProps {
   progetti: ProgettoConStats[]
   finanziamenti: Finanziamento[]
+  inAttesaProjectIds?: string[]
 }
 
-export function ProgettiClient({ progetti, finanziamenti }: ProgettiClientProps) {
+export function ProgettiClient({ progetti, finanziamenti, inAttesaProjectIds }: ProgettiClientProps) {
   const router = useRouter()
   const [search, setSearch] = useState('')
   const [filterFinId, setFilterFinId] = useState('')
@@ -50,8 +51,16 @@ export function ProgettiClient({ progetti, finanziamenti }: ProgettiClientProps)
 
   const attivi = finanziamenti.filter(f => f.attivo)
 
+  const inAttesaSet = useMemo(
+    () => inAttesaProjectIds ? new Set(inAttesaProjectIds) : null,
+    [inAttesaProjectIds]
+  )
+
   const filtered = useMemo(() => {
     let list = progetti
+    if (inAttesaSet) {
+      list = list.filter(p => inAttesaSet.has(p.id))
+    }
     if (filterFinId) {
       list = list.filter(p => (p as ProgettoConStats & { finanziamento_id?: string | null }).finanziamento_id === filterFinId)
     }
@@ -63,7 +72,7 @@ export function ProgettiClient({ progetti, finanziamenti }: ProgettiClientProps)
       (p.anno_scolastico || '').includes(q) ||
       p.ref_name.toLowerCase().includes(q)
     )
-  }, [progetti, search, filterFinId])
+  }, [progetti, search, filterFinId, inAttesaSet])
 
   const handleSave = async () => {
     setSaving(true)
@@ -100,6 +109,19 @@ export function ProgettiClient({ progetti, finanziamenti }: ProgettiClientProps)
           Nuovo Progetto
         </Button>
       </div>
+
+      {/* Banner filtro in attesa */}
+      {inAttesaSet && (
+        <div className="mb-4 flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+          <svg className="text-amber-500 shrink-0" width="15" height="15" fill="none" viewBox="0 0 24 24">
+            <path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          <span className="text-sm text-amber-800 flex-1">
+            Filtro attivo: {inAttesaSet.size} progett{inAttesaSet.size === 1 ? 'o' : 'i'} con corsi in attesa di accettazione
+          </span>
+          <a href="/progetti" className="text-xs font-medium text-amber-700 hover:underline">Rimuovi filtro</a>
+        </div>
+      )}
 
       {/* Search + filtro finanziamento */}
       <div className="mb-6 flex flex-wrap items-center gap-3">

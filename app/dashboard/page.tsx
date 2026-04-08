@@ -115,12 +115,14 @@ export default async function DashboardPage() {
         {((corsiInAttesa ?? 0) > 0 || (corsiRifiutatiMese ?? 0) > 0) && (
           <div className="grid grid-cols-4 gap-4 mb-8">
             {(corsiInAttesa ?? 0) > 0 && (
-              <StatCard
-                label="In attesa di accettazione"
-                value={corsiInAttesa ?? 0}
-                subtitle="corsi in attesa di risposta"
-                icon={<svg width="20" height="20" fill="none" viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="currentColor" strokeWidth="1.5"/></svg>}
-              />
+              <Link href="/progetti?in_attesa=1" className="block hover:opacity-90 transition-opacity">
+                <StatCard
+                  label="In attesa di accettazione"
+                  value={corsiInAttesa ?? 0}
+                  subtitle="clicca per vedere i progetti →"
+                  icon={<svg width="20" height="20" fill="none" viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="currentColor" strokeWidth="1.5"/></svg>}
+                />
+              </Link>
             )}
             {(corsiRifiutatiMese ?? 0) > 0 && (
               <StatCard

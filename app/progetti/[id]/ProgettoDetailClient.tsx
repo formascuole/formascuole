@@ -684,10 +684,17 @@ export function ProgettoDetailClient({
   )
 }
 
+const ASSEGNAZIONE_BADGES: Record<string, { label: string; cls: string }> = {
+  in_attesa: { label: 'In attesa', cls: 'bg-amber-100 text-amber-700' },
+  accettato:  { label: 'Accettato',  cls: 'bg-green-100 text-green-700'  },
+  rifiutato:  { label: 'Rifiutato',  cls: 'bg-red-100 text-red-700'    },
+}
+
 function CourseRow({ corso, progettoId }: { corso: CorsoConOre; progettoId: string }) {
   const router = useRouter()
   const pct = corso.ore_totali > 0 ? Math.min(Math.round((corso.ore_pianificate / corso.ore_totali) * 100), 100) : 0
   const formatore = corso.formatore as Profile | undefined
+  const badgeInfo = corso.stato_assegnazione ? ASSEGNAZIONE_BADGES[corso.stato_assegnazione] : undefined
 
   return (
     <div
@@ -716,14 +723,21 @@ function CourseRow({ corso, progettoId }: { corso: CorsoConOre; progettoId: stri
         <div className="w-36">
           <ProgressBar value={pct} size="sm" showLabel />
         </div>
-        <div className="w-40 shrink-0">
+        <div className="w-44 shrink-0 flex flex-col gap-1">
           {formatore ? (
-            <div className="flex items-center gap-2">
-              <Avatar nome={formatore.nome} id={formatore.id} initials={formatore.avatar_initials} size="sm" />
-              <span className="text-xs text-gray-700 truncate">{formatore.nome}</span>
-            </div>
+            <>
+              <div className="flex items-center gap-2">
+                <Avatar nome={formatore.nome} id={formatore.id} initials={formatore.avatar_initials} size="sm" />
+                <span className="text-xs text-gray-700 truncate">{formatore.nome}</span>
+              </div>
+              {badgeInfo && (
+                <span className={`text-xs font-medium px-2 py-0.5 rounded-full w-fit ${badgeInfo.cls}`}>
+                  {badgeInfo.label}
+                </span>
+              )}
+            </>
           ) : (
-            <span className="text-xs text-amber-600 bg-amber-50 px-2.5 py-1 rounded-[7px]">Nessun formatore</span>
+            <span className="text-xs text-gray-500 bg-gray-100 px-2.5 py-1 rounded-[7px] w-fit">Non assegnato</span>
           )}
         </div>
         <svg className="text-gray-300" width="16" height="16" fill="none" viewBox="0 0 24 24">
