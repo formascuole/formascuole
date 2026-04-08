@@ -15,7 +15,14 @@ export default async function CorsoDetailPage({
   if (!user) redirect('/login')
 
   const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-  if (!profile || !['admin','super_admin'].includes(profile.role)) redirect('/formatore')
+  if (!profile) redirect('/login')
+
+  const isAdmin = ['admin', 'super_admin'].includes(profile.role)
+  const isFormatore = profile.role === 'formatore'
+  const isTutor = profile.role === 'tutor'
+
+  // Solo admin, formatori e tutori possono accedere
+  if (!isAdmin && !isFormatore && !isTutor) redirect('/formatore')
 
   const { data: superAdminRow } = await supabase
     .from('profiles_roles')
@@ -25,8 +32,7 @@ export default async function CorsoDetailPage({
     .maybeSingle()
   const isSuperAdmin = profile.role === 'super_admin' || !!superAdminRow
 
-  // Fetch the corso without profile joins — PostgREST can't reliably disambiguate
-  // two FKs pointing to the same table (formatore_id and tutor_id both → profiles)
+  // Fetch the corso
   const { data: corsoData } = await supabase
     .from('corsi_con_ore')
     .select('*')
@@ -35,7 +41,13 @@ export default async function CorsoDetailPage({
 
   if (!corsoData || corsoData.project_id !== id) notFound()
 
-  // Fetch formatore, tutor, and referente in parallel via their IDs
+  // Formatori e tutori possono vedere solo i propri corsi
+  if (!isAdmin) {
+    const hasAccess = corsoData.formatore_id === user.id || corsoData.tutor_id === user.id
+    if (!hasAccess) redirect(isFormatore ? '/formatore' : '/tutor')
+  }
+
+  // Fetch formatore, tutor, referente in parallel
   const [{ data: formatore }, { data: tutor }, { data: referente }] = await Promise.all([
     corsoData.formatore_id
       ? supabase.from('profiles').select('id,nome,email,avatar_initials').eq('id', corsoData.formatore_id).single()
@@ -62,30 +74,26 @@ export default async function CorsoDetailPage({
     .eq('corso_id', corsoId)
     .order('data')
 
-  // Fetch formatori and tutori via profiles_roles to catch dual-role users
-  const [{ data: formatoreRoles }, { data: tutorRoles }] = await Promise.all([
-    supabase.from('profiles_roles').select('profile_id').eq('role', 'formatore'),
-    supabase.from('profiles_roles').select('profile_id').eq('role', 'tutor'),
-  ])
-
-  const formatoreIds = new Set((formatoreRoles || []).map((r: { profile_id: string }) => r.profile_id))
-  const tutorIds = new Set((tutorRoles || []).map((r: { profile_id: string }) => r.profile_id))
-  const dualRoleIds = [...formatoreIds].filter(pid => tutorIds.has(pid))
-
-  const allProfileIds = [...new Set([...formatoreIds, ...tutorIds])]
+  // Solo gli admin vedono i picker formatori/tutori
   let formatori: Profile[] = []
   let tutori: Profile[] = []
-  if (allProfileIds.length > 0) {
-    const { data: allProfiles } = await supabase
-      .from('profiles')
-      .select('*')
-      .in('id', allProfileIds)
-      .order('nome')
-    formatori = (allProfiles || []).filter((p: Profile) => formatoreIds.has(p.id))
-    tutori = (allProfiles || []).filter((p: Profile) => tutorIds.has(p.id))
+  let dualRoleIds: string[] = []
+  if (isAdmin) {
+    const [{ data: formatoreRoles }, { data: tutorRoles }] = await Promise.all([
+      supabase.from('profiles_roles').select('profile_id').eq('role', 'formatore'),
+      supabase.from('profiles_roles').select('profile_id').eq('role', 'tutor'),
+    ])
+    const formatoreIds = new Set((formatoreRoles || []).map((r: { profile_id: string }) => r.profile_id))
+    const tutorIds = new Set((tutorRoles || []).map((r: { profile_id: string }) => r.profile_id))
+    dualRoleIds = [...formatoreIds].filter(pid => tutorIds.has(pid))
+    const allProfileIds = [...new Set([...formatoreIds, ...tutorIds])]
+    if (allProfileIds.length > 0) {
+      const { data: allProfiles } = await supabase.from('profiles').select('*').in('id', allProfileIds).order('nome')
+      formatori = (allProfiles || []).filter((p: Profile) => formatoreIds.has(p.id))
+      tutori = (allProfiles || []).filter((p: Profile) => tutorIds.has(p.id))
+    }
   }
 
-  // Fetch referenti for the project
   const { data: referenti } = await supabase
     .from('referenti_progetto')
     .select('*')
@@ -98,10 +106,12 @@ export default async function CorsoDetailPage({
     .eq('corso_id', corsoId)
     .order('created_at', { ascending: true })
 
-  const { count: notifiche } = await supabase
-    .from('solleciti_log')
-    .select('*', { count: 'exact', head: true })
-    .eq('tipo', 'sollecito_3')
+  const { count: notifiche } = isAdmin
+    ? await supabase.from('solleciti_log').select('*', { count: 'exact', head: true }).eq('tipo', 'sollecito_3')
+    : { count: 0 }
+
+  // Il formatore assegnato può confermare le sessioni
+  const canConfirmSessions = isAdmin || corsoData.formatore_id === user.id
 
   return (
     <AppLayout
@@ -123,8 +133,8 @@ export default async function CorsoDetailPage({
         note={note || []}
         progettoId={id}
         currentUserId={user.id}
-        isAdmin={true}
-        canConfirmSessions={true}
+        isAdmin={isAdmin}
+        canConfirmSessions={canConfirmSessions}
         isSuperAdmin={isSuperAdmin}
       />
     </AppLayout>
