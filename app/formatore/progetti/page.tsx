@@ -33,26 +33,37 @@ export default async function FormatoreProgettiPage() {
 
   const admin = createAdminClient()
 
+  // Step 1: fetch corsi (with computed hours) for this formatore
   const { data: corsi } = await admin
     .from('corsi_con_ore')
-    .select('id, project_id, ore_totali, ore_pianificate, calendario_completo, referente_id, progetti(id,school_name,address,ref_name,ref_email,ref_tel,finanziamento_id)')
+    .select('id, project_id, ore_totali, ore_pianificate, calendario_completo')
     .eq('formatore_id', user.id)
 
-  const { data: finanziamenti } = await supabase.from('finanziamenti').select('id,nome').order('nome')
-  const finMap = new Map((finanziamenti || []).map(f => [f.id, f.nome]))
+  // Step 2: fetch project details separately (avoids unreliable view→table join)
+  const projectIds = [...new Set((corsi || []).map(c => c.project_id))]
 
-  // Group by project
-  type ProgettoInfo = {
-    id: string; school_name: string; address?: string
-    ref_name: string; ref_email: string; ref_tel?: string
-    finanziamento_id?: string | null
+  type ProgettoRow = {
+    id: string; school_name: string; address: string | null
+    ref_name: string; ref_email: string; ref_tel: string | null
+    finanziamento_id: string | null
   }
-  const byProgetto = new Map<string, { progetto: ProgettoInfo; oreT: number; oreP: number; count: number }>()
+  let progettiRows: ProgettoRow[] = []
+  if (projectIds.length > 0) {
+    const { data } = await admin
+      .from('progetti')
+      .select('id, school_name, address, ref_name, ref_email, ref_tel, finanziamento_id')
+      .in('id', projectIds)
+    progettiRows = (data || []) as ProgettoRow[]
+  }
+  const progettiMap = new Map(progettiRows.map(p => [p.id, p]))
+
+  // Step 3: aggregate per-project stats
+  const byProgetto = new Map<string, { progetto: ProgettoRow; oreT: number; oreP: number; count: number }>()
   for (const c of corsi || []) {
-    const p = (Array.isArray(c.progetti) ? c.progetti[0] : c.progetti) as ProgettoInfo | null
-    if (!p) continue
+    const progetto = progettiMap.get(c.project_id)
+    if (!progetto) continue
     if (!byProgetto.has(c.project_id)) {
-      byProgetto.set(c.project_id, { progetto: p, oreT: 0, oreP: 0, count: 0 })
+      byProgetto.set(c.project_id, { progetto, oreT: 0, oreP: 0, count: 0 })
     }
     const entry = byProgetto.get(c.project_id)!
     entry.oreT += Number(c.ore_totali)
@@ -60,6 +71,9 @@ export default async function FormatoreProgettiPage() {
     entry.count++
   }
   const progetti = [...byProgetto.values()]
+
+  const { data: finanziamenti } = await supabase.from('finanziamenti').select('id,nome').order('nome')
+  const finMap = new Map((finanziamenti || []).map(f => [f.id, f.nome]))
 
   return (
     <AppLayout role="formatore" nome={profile.nome} email={profile.email} avatarInitials={profile.avatar_initials}>
@@ -126,9 +140,7 @@ export default async function FormatoreProgettiPage() {
 
                   {/* Progress bar */}
                   <div className="space-y-1">
-                    <div className="flex justify-between text-xs text-gray-400">
-                      <span>{oreP}h pianificate su {oreT}h totali</span>
-                    </div>
+                    <div className="text-xs text-gray-400">{oreP}h pianificate su {oreT}h totali</div>
                     <ProgressBar value={pct} size="sm" />
                   </div>
                 </Link>

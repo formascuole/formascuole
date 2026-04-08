@@ -22,11 +22,31 @@ export default async function FormatorePage() {
   // Usa il service role client per bypassare RLS sulla view corsi_con_ore
   const admin = createAdminClient()
 
+  // Corsi del formatore — select diretto senza join sulla view (le view non
+  // espongono sempre le FK relationship a PostgREST)
   const { data: corsi } = await admin
     .from('corsi_con_ore')
-    .select('*, progetti(id,school_name,address,anno_scolastico,ref_name,ref_email,ref_tel,finanziamento_id)')
+    .select('*')
     .eq('formatore_id', user.id)
     .order('created_at')
+
+  // Fetch dati progetto separatamente
+  const projectIds = [...new Set((corsi || []).map(c => c.project_id))]
+  type ProgettoRow = {
+    id: string; school_name: string; address: string | null
+    anno_scolastico: string | null
+    ref_name: string; ref_email: string; ref_tel: string | null
+    finanziamento_id: string | null
+  }
+  let progettiRows: ProgettoRow[] = []
+  if (projectIds.length > 0) {
+    const { data } = await admin
+      .from('progetti')
+      .select('id, school_name, address, anno_scolastico, ref_name, ref_email, ref_tel, finanziamento_id')
+      .in('id', projectIds)
+    progettiRows = (data || []) as ProgettoRow[]
+  }
+  const progettiMap = new Map(progettiRows.map(p => [p.id, p]))
 
   // Batch-fetch referenti specifici dei corsi
   const referenteIds = [...new Set(
@@ -43,6 +63,7 @@ export default async function FormatorePage() {
 
   const corsiConReferente = (corsi || []).map(c => ({
     ...c,
+    progetti: progettiMap.get(c.project_id) || null,
     referente: c.referente_id ? referentiMap.get(c.referente_id) || null : null,
   }))
 
