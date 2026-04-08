@@ -11,6 +11,8 @@ import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
 import { formatDate } from '@/lib/utils'
 
+type CorsoInAttesa = { id: string; title: string }
+
 const BADGE_PALETTE = [
   { bg: '#dbeafe', text: '#1e40af' },
   { bg: '#dcfce7', text: '#166534' },
@@ -57,6 +59,13 @@ export function ProgettoFormatoreClient({ progetto, corsi, finanziamenti }: Prop
   const [newOre, setNewOre] = useState('')
   const [saving, setSaving] = useState(false)
 
+  // Accettazione
+  const [submittingAccetta, setSubmittingAccetta] = useState<string | null>(null)
+  const [rifiutoModalCorso, setRifiutoModalCorso] = useState<CorsoInAttesa | null>(null)
+  const [rifiutoMotivazione, setRifiutoMotivazione] = useState('')
+  const [submittingRifiuto, setSubmittingRifiuto] = useState(false)
+  const [accettazioneError, setAccettazioneError] = useState<string | null>(null)
+
   const finNome = progetto.finanziamento_id ? finanziamenti.find(f => f.id === progetto.finanziamento_id)?.nome : null
   const color = finNome ? badgeColor(finNome) : null
 
@@ -65,6 +74,46 @@ export function ProgettoFormatoreClient({ progetto, corsi, finanziamenti }: Prop
   const refNome = refCorso?.nome || progetto.ref_name
   const refEmail = refCorso?.email || progetto.ref_email
   const refTel = refCorso?.tel || progetto.ref_tel
+
+  const corsiInAttesa = corsi.filter(c => c.stato_assegnazione === 'in_attesa').length
+
+  const handleAccetta = async (corsoId: string) => {
+    setSubmittingAccetta(corsoId)
+    setAccettazioneError(null)
+    try {
+      const res = await fetch(`/api/corsi/${corsoId}/accetta`, { method: 'POST' })
+      if (res.ok) {
+        router.refresh()
+      } else {
+        const j = await res.json()
+        setAccettazioneError(j.error || 'Errore durante l\'accettazione')
+      }
+    } finally {
+      setSubmittingAccetta(null)
+    }
+  }
+
+  const handleRifiuta = async () => {
+    if (!rifiutoModalCorso || !rifiutoMotivazione.trim()) return
+    setSubmittingRifiuto(true)
+    try {
+      const res = await fetch(`/api/corsi/${rifiutoModalCorso.id}/rifiuta`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ motivazione: rifiutoMotivazione.trim() }),
+      })
+      if (res.ok) {
+        setRifiutoModalCorso(null)
+        setRifiutoMotivazione('')
+        router.refresh()
+      } else {
+        const j = await res.json()
+        setAccettazioneError(j.error || 'Errore durante il rifiuto')
+      }
+    } finally {
+      setSubmittingRifiuto(false)
+    }
+  }
 
   const openModal = async (corso: CorsoConReferente) => {
     setSelectedCorso(corso)
@@ -104,6 +153,30 @@ export function ProgettoFormatoreClient({ progetto, corsi, finanziamenti }: Prop
 
   return (
     <div className="p-8 max-w-4xl mx-auto">
+      {/* Banner corsi in attesa */}
+      {corsiInAttesa > 0 && (
+        <div className="mb-6 bg-amber-50 border border-amber-300 rounded-xl px-5 py-4 flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full bg-amber-200 flex items-center justify-center shrink-0">
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
+              <path d="M12 9v4M12 17h.01" stroke="#92400e" strokeWidth="2" strokeLinecap="round"/>
+              <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="#92400e" strokeWidth="1.5"/>
+            </svg>
+          </div>
+          <div>
+            <div className="font-semibold text-amber-800 text-sm">
+              {corsiInAttesa === 1 ? 'Hai 1 corso da accettare' : `Hai ${corsiInAttesa} corsi da accettare`}
+            </div>
+            <div className="text-xs text-amber-600">Scorri in basso per accettare o rifiutare l&apos;incarico</div>
+          </div>
+        </div>
+      )}
+
+      {accettazioneError && (
+        <div className="mb-4 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
+          {accettazioneError}
+        </div>
+      )}
+
       {/* Back link */}
       <Link
         href="/formatore/progetti"
@@ -170,8 +243,40 @@ export function ProgettoFormatoreClient({ progetto, corsi, finanziamenti }: Prop
             ? { label: 'Da pianificare', bg: '#f3f4f6', text: '#6b7280' }
             : { label: 'In corso', bg: '#dbeafe', text: '#1e40af' }
 
+          const inAttesa = corso.stato_assegnazione === 'in_attesa'
+
           return (
-            <div key={corso.id} className="bg-white rounded-xl px-5 py-4" style={{ border: '0.5px solid #e5e5e5' }}>
+            <div key={corso.id}
+              className={`bg-white rounded-xl px-5 py-4 ${inAttesa ? 'ring-2 ring-amber-300' : ''}`}
+              style={{ border: '0.5px solid #e5e5e5' }}
+            >
+              {/* Banner accettazione */}
+              {inAttesa && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-3 -mx-1">
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <div>
+                      <div className="font-semibold text-amber-800 text-sm">Nuovo incarico da accettare</div>
+                      <div className="text-xs text-amber-600 mt-0.5">Hai 24 ore per rispondere</div>
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                      <button
+                        onClick={() => handleAccetta(corso.id)}
+                        disabled={submittingAccetta === corso.id}
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-[7px] bg-green-600 hover:bg-green-700 text-white transition-colors disabled:opacity-50"
+                      >
+                        {submittingAccetta === corso.id ? '...' : '✓ Accetta incarico'}
+                      </button>
+                      <button
+                        onClick={() => { setRifiutoModalCorso({ id: corso.id, title: corso.title }); setRifiutoMotivazione('') }}
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-[7px] bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 transition-colors"
+                      >
+                        ✗ Rifiuta incarico
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="flex items-start justify-between gap-3 mb-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap mb-1.5">
@@ -193,30 +298,74 @@ export function ProgettoFormatoreClient({ progetto, corsi, finanziamenti }: Prop
                     <span className="font-medium text-gray-600">{pct}%</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <Button
-                    size="sm"
-                    variant={corso.calendario_completo ? 'secondary' : 'primary'}
-                    onClick={() => openModal(corso)}
-                  >
-                    {corso.calendario_completo ? 'Vedi calendario' : 'Pianifica'}
-                  </Button>
-                  <button
-                    onClick={() => router.push(`/progetti/${corso.project_id}/corsi/${corso.id}`)}
-                    className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-800 border border-gray-200 hover:bg-gray-50 px-2.5 py-1.5 rounded-[7px] transition-colors"
-                  >
-                    Vai al corso
-                    <svg width="11" height="11" fill="none" viewBox="0 0 24 24">
-                      <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  </button>
-                </div>
+                {!inAttesa && (
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Button
+                      size="sm"
+                      variant={corso.calendario_completo ? 'secondary' : 'primary'}
+                      onClick={() => openModal(corso)}
+                    >
+                      {corso.calendario_completo ? 'Vedi calendario' : 'Pianifica'}
+                    </Button>
+                    <button
+                      onClick={() => router.push(`/progetti/${corso.project_id}/corsi/${corso.id}`)}
+                      className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-800 border border-gray-200 hover:bg-gray-50 px-2.5 py-1.5 rounded-[7px] transition-colors"
+                    >
+                      Vai al corso
+                      <svg width="11" height="11" fill="none" viewBox="0 0 24 24">
+                        <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </button>
+                  </div>
+                )}
               </div>
               <ProgressBar value={pct} size="sm" />
             </div>
           )
         })}
       </div>
+
+      {/* Rifiuto modal */}
+      <Modal
+        open={!!rifiutoModalCorso}
+        onClose={() => { setRifiutoModalCorso(null); setRifiutoMotivazione('') }}
+        title="Rifiuta incarico"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => { setRifiutoModalCorso(null); setRifiutoMotivazione('') }}>
+              Annulla
+            </Button>
+            <Button
+              variant="danger"
+              onClick={handleRifiuta}
+              loading={submittingRifiuto}
+              disabled={!rifiutoMotivazione.trim()}
+            >
+              Conferma rifiuto
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            Stai rifiutando il corso <strong>{rifiutoModalCorso?.title}</strong>.
+            Il corso verrà rimesso disponibile per essere riassegnato.
+          </p>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Motivazione <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              value={rifiutoMotivazione}
+              onChange={e => setRifiutoMotivazione(e.target.value)}
+              placeholder="Spiega il motivo del rifiuto..."
+              rows={4}
+              className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 focus:outline-none focus:border-[#d64b55] transition-colors resize-none"
+            />
+          </div>
+        </div>
+      </Modal>
 
       {/* Calendario modal */}
       <Modal

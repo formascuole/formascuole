@@ -232,6 +232,7 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
               <th className="text-center text-xs font-medium text-gray-400 px-4 py-3">CORSI TUTOR</th>
               <th className="text-center text-xs font-medium text-gray-400 px-4 py-3">ORE TUTOR</th>
               <th className="text-left text-xs font-medium text-gray-400 px-4 py-3 min-w-[130px]">PIANIFICATO %</th>
+              <th className="text-center text-xs font-medium text-gray-400 px-4 py-3">ACCETTAZIONE %</th>
               <th className="px-6 py-3"></th>
             </tr>
           </thead>
@@ -263,6 +264,7 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
                     <td className="px-4 py-4 text-center"><span className="inline-block w-8 h-3 bg-gray-100 rounded animate-pulse" /></td>
                     <td className="px-4 py-4 text-center"><span className="inline-block w-10 h-3 bg-gray-100 rounded animate-pulse" /></td>
                     <td className="px-4 py-4"><span className="inline-block w-20 h-3 bg-gray-100 rounded animate-pulse" /></td>
+                    <td className="px-4 py-4 text-center"><span className="inline-block w-12 h-3 bg-gray-100 rounded animate-pulse" /></td>
                   </>
                 ) : (() => {
                   const s = statsMap[u.id]
@@ -291,6 +293,14 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
                         ) : (
                           <span className="text-xs text-gray-300">—</span>
                         )}
+                      </td>
+                      <td className="px-4 py-4 text-center text-sm text-gray-700">
+                        {(() => {
+                          const ta = s?.tasso_accettazione
+                          if (ta === null || ta === undefined) return <span className="text-gray-300">—</span>
+                          const color = ta >= 80 ? 'text-green-700' : ta >= 50 ? 'text-amber-600' : 'text-red-600'
+                          return <span className={`font-medium ${color}`}>{ta}%</span>
+                        })()}
                       </td>
                     </>
                   )
@@ -327,7 +337,7 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-6 py-12 text-center text-sm text-gray-400">
+                <td colSpan={9} className="px-6 py-12 text-center text-sm text-gray-400">
                   {search ? 'Nessun utente trovato per questa ricerca' : 'Nessun utente registrato'}
                 </td>
               </tr>

@@ -34,6 +34,22 @@ export default async function DashboardPage() {
     .select('*', { count: 'exact', head: true })
     .eq('tipo', 'sollecito_3')
 
+  // Accettazione stats
+  const { count: corsiInAttesa } = await supabase
+    .from('corsi')
+    .select('*', { count: 'exact', head: true })
+    .eq('stato_assegnazione', 'in_attesa')
+
+  const thisMonthStart = new Date()
+  thisMonthStart.setDate(1)
+  thisMonthStart.setHours(0, 0, 0, 0)
+
+  const { count: corsiRifiutatiMese } = await supabase
+    .from('corsi')
+    .select('*', { count: 'exact', head: true })
+    .eq('stato_assegnazione', 'rifiutato')
+    .gte('accettazione_risposta_at', thisMonthStart.toISOString())
+
   return (
     <AppLayout
       role={profile.role}
@@ -93,7 +109,30 @@ export default async function DashboardPage() {
             />
           </div>
         )}
-        {oreTutoraggioTotali === 0 && <div className="mb-8" />}
+        {oreTutoraggioTotali === 0 && <div className="mb-4" />}
+
+        {/* Stat cards — accettazione */}
+        {((corsiInAttesa ?? 0) > 0 || (corsiRifiutatiMese ?? 0) > 0) && (
+          <div className="grid grid-cols-4 gap-4 mb-8">
+            {(corsiInAttesa ?? 0) > 0 && (
+              <StatCard
+                label="In attesa di accettazione"
+                value={corsiInAttesa ?? 0}
+                subtitle="corsi in attesa di risposta"
+                icon={<svg width="20" height="20" fill="none" viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="currentColor" strokeWidth="1.5"/></svg>}
+              />
+            )}
+            {(corsiRifiutatiMese ?? 0) > 0 && (
+              <StatCard
+                label="Rifiutati questo mese"
+                value={corsiRifiutatiMese ?? 0}
+                subtitle="da riassegnare"
+                icon={<svg width="20" height="20" fill="none" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>}
+              />
+            )}
+          </div>
+        )}
+        {(corsiInAttesa ?? 0) === 0 && (corsiRifiutatiMese ?? 0) === 0 && <div className="mb-4" />}
 
         {/* Tabella progetti */}
         <div className="bg-white rounded-xl" style={{ border: '0.5px solid #e5e5e5' }}>

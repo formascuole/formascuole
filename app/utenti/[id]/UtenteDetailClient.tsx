@@ -21,6 +21,8 @@ interface UtenteDetailClientProps {
   corsiTutor: CorsoConProgetto[]
   isSuperAdmin: boolean
   currentUserId: string
+  nRifiutati?: number
+  tassoAccettazione?: number | null
 }
 
 function corsoStato(c: CorsoConOre): { label: string; color: string } {
@@ -110,7 +112,7 @@ function CorsiTable({ corsi }: { corsi: CorsoConProgetto[] }) {
   )
 }
 
-export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSuperAdmin, currentUserId }: UtenteDetailClientProps) {
+export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSuperAdmin, currentUserId, nRifiutati = 0, tassoAccettazione = null }: UtenteDetailClientProps) {
   const router = useRouter()
   const [deleteOpen, setDeleteOpen] = useState(false)
 
@@ -184,6 +186,29 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
           subtitle={tuttiCorsi.length > 0 ? `su ${tuttiCorsi.length} cors${tuttiCorsi.length === 1 ? 'o' : 'i'}` : 'nessun corso'}
         />
       </div>
+
+      {/* Tasso accettazione — solo per formatori */}
+      {isFormatore && (corsiFormatore.length > 0 || nRifiutati > 0) && (
+        <div className="bg-white rounded-xl p-6 mb-6" style={{ border: '0.5px solid #e5e5e5' }}>
+          <h2 className="font-semibold text-gray-900 mb-4">Storico assegnazioni</h2>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="bg-green-50 rounded-[10px] p-4 text-center">
+              <div className="text-2xl font-bold text-green-700">{corsiFormatore.filter(c => c.stato_assegnazione === 'accettato').length}</div>
+              <div className="text-xs text-green-600 mt-1">Accettati</div>
+            </div>
+            <div className="bg-red-50 rounded-[10px] p-4 text-center">
+              <div className="text-2xl font-bold text-red-700">{nRifiutati}</div>
+              <div className="text-xs text-red-600 mt-1">Rifiutati</div>
+            </div>
+            <div className="rounded-[10px] p-4 text-center" style={{ backgroundColor: tassoAccettazione !== null ? (tassoAccettazione >= 80 ? '#f0fdf4' : tassoAccettazione >= 50 ? '#fffbeb' : '#fef2f2') : '#f9fafb' }}>
+              <div className="text-2xl font-bold" style={{ color: tassoAccettazione !== null ? (tassoAccettazione >= 80 ? '#166534' : tassoAccettazione >= 50 ? '#92400e' : '#991b1b') : '#9ca3af' }}>
+                {tassoAccettazione !== null ? `${tassoAccettazione}%` : '—'}
+              </div>
+              <div className="text-xs mt-1" style={{ color: tassoAccettazione !== null ? '#6b7280' : '#d1d5db' }}>Tasso accettazione</div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isFormatore && (
         <div className="bg-white rounded-xl mb-4" style={{ border: '0.5px solid #e5e5e5' }}>

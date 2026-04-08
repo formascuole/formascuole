@@ -1,17 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { generateSollecitoEmail, generateReminderSessioneEmail, sendEmail } from '@/lib/email'
+import {
+  generateSollecitoEmail,
+  generateSollecitoAccettazioneEmail,
+  generateRispostaFormatoreEmail,
+  generateReminderSessioneEmail,
+  sendEmail,
+} from '@/lib/email'
 
 const CRON_SECRET = process.env.CRON_SECRET
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://formascuole.vercel.app'
 
-// Days delay between reminders
 const SOLLECITO_DELAYS = {
-  first: 3,  // days after assignment before first reminder
-  between: 3, // days between reminders
+  first: 3,
+  between: 3,
 }
 
 export async function GET(request: NextRequest) {
-  // Verify cron secret
   const authHeader = request.headers.get('authorization')
   if (authHeader !== `Bearer ${CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -20,25 +25,167 @@ export async function GET(request: NextRequest) {
   const supabase = createAdminClient()
   const now = new Date()
 
+  const accettazioneResults: { corso_id: string; action: string }[] = []
+
   try {
-    // Find all corsi with formatore assigned but calendar incomplete
+    // ── FASE 1: Gestione accettazioni pendenti ─────────────────────────────────
+    const cutoff48h = new Date(now.getTime() - 48 * 60 * 60 * 1000)
+    const cutoff24h = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+
+    const { data: pendingCorsi } = await supabase
+      .from('corsi')
+      .select('id, title, formatore_id, project_id, accettazione_richiesta_at')
+      .eq('stato_assegnazione', 'in_attesa')
+      .not('accettazione_richiesta_at', 'is', null)
+
+    for (const corso of pendingCorsi || []) {
+      const richiestaAt = new Date(corso.accettazione_richiesta_at)
+
+      if (richiestaAt < cutoff48h) {
+        // ── Auto-reset: oltre 48h senza risposta ────────────────────────────
+        const { data: formatore } = await supabase
+          .from('profiles')
+          .select('nome, email')
+          .eq('id', corso.formatore_id)
+          .single()
+
+        const { data: progetto } = await supabase
+          .from('progetti')
+          .select('school_name')
+          .eq('id', corso.project_id)
+          .single()
+
+        await supabase
+          .from('corsi')
+          .update({
+            stato_assegnazione: 'non_assegnato',
+            formatore_id: null,
+            accettazione_risposta_at: now.toISOString(),
+          })
+          .eq('id', corso.id)
+
+        // Notify all admins
+        if (formatore && progetto) {
+          const { data: admins } = await supabase
+            .from('profiles')
+            .select('email')
+            .in('role', ['admin', 'super_admin'])
+
+          try {
+            const emailBody = await generateRispostaFormatoreEmail({
+              formatore_nome: formatore.nome,
+              corso_title: corso.title,
+              school_name: progetto.school_name,
+              risposta: 'rifiutato',
+              motivazione: `Nessuna risposta entro 48 ore — corso rimesso disponibile automaticamente`,
+              corso_admin_url: `${APP_URL}/progetti/${corso.project_id}/corsi/${corso.id}`,
+            })
+
+            for (const a of admins || []) {
+              sendEmail({
+                to: a.email,
+                subject: `Formascuole — Nessuna risposta da ${formatore.nome}: ${corso.title} rimesso disponibile`,
+                body: emailBody,
+                actions: [{ label: 'Riassegna il corso', url: `${APP_URL}/progetti/${corso.project_id}/corsi/${corso.id}`, primary: true }],
+              }).catch(() => {})
+            }
+          } catch { /* ignore email errors */ }
+        }
+
+        accettazioneResults.push({ corso_id: corso.id, action: 'auto_reset_48h' })
+
+      } else if (richiestaAt < cutoff24h) {
+        // ── Sollecito 24h: ancora in tempo ma urgente ────────────────────────
+        // Check we haven't already sent the 24h reminder for this corso
+        const { data: existing } = await supabase
+          .from('solleciti_log')
+          .select('id')
+          .eq('corso_id', corso.id)
+          .eq('tipo', 'reminder_accettazione')
+          .maybeSingle()
+
+        if (existing) {
+          accettazioneResults.push({ corso_id: corso.id, action: 'accettazione_reminder_already_sent' })
+          continue
+        }
+
+        const { data: formatore } = await supabase
+          .from('profiles')
+          .select('nome, email')
+          .eq('id', corso.formatore_id)
+          .single()
+
+        const { data: progetto } = await supabase
+          .from('progetti')
+          .select('school_name')
+          .eq('id', corso.project_id)
+          .single()
+
+        if (formatore && progetto) {
+          const oreRimanenti = Math.max(
+            Math.round((cutoff48h.getTime() - richiestaAt.getTime()) / (1000 * 60 * 60) + 24),
+            1
+          )
+
+          try {
+            const emailBody = await generateSollecitoAccettazioneEmail({
+              formatore_nome: formatore.nome,
+              corso_title: corso.title,
+              school_name: progetto.school_name,
+              ore_rimanenti: oreRimanenti,
+              accetta_url: `${APP_URL}/formatore/corsi/${corso.id}/accetta`,
+              rifiuta_url: `${APP_URL}/formatore/corsi/${corso.id}/rifiuta`,
+            })
+
+            await sendEmail({
+              to: formatore.email,
+              subject: `URGENTE — Rispondi entro ${oreRimanenti}h: ${corso.title} — ${progetto.school_name}`,
+              body: emailBody,
+              actions: [
+                { label: '✓ Accetta incarico', url: `${APP_URL}/formatore/corsi/${corso.id}/accetta`, primary: true },
+                { label: '✗ Rifiuta incarico', url: `${APP_URL}/formatore/corsi/${corso.id}/rifiuta` },
+              ],
+            })
+
+            await supabase.from('solleciti_log').insert({
+              corso_id: corso.id,
+              formatore_id: corso.formatore_id,
+              tipo: 'reminder_accettazione',
+            })
+
+            accettazioneResults.push({ corso_id: corso.id, action: 'sent_accettazione_reminder' })
+          } catch {
+            accettazioneResults.push({ corso_id: corso.id, action: 'email_error' })
+          }
+        }
+      } else {
+        accettazioneResults.push({ corso_id: corso.id, action: 'within_24h_no_action' })
+      }
+    }
+
+    // ── FASE 2: Solleciti calendario (logica esistente) ────────────────────────
     const { data: corsiIncomplete } = await supabase
       .from('corsi_con_ore')
       .select(`
-        id,
-        title,
-        formatore_id,
-        ore_totali,
-        ore_pianificate,
-        calendario_completo,
+        id, title, formatore_id, ore_totali, ore_pianificate, calendario_completo,
         project:progetti(school_name, ref_name, ref_email),
         formatore:profiles!formatore_id(nome, email)
       `)
       .not('formatore_id', 'is', null)
       .eq('calendario_completo', false)
+      .eq('stato_assegnazione', 'accettato')
 
     if (!corsiIncomplete?.length) {
-      return NextResponse.json({ message: 'No incomplete courses found', processed: 0 })
+      return NextResponse.json({
+        message: 'No incomplete courses found',
+        accettazione_processed: (pendingCorsi || []).length,
+        accettazione_results: accettazioneResults,
+        processed: 0,
+        results: [],
+        reminder_sessioni_processed: 0,
+        reminder_results: [],
+        timestamp: now.toISOString(),
+      })
     }
 
     const results: { corso_id: string; action: string }[] = []
@@ -49,7 +196,6 @@ export async function GET(request: NextRequest) {
 
       if (!formatore || !project) continue
 
-      // Get all solleciti for this corso
       const { data: solleciti } = await supabase
         .from('solleciti_log')
         .select('tipo, sent_at')
@@ -58,48 +204,31 @@ export async function GET(request: NextRequest) {
 
       const solleciti_tipi = (solleciti || []).map(s => s.tipo)
 
-      // Already sent sollecito_3 — stop
       if (solleciti_tipi.includes('sollecito_3')) {
         results.push({ corso_id: corso.id, action: 'skip_max_reached' })
         continue
       }
 
-      // Find assignment date
       const assegnazioneLog = (solleciti || []).find(s => s.tipo === 'assegnazione')
-      const referenceDate = assegnazioneLog
-        ? new Date(assegnazioneLog.sent_at)
-        : now
-
+      const referenceDate = assegnazioneLog ? new Date(assegnazioneLog.sent_at) : now
       const daysSinceAssignment = Math.floor((now.getTime() - referenceDate.getTime()) / (1000 * 60 * 60 * 24))
 
       let nextSollecito: 'sollecito_1' | 'sollecito_2' | 'sollecito_3' | null = null
       let numeroSollecito: 1 | 2 | 3 | null = null
 
       if (!solleciti_tipi.includes('sollecito_1')) {
-        // No reminder yet — check if 3 days since assignment
-        if (daysSinceAssignment >= SOLLECITO_DELAYS.first) {
-          nextSollecito = 'sollecito_1'
-          numeroSollecito = 1
-        }
+        if (daysSinceAssignment >= SOLLECITO_DELAYS.first) { nextSollecito = 'sollecito_1'; numeroSollecito = 1 }
       } else if (!solleciti_tipi.includes('sollecito_2')) {
-        // Check days since sollecito_1
         const s1 = (solleciti || []).find(s => s.tipo === 'sollecito_1')
         if (s1) {
-          const daysSinceS1 = Math.floor((now.getTime() - new Date(s1.sent_at).getTime()) / (1000 * 60 * 60 * 24))
-          if (daysSinceS1 >= SOLLECITO_DELAYS.between) {
-            nextSollecito = 'sollecito_2'
-            numeroSollecito = 2
-          }
+          const d = Math.floor((now.getTime() - new Date(s1.sent_at).getTime()) / (1000 * 60 * 60 * 24))
+          if (d >= SOLLECITO_DELAYS.between) { nextSollecito = 'sollecito_2'; numeroSollecito = 2 }
         }
       } else if (!solleciti_tipi.includes('sollecito_3')) {
-        // Check days since sollecito_2
         const s2 = (solleciti || []).find(s => s.tipo === 'sollecito_2')
         if (s2) {
-          const daysSinceS2 = Math.floor((now.getTime() - new Date(s2.sent_at).getTime()) / (1000 * 60 * 60 * 24))
-          if (daysSinceS2 >= SOLLECITO_DELAYS.between) {
-            nextSollecito = 'sollecito_3'
-            numeroSollecito = 3
-          }
+          const d = Math.floor((now.getTime() - new Date(s2.sent_at).getTime()) / (1000 * 60 * 60 * 24))
+          if (d >= SOLLECITO_DELAYS.between) { nextSollecito = 'sollecito_3'; numeroSollecito = 3 }
         }
       }
 
@@ -108,7 +237,6 @@ export async function GET(request: NextRequest) {
         continue
       }
 
-      // Generate and send email
       try {
         const emailBody = await generateSollecitoEmail({
           formatore_nome: formatore.nome,
@@ -140,7 +268,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // ── Reminder sessioni: find sessions from yesterday that are not confirmed ──
+    // ── FASE 3: Reminder sessioni ──────────────────────────────────────────────
     const yesterday = new Date(now)
     yesterday.setDate(yesterday.getDate() - 1)
     const yesterdayStr = yesterday.toISOString().split('T')[0]
@@ -148,16 +276,8 @@ export async function GET(request: NextRequest) {
     const { data: sessioniDaConfermare } = await supabase
       .from('sessioni')
       .select(`
-        id,
-        corso_id,
-        data,
-        ore,
-        corso:corsi(
-          id,
-          title,
-          formatore_id,
-          project:progetti(school_name)
-        )
+        id, corso_id, data, ore,
+        corso:corsi(id, title, formatore_id, project:progetti(school_name))
       `)
       .eq('data', yesterdayStr)
       .eq('completata', false)
@@ -172,7 +292,6 @@ export async function GET(request: NextRequest) {
       } | null
       if (!corso || !corso.formatore_id || !corso.project) continue
 
-      // Get formatore profile
       const { data: formatore } = await supabase
         .from('profiles')
         .select('nome, email')
@@ -180,7 +299,6 @@ export async function GET(request: NextRequest) {
         .single()
       if (!formatore) continue
 
-      // Check we haven't already sent a reminder for this specific session today
       const { data: existingReminder } = await supabase
         .from('solleciti_log')
         .select('id')
@@ -195,7 +313,6 @@ export async function GET(request: NextRequest) {
       }
 
       try {
-        const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://formascuole.vercel.app'
         const emailBody = await generateReminderSessioneEmail({
           formatore_nome: formatore.nome,
           formatore_email: formatore.email,
@@ -226,6 +343,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
+      accettazione_processed: (pendingCorsi || []).length,
+      accettazione_results: accettazioneResults,
       processed: corsiIncomplete.length,
       results,
       reminder_sessioni_processed: (sessioniDaConfermare || []).length,

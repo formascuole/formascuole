@@ -308,7 +308,28 @@ export function CorsoDetailClient({
 
       {/* Formatore */}
       <div className="bg-white rounded-xl p-6 mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
-        <h2 className="font-semibold text-gray-900 mb-4">Formatore assegnato</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-semibold text-gray-900">Formatore assegnato</h2>
+          {corso.stato_assegnazione && corso.stato_assegnazione !== 'non_assegnato' && (() => {
+            const badges: Record<string, { label: string; className: string }> = {
+              in_attesa: { label: 'In attesa di accettazione', className: 'bg-amber-100 text-amber-800' },
+              accettato:  { label: 'Accettato',               className: 'bg-green-100 text-green-800' },
+              rifiutato:  { label: 'Rifiutato',               className: 'bg-red-100 text-red-700' },
+            }
+            const b = badges[corso.stato_assegnazione]
+            return b ? (
+              <span className={`inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-md ${b.className}`}>
+                {b.label}
+              </span>
+            ) : null
+          })()}
+        </div>
+        {corso.stato_assegnazione === 'rifiutato' && corso.rifiuto_motivazione && (
+          <div className="mb-4 bg-red-50 border border-red-200 rounded-[7px] px-4 py-3 text-sm text-red-700">
+            <div className="font-medium mb-0.5">Motivazione rifiuto</div>
+            <div>{corso.rifiuto_motivazione}</div>
+          </div>
+        )}
         {corso.formatore ? (
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">

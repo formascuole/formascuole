@@ -47,14 +47,21 @@ interface AssegnazioneEmailParams {
   school_name: string
   ref_name: string
   ref_email: string
+  // Optional: when set, includes accept/reject flow info
+  accetta_url?: string
+  rifiuta_url?: string
+  ore_totali?: number
+  tipo?: string
 }
 
-interface SollecitoEmailParams extends AssegnazioneEmailParams {
+interface SollecitoEmailParams extends Omit<AssegnazioneEmailParams, 'accetta_url' | 'rifiuta_url' | 'ore_totali' | 'tipo'> {
   numero_sollecito: 1 | 2 | 3
   giorni_passati: number
 }
 
 export async function generateAssegnazioneEmail(params: AssegnazioneEmailParams): Promise<string> {
+  const hasAccettazione = !!(params.accetta_url && params.rifiuta_url)
+
   const message = await anthropic.messages.create({
     model: 'claude-sonnet-4-20250514',
     max_tokens: 600,
@@ -65,19 +72,25 @@ export async function generateAssegnazioneEmail(params: AssegnazioneEmailParams)
 
 Dati:
 - Nome formatore: ${params.formatore_nome}
-- Titolo corso: ${params.corso_title}
+- Titolo corso: ${params.corso_title}${params.tipo ? ` (${params.tipo})` : ''}
+- Ore totali: ${params.ore_totali || '—'}h
 - Nome scuola: ${params.school_name}
 - Nome referente scolastico: ${params.ref_name}
 - Email referente: ${params.ref_email}
 - Link piattaforma: ${APP_URL}/formatore
+${hasAccettazione ? `- Scadenza risposta: 24 ore
+- Link accettazione: ${params.accetta_url}
+- Link rifiuto: ${params.rifiuta_url}` : ''}
 
 L'email deve:
 1. Salutare il formatore per nome
 2. Comunicare l'assegnazione al corso specificato presso la scuola
-3. Fornire i contatti del referente scolastico (nome ed email)
-4. Chiedere di contattare il referente per concordare le date delle sessioni
-5. Invitare ad inserire il calendario nella piattaforma (link)
-6. Chiudere con un saluto professionale
+3. Indicare le ore totali del corso
+4. Fornire i contatti del referente scolastico (nome ed email)
+${hasAccettazione ? `5. Chiedere di accettare o rifiutare l'incarico entro 24 ore tramite i link indicati
+6. Precisare che in caso di mancata risposta entro 48 ore il corso verrà riassegnato` : `5. Chiedere di contattare il referente per concordare le date delle sessioni
+6. Invitare ad inserire il calendario nella piattaforma`}
+7. Chiudere con un saluto professionale
 
 Rispondi SOLO con il corpo dell'email in testo semplice (no HTML, no oggetto email). Tono: professionale ma caldo.`,
       },
@@ -164,25 +177,128 @@ Rispondi SOLO con il corpo dell'email in testo semplice (no HTML, no oggetto ema
   return (message.content[0] as { type: string; text: string }).text
 }
 
+interface SollecitoAccettazioneEmailParams {
+  formatore_nome: string
+  corso_title: string
+  school_name: string
+  ore_rimanenti: number
+  accetta_url: string
+  rifiuta_url: string
+}
+
+export async function generateSollecitoAccettazioneEmail(params: SollecitoAccettazioneEmailParams): Promise<string> {
+  const message = await anthropic.messages.create({
+    model: 'claude-sonnet-4-20250514',
+    max_tokens: 400,
+    messages: [
+      {
+        role: 'user',
+        content: `Genera un sollecito email urgente in italiano per un formatore che non ha ancora risposto all'assegnazione di un corso.
+
+Dati:
+- Nome formatore: ${params.formatore_nome}
+- Titolo corso: ${params.corso_title}
+- Nome scuola: ${params.school_name}
+- Ore rimanenti per rispondere: ${params.ore_rimanenti}
+- Link accettazione: ${params.accetta_url}
+- Link rifiuto: ${params.rifiuta_url}
+
+L'email deve:
+1. Ricordare urgentemente che deve accettare o rifiutare l'incarico
+2. Specificare che ha ${params.ore_rimanenti} ore rimaste per rispondere
+3. Avvertire che in mancanza di risposta il corso verrà riassegnato ad altro formatore
+4. Fornire entrambi i link (accetta/rifiuta) in modo chiaro
+5. Essere breve e diretta
+
+Rispondi SOLO con il corpo dell'email in testo semplice (no HTML, no oggetto email).`,
+      },
+    ],
+  })
+
+  return (message.content[0] as { type: string; text: string }).text
+}
+
+interface RispostaFormatoreEmailParams {
+  formatore_nome: string
+  corso_title: string
+  school_name: string
+  risposta: 'accettato' | 'rifiutato'
+  motivazione?: string
+  corso_admin_url: string
+}
+
+export async function generateRispostaFormatoreEmail(params: RispostaFormatoreEmailParams): Promise<string> {
+  const message = await anthropic.messages.create({
+    model: 'claude-sonnet-4-20250514',
+    max_tokens: 400,
+    messages: [
+      {
+        role: 'user',
+        content: `Genera un'email di notifica in italiano per gli amministratori di Formascuole, comunicando la risposta di un formatore all'assegnazione di un corso.
+
+Dati:
+- Nome formatore: ${params.formatore_nome}
+- Titolo corso: ${params.corso_title}
+- Nome scuola: ${params.school_name}
+- Risposta: ${params.risposta === 'accettato' ? 'ACCETTATO' : 'RIFIUTATO'}
+${params.motivazione ? `- Motivazione rifiuto: ${params.motivazione}` : ''}
+- Link scheda corso: ${params.corso_admin_url}
+
+L'email deve:
+1. Comunicare chiaramente che il formatore ha ${params.risposta === 'accettato' ? 'accettato' : 'rifiutato'} il corso
+${params.risposta === 'rifiutato' && params.motivazione ? '2. Riportare la motivazione fornita dal formatore\n3. Suggerire di riassegnare il corso ad altro formatore' : '2. Invitare a verificare la scheda corso'}
+${params.risposta === 'rifiutato' ? '4.' : '3.'} Fornire il link alla scheda corso
+5. Essere concisa e informativa
+
+Rispondi SOLO con il corpo dell'email in testo semplice (no HTML, no oggetto email).`,
+      },
+    ],
+  })
+
+  return (message.content[0] as { type: string; text: string }).text
+}
+
+interface EmailAction {
+  label: string
+  url: string
+  primary?: boolean
+}
+
 export async function sendEmail({
   to,
   subject,
   body,
+  actions,
 }: {
   to: string
   subject: string
   body: string
+  actions?: EmailAction[]
 }) {
+  const actionsHtml = actions?.length
+    ? `<div style="margin-top: 28px; display: flex; gap: 12px; flex-wrap: wrap;">
+        ${actions.map(a => `
+          <a href="${a.url}" style="display: inline-block; padding: 10px 22px; background-color: ${a.primary ? '#d64b55' : '#f3f4f6'}; color: ${a.primary ? '#ffffff' : '#374151'}; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px; font-family: system-ui, sans-serif;">
+            ${a.label}
+          </a>`).join('')}
+      </div>`
+    : ''
+
+  const actionsText = actions?.length
+    ? '\n\n' + actions.map(a => `${a.label}: ${a.url}`).join('\n')
+    : ''
+
   await resend.emails.send({
     from: 'Formascuole <noreply@formascuole.it>',
     to,
     subject,
-    text: body,
+    text: body + actionsText,
     html: `<div style="font-family: system-ui, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
       <div style="margin-bottom: 24px;">
         <span style="font-size: 20px; font-weight: bold; color: #d64b55;">Formascuole</span>
       </div>
       <div style="white-space: pre-wrap; color: #1a1a1a; line-height: 1.6;">${body.replace(/\n/g, '<br/>')}</div>
+      ${actionsHtml}
       <div style="margin-top: 32px; padding-top: 16px; border-top: 1px solid #e5e5e5; font-size: 12px; color: #888;">
         <p>Formascuole — Piattaforma gestione progetti formativi</p>
         <p><a href="${APP_URL}" style="color: #d64b55;">${APP_URL}</a></p>

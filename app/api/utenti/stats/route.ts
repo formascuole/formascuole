@@ -8,10 +8,10 @@ export interface UtenteStats {
   n_corsi_tutor: number
   ore_tutor: number
   pct: number
+  tasso_accettazione: number | null  // null = no data yet
 }
 
 export async function GET() {
-  // Auth: only admins can call this
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -26,48 +26,34 @@ export async function GET() {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  // Use service role to bypass RLS completely
   const admin = createAdminClient()
 
-  // Fetch corsi directly from base table (not the view) — avoids any view-level RLS
-  const { data: corsi, error: corsiError } = await admin
-    .from('corsi')
-    .select('id, formatore_id, tutor_id, ore_totali')
+  const [{ data: corsi, error: corsiError }, { data: sessioni, error: sessioniError }] = await Promise.all([
+    admin.from('corsi').select('id, formatore_id, tutor_id, ore_totali, stato_assegnazione'),
+    admin.from('sessioni').select('corso_id, ore'),
+  ])
 
-  if (corsiError) {
-    return NextResponse.json({ error: corsiError.message }, { status: 500 })
-  }
+  if (corsiError) return NextResponse.json({ error: corsiError.message }, { status: 500 })
+  if (sessioniError) return NextResponse.json({ error: sessioniError.message }, { status: 500 })
 
-  // Fetch all sessioni to compute ore_pianificate per corso
-  const { data: sessioni, error: sessioniError } = await admin
-    .from('sessioni')
-    .select('corso_id, ore')
-
-  if (sessioniError) {
-    return NextResponse.json({ error: sessioniError.message }, { status: 500 })
-  }
-
-  // Build ore_pianificate map: corso_id → total planned hours
+  // ore_pianificate per corso
   const orePianMap = new Map<string, number>()
   for (const s of sessioni || []) {
     orePianMap.set(s.corso_id, (orePianMap.get(s.corso_id) ?? 0) + Number(s.ore))
   }
 
-  // Accumulate stats per user ID
   type Accum = {
-    n_corsi_formatore: number
-    ore_formatore: number
-    n_corsi_tutor: number
-    ore_tutor: number
-    tot_ore: number
-    tot_pian: number
+    n_corsi_formatore: number; ore_formatore: number
+    n_corsi_tutor: number; ore_tutor: number
+    tot_ore: number; tot_pian: number
+    accettati: number; rifiutati: number
   }
   const acc = new Map<string, Accum>()
-
   const empty = (): Accum => ({
     n_corsi_formatore: 0, ore_formatore: 0,
     n_corsi_tutor: 0, ore_tutor: 0,
     tot_ore: 0, tot_pian: 0,
+    accettati: 0, rifiutati: 0,
   })
 
   for (const c of corsi || []) {
@@ -80,6 +66,7 @@ export async function GET() {
       s.ore_formatore += oreTot
       s.tot_ore += oreTot
       s.tot_pian += orePian
+      if (c.stato_assegnazione === 'accettato') s.accettati++
       acc.set(c.formatore_id, s)
     }
 
@@ -93,15 +80,37 @@ export async function GET() {
     }
   }
 
-  // Build response: { [userId]: UtenteStats }
+  // Also count rifiutati (formatore_id is null after rejection — use a separate query)
+  const { data: rifiutati } = await admin
+    .from('corsi')
+    .select('id, rifiuto_motivazione')
+    .eq('stato_assegnazione', 'rifiutato')
+
+  // For rifiutati, we can't get formatore_id (it was nulled). We'll rely on solleciti_log
+  // to associate the refusal with the original formatore.
+  const { data: rifiutiLog } = await admin
+    .from('solleciti_log')
+    .select('corso_id, formatore_id')
+    .eq('tipo', 'assegnazione')
+    .in('corso_id', (rifiutati || []).map(r => r.id))
+
+  for (const log of rifiutiLog || []) {
+    if (!log.formatore_id) continue
+    const s = acc.get(log.formatore_id) ?? empty()
+    s.rifiutati++
+    acc.set(log.formatore_id, s)
+  }
+
   const result: Record<string, UtenteStats> = {}
   for (const [uid, s] of acc) {
+    const totRisposte = s.accettati + s.rifiutati
     result[uid] = {
       n_corsi_formatore: s.n_corsi_formatore,
       ore_formatore: s.ore_formatore,
       n_corsi_tutor: s.n_corsi_tutor,
       ore_tutor: s.ore_tutor,
       pct: s.tot_ore > 0 ? Math.round((s.tot_pian / s.tot_ore) * 100) : 0,
+      tasso_accettazione: totRisposte > 0 ? Math.round((s.accettati / totRisposte) * 100) : null,
     }
   }
 

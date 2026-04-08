@@ -55,6 +55,28 @@ export default async function UtenteDetailPage({ params }: { params: Promise<{ i
     .eq('tutor_id', id)
     .order('created_at', { ascending: false })
 
+  // Fetch rifiutati by this user (formatore_id was nulled; find via solleciti_log)
+  const { data: rifiutiLog } = await supabase
+    .from('solleciti_log')
+    .select('corso_id')
+    .eq('formatore_id', id)
+    .eq('tipo', 'assegnazione')
+
+  const rifiutatiCorsiIds = (rifiutiLog || []).map(l => l.corso_id)
+  let nRifiutati = 0
+  if (rifiutatiCorsiIds.length > 0) {
+    const { count } = await supabase
+      .from('corsi')
+      .select('*', { count: 'exact', head: true })
+      .eq('stato_assegnazione', 'rifiutato')
+      .in('id', rifiutatiCorsiIds)
+    nRifiutati = count ?? 0
+  }
+
+  const nAccettati = (corsiFormatore || []).filter(c => c.stato_assegnazione === 'accettato').length
+  const totRisposte = nAccettati + nRifiutati
+  const tassoAccettazione = totRisposte > 0 ? Math.round((nAccettati / totRisposte) * 100) : null
+
   const { count: notifiche } = await supabase
     .from('solleciti_log')
     .select('*', { count: 'exact', head: true })
@@ -74,6 +96,8 @@ export default async function UtenteDetailPage({ params }: { params: Promise<{ i
         corsiTutor={corsiTutor || []}
         isSuperAdmin={isSuperAdmin}
         currentUserId={user.id}
+        nRifiutati={nRifiutati}
+        tassoAccettazione={tassoAccettazione}
       />
     </AppLayout>
   )

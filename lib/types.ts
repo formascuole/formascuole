@@ -3,7 +3,8 @@ export type ProjectStatus = 'active' | 'pending' | 'completed'
 export type CorsoTipo = 'PF' | 'Lab'
 export type ModalitaCorso = 'presenza' | 'online' | 'ibrido'
 export type ModalitaSessione = 'presenza' | 'online'
-export type SollectipoTipo = 'assegnazione' | 'sollecito_1' | 'sollecito_2' | 'sollecito_3' | 'reminder_sessione'
+export type SollectipoTipo = 'assegnazione' | 'sollecito_1' | 'sollecito_2' | 'sollecito_3' | 'reminder_sessione' | 'reminder_accettazione'
+export type StatoAssegnazione = 'non_assegnato' | 'in_attesa' | 'accettato' | 'rifiutato'
 
 export interface Profile {
   id: string
@@ -72,6 +73,10 @@ export interface Corso {
   tutor_nome?: string
   ore_tutoraggio?: number
   created_at: string
+  stato_assegnazione?: StatoAssegnazione
+  accettazione_richiesta_at?: string | null
+  accettazione_risposta_at?: string | null
+  rifiuto_motivazione?: string | null
 }
 
 export interface CorsoConOre extends Corso {
