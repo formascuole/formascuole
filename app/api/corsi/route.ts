@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
 
   let query = supabase
     .from('corsi_con_ore')
-    .select('*, formatore:profiles(id,nome,email,avatar_initials)')
+    .select('*, formatore:profiles!formatore_id(id,nome,email,avatar_initials)')
     .order('created_at')
 
   if (projectId) query = query.eq('project_id', projectId)

@@ -37,7 +37,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     .from('corsi')
     .update(updateData)
     .eq('id', id)
-    .select('*, formatore:profiles(id,nome,email)')
+    .select('*, formatore:profiles!formatore_id(id,nome,email)')
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

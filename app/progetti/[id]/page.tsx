@@ -25,7 +25,7 @@ export default async function ProgettoDetailPage({ params }: { params: Promise<{
 
   const { data: corsi } = await supabase
     .from('corsi_con_ore')
-    .select('*, formatore:profiles(id,nome,email,avatar_initials)')
+    .select('*, formatore:profiles!formatore_id(id,nome,email,avatar_initials)')
     .eq('project_id', id)
     .order('created_at')
 
