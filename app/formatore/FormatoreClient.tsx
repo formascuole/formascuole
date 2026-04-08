@@ -63,12 +63,22 @@ export function FormatoreClient({ profile, finanziamenti }: FormatoreClientProps
   const [newOre, setNewOre] = useState('')
   const [saving, setSaving] = useState(false)
 
-  // Carica i corsi bypasando RLS con service role
+  const [debugInfo, setDebugInfo] = useState<string | null>(null)
+
+  // Carica i corsi bypassando RLS con service role
   useEffect(() => {
     fetch('/api/formatore/corsi')
-      .then(r => r.json())
-      .then(data => { setCorsi(Array.isArray(data) ? data : []); setLoading(false) })
-      .catch(() => setLoading(false))
+      .then(async r => {
+        const userId = r.headers.get('X-Debug-UserId')
+        const count = r.headers.get('X-Debug-CoursiCount')
+        const allIds = r.headers.get('X-Debug-AllCorsiIds')
+        const data = await r.json()
+        console.log('[FormatoreClient] API response:', { userId, count, data, allIds })
+        setDebugInfo(`user.id=${userId} | corsi trovati=${count} | tutti i corsi in DB: ${allIds}`)
+        setCorsi(Array.isArray(data) ? data : [])
+        setLoading(false)
+      })
+      .catch(err => { console.error('[FormatoreClient] fetch error:', err); setLoading(false) })
   }, [])
 
   const totalOre = corsi.reduce((s, c) => s + Number(c.ore_totali), 0)
@@ -137,6 +147,13 @@ export function FormatoreClient({ profile, finanziamenti }: FormatoreClientProps
         <StatCard label="Ore totali" value={`${totalOre}h`} subtitle={`${totalPianificate}h pianificate`} />
         <StatCard label="Completamento" value={`${pctGlobale}%`} />
       </div>
+
+      {/* DEBUG - rimuovere dopo diagnosi */}
+      {debugInfo && (
+        <div className="mb-4 bg-yellow-50 border border-yellow-300 rounded-xl px-4 py-3 text-xs font-mono text-yellow-900 break-all">
+          <strong>DEBUG:</strong> {debugInfo}
+        </div>
+      )}
 
       {/* Corsi raggruppati per progetto */}
       {loading ? (
