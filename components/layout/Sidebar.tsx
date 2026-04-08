@@ -55,6 +55,15 @@ const adminNav: NavItem[] = [
     ),
   },
   {
+    href: '/statistiche',
+    label: 'Statistiche',
+    icon: (
+      <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
+        <path d="M18 20V10M12 20V4M6 20v-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    ),
+  },
+  {
     href: '/notifiche',
     label: 'Notifiche',
     icon: (
