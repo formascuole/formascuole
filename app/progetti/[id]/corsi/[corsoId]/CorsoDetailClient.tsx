@@ -156,6 +156,7 @@ export function CorsoDetailClient({
 
   const handleAssignTutor = async (tutorId: string) => {
     setAssigningId('tutor-' + tutorId)
+    setAssignError(null)
     try {
       const res = await fetch(`/api/corsi/${corso.id}/tutor`, {
         method: 'PATCH',
@@ -166,6 +167,9 @@ export function CorsoDetailClient({
         setTutorePickerOpen(false)
         setDualRoleUser(null)
         router.refresh()
+      } else {
+        const j = await res.json().catch(() => ({}))
+        setAssignError(j.error || 'Errore durante l\'assegnazione')
       }
     } finally {
       setAssigningId(null)
@@ -716,10 +720,15 @@ export function CorsoDetailClient({
       {/* Tutor Picker Modal */}
       <Modal
         open={tutorePickerOpen}
-        onClose={() => setTutorePickerOpen(false)}
+        onClose={() => { setTutorePickerOpen(false); setAssignError(null) }}
         title="Seleziona Tutor"
         size="md"
       >
+        {assignError && (
+          <div className="mb-3 bg-red-50 border border-red-200 rounded-[7px] px-3 py-2 text-sm text-red-700">
+            {assignError}
+          </div>
+        )}
         <div className="grid grid-cols-1 gap-3">
           {tutori.map((t) => (
             <button

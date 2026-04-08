@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export async function PATCH(
   request: NextRequest,
@@ -19,7 +20,9 @@ export async function PATCH(
 
   const { tutor_id } = await request.json()
 
-  const { data, error } = await supabase
+  // Use admin client to bypass RLS — auth check above already verified the caller is admin
+  const adminClient = createAdminClient()
+  const { data, error } = await adminClient
     .from('corsi')
     .update({ tutor_id: tutor_id || null })
     .eq('id', id)
