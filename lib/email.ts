@@ -6,11 +6,155 @@ const resend = new Resend(process.env.RESEND_API_KEY)
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://formascuole.vercel.app'
 
+// ─── Types ────────────────────────────────────────────────────────────────────
+
 interface BenvenutoEmailParams {
   nome: string
   email: string
   password: string
 }
+
+interface AssegnazioneEmailParams {
+  formatore_nome: string
+  formatore_email: string
+  corso_title: string
+  school_name: string
+  ref_name: string
+  ref_email: string
+  accetta_url?: string
+  rifiuta_url?: string
+  ore_totali?: number
+  tipo?: string
+}
+
+interface SollecitoEmailParams extends Omit<AssegnazioneEmailParams, 'accetta_url' | 'rifiuta_url' | 'ore_totali' | 'tipo'> {
+  numero_sollecito: 1 | 2 | 3
+  giorni_passati: number
+}
+
+interface ReminderSessioneEmailParams {
+  formatore_nome: string
+  formatore_email: string
+  corso_title: string
+  school_name: string
+  data_sessione: string
+  ore_sessione: number
+  corso_url: string
+}
+
+interface SollecitoAccettazioneEmailParams {
+  formatore_nome: string
+  corso_title: string
+  school_name: string
+  ore_rimanenti: number
+  accetta_url: string
+  rifiuta_url: string
+}
+
+interface RispostaFormatoreEmailParams {
+  formatore_nome: string
+  corso_title: string
+  school_name: string
+  risposta: 'accettato' | 'rifiutato'
+  motivazione?: string
+  corso_admin_url: string
+}
+
+interface EmailAction {
+  label: string
+  url: string
+  primary?: boolean
+}
+
+// ─── Fallback template helpers ────────────────────────────────────────────────
+
+function fallbackAssegnazioneEmail(p: AssegnazioneEmailParams): string {
+  const hasAccettazione = !!(p.accetta_url && p.rifiuta_url)
+  if (hasAccettazione) {
+    return `Gentile ${p.formatore_nome},
+
+hai ricevuto un nuovo incarico di formazione.
+
+Corso: ${p.corso_title}${p.tipo ? ` (${p.tipo})` : ''}
+Scuola: ${p.school_name}
+${p.ore_totali ? `Ore totali: ${p.ore_totali}h` : ''}
+Referente scolastico: ${p.ref_name} — ${p.ref_email}
+
+Hai 24 ore per accettare o rifiutare l'incarico tramite i link seguenti.
+In assenza di risposta entro 48 ore il corso verrà riassegnato ad altro formatore.
+
+Grazie,
+Il team Formascuole`
+  }
+
+  return `Gentile ${p.formatore_nome},
+
+ti è stato assegnato il corso "${p.corso_title}" presso ${p.school_name}.
+${p.ore_totali ? `\nOre totali: ${p.ore_totali}h` : ''}
+Referente scolastico: ${p.ref_name} — ${p.ref_email}
+
+Ti invitiamo a contattare il referente per concordare il calendario delle sessioni e inserirlo in piattaforma.
+
+Accedi qui: ${APP_URL}/formatore
+
+Grazie,
+Il team Formascuole`
+}
+
+function fallbackSollecitoEmail(p: SollecitoEmailParams): string {
+  const urgenza = p.numero_sollecito === 1
+    ? 'ti ricordiamo'
+    : p.numero_sollecito === 2
+      ? 'ti ricordiamo con urgenza'
+      : 'ti ricordiamo per l\'ultima volta'
+
+  return `Gentile ${p.formatore_nome},
+
+${urgenza} che il calendario del corso "${p.corso_title}" presso ${p.school_name} non è ancora completo.
+
+Sono trascorsi ${p.giorni_passati} giorni dall'assegnazione senza che il calendario sia stato inserito.
+${p.numero_sollecito === 3 ? '\nATTENZIONE: questo è l\'ultimo sollecito automatico. La questione verrà segnalata all\'amministrazione.\n' : ''}
+Accedi alla piattaforma per completare la pianificazione: ${APP_URL}/formatore
+
+Referente scolastico: ${p.ref_name} — ${p.ref_email}
+
+Grazie,
+Il team Formascuole`
+}
+
+function fallbackReminderSessioneEmail(p: ReminderSessioneEmailParams): string {
+  return `Gentile ${p.formatore_nome},
+
+ti ricordiamo di confermare la sessione del ${p.data_sessione} (${p.ore_sessione}h) per il corso "${p.corso_title}" presso ${p.school_name}.
+
+Accedi qui per segnare la sessione come completata: ${p.corso_url}
+
+Grazie,
+Il team Formascuole`
+}
+
+function fallbackSollecitoAccettazioneEmail(p: SollecitoAccettazioneEmailParams): string {
+  return `Gentile ${p.formatore_nome},
+
+ti ricordiamo che devi ancora rispondere all'assegnazione del corso "${p.corso_title}" presso ${p.school_name}.
+
+Hai ${p.ore_rimanenti} ore rimaste per accettare o rifiutare l'incarico.
+In assenza di risposta il corso verrà riassegnato ad altro formatore.
+
+Grazie,
+Il team Formascuole`
+}
+
+function fallbackRispostaFormatoreEmail(p: RispostaFormatoreEmailParams): string {
+  const risposta = p.risposta === 'accettato' ? 'ACCETTATO' : 'RIFIUTATO'
+  return `Il formatore ${p.formatore_nome} ha ${risposta} il corso "${p.corso_title}" presso ${p.school_name}.
+${p.motivazione ? `\nMotivazione rifiuto: ${p.motivazione}\n` : ''}
+Accedi alla scheda corso per ulteriori dettagli: ${p.corso_admin_url}
+
+Il team Formascuole`
+}
+
+// ─── Generators ───────────────────────────────────────────────────────────────
 
 export function generateBenvenutoEmail({ nome, email, password }: BenvenutoEmailParams): string {
   return `Gentile ${nome},
@@ -40,35 +184,17 @@ Cordiali saluti,
 Il team Formascuole`
 }
 
-interface AssegnazioneEmailParams {
-  formatore_nome: string
-  formatore_email: string
-  corso_title: string
-  school_name: string
-  ref_name: string
-  ref_email: string
-  // Optional: when set, includes accept/reject flow info
-  accetta_url?: string
-  rifiuta_url?: string
-  ore_totali?: number
-  tipo?: string
-}
-
-interface SollecitoEmailParams extends Omit<AssegnazioneEmailParams, 'accetta_url' | 'rifiuta_url' | 'ore_totali' | 'tipo'> {
-  numero_sollecito: 1 | 2 | 3
-  giorni_passati: number
-}
-
 export async function generateAssegnazioneEmail(params: AssegnazioneEmailParams): Promise<string> {
   const hasAccettazione = !!(params.accetta_url && params.rifiuta_url)
 
-  const message = await anthropic.messages.create({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 600,
-    messages: [
-      {
-        role: 'user',
-        content: `Genera un'email professionale e cordiale in italiano per un formatore appena assegnato a un corso.
+  try {
+    const message = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 600,
+      messages: [
+        {
+          role: 'user',
+          content: `Genera un'email professionale e cordiale in italiano per un formatore appena assegnato a un corso.
 
 Dati:
 - Nome formatore: ${params.formatore_nome}
@@ -93,11 +219,14 @@ ${hasAccettazione ? `5. Chiedere di accettare o rifiutare l'incarico entro 24 or
 7. Chiudere con un saluto professionale
 
 Rispondi SOLO con il corpo dell'email in testo semplice (no HTML, no oggetto email). Tono: professionale ma caldo.`,
-      },
-    ],
-  })
-
-  return (message.content[0] as { type: string; text: string }).text
+        },
+      ],
+    })
+    return (message.content[0] as { type: string; text: string }).text
+  } catch (err) {
+    console.error('[email] Anthropic API non disponibile, uso testo predefinito per assegnazione:', err)
+    return fallbackAssegnazioneEmail(params)
+  }
 }
 
 export async function generateSollecitoEmail(params: SollecitoEmailParams): Promise<string> {
@@ -107,13 +236,14 @@ export async function generateSollecitoEmail(params: SollecitoEmailParams): Prom
     3: 'molto urgente, chiedendo conferma immediata',
   }
 
-  const message = await anthropic.messages.create({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 600,
-    messages: [
-      {
-        role: 'user',
-        content: `Genera un sollecito email numero ${params.numero_sollecito} (tono: ${toni[params.numero_sollecito]}) in italiano per un formatore che non ha ancora inserito il calendario del corso.
+  try {
+    const message = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 600,
+      messages: [
+        {
+          role: 'user',
+          content: `Genera un sollecito email numero ${params.numero_sollecito} (tono: ${toni[params.numero_sollecito]}) in italiano per un formatore che non ha ancora inserito il calendario del corso.
 
 Dati:
 - Nome formatore: ${params.formatore_nome}
@@ -128,31 +258,25 @@ L'email deve ricordare al formatore di inserire il calendario delle sessioni nel
 ${params.numero_sollecito === 3 ? 'Segnala che questo è l\'ultimo sollecito automatico e che la questione verrà segnalata all\'amministrazione.' : ''}
 
 Rispondi SOLO con il corpo dell'email in testo semplice (no HTML, no oggetto email).`,
-      },
-    ],
-  })
-
-  return (message.content[0] as { type: string; text: string }).text
-}
-
-interface ReminderSessioneEmailParams {
-  formatore_nome: string
-  formatore_email: string
-  corso_title: string
-  school_name: string
-  data_sessione: string
-  ore_sessione: number
-  corso_url: string
+        },
+      ],
+    })
+    return (message.content[0] as { type: string; text: string }).text
+  } catch (err) {
+    console.error('[email] Anthropic API non disponibile, uso testo predefinito per sollecito:', err)
+    return fallbackSollecitoEmail(params)
+  }
 }
 
 export async function generateReminderSessioneEmail(params: ReminderSessioneEmailParams): Promise<string> {
-  const message = await anthropic.messages.create({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 500,
-    messages: [
-      {
-        role: 'user',
-        content: `Genera un breve reminder email in italiano per un formatore che deve confermare una sessione svoltasi ieri.
+  try {
+    const message = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 500,
+      messages: [
+        {
+          role: 'user',
+          content: `Genera un breve reminder email in italiano per un formatore che deve confermare una sessione svoltasi ieri.
 
 Dati:
 - Nome formatore: ${params.formatore_nome}
@@ -170,30 +294,25 @@ L'email deve:
 5. Essere breve e diretta (max 5 righe di corpo)
 
 Rispondi SOLO con il corpo dell'email in testo semplice (no HTML, no oggetto email).`,
-      },
-    ],
-  })
-
-  return (message.content[0] as { type: string; text: string }).text
-}
-
-interface SollecitoAccettazioneEmailParams {
-  formatore_nome: string
-  corso_title: string
-  school_name: string
-  ore_rimanenti: number
-  accetta_url: string
-  rifiuta_url: string
+        },
+      ],
+    })
+    return (message.content[0] as { type: string; text: string }).text
+  } catch (err) {
+    console.error('[email] Anthropic API non disponibile, uso testo predefinito per reminder sessione:', err)
+    return fallbackReminderSessioneEmail(params)
+  }
 }
 
 export async function generateSollecitoAccettazioneEmail(params: SollecitoAccettazioneEmailParams): Promise<string> {
-  const message = await anthropic.messages.create({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 400,
-    messages: [
-      {
-        role: 'user',
-        content: `Genera un sollecito email urgente in italiano per un formatore che non ha ancora risposto all'assegnazione di un corso.
+  try {
+    const message = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 400,
+      messages: [
+        {
+          role: 'user',
+          content: `Genera un sollecito email urgente in italiano per un formatore che non ha ancora risposto all'assegnazione di un corso.
 
 Dati:
 - Nome formatore: ${params.formatore_nome}
@@ -211,30 +330,25 @@ L'email deve:
 5. Essere breve e diretta
 
 Rispondi SOLO con il corpo dell'email in testo semplice (no HTML, no oggetto email).`,
-      },
-    ],
-  })
-
-  return (message.content[0] as { type: string; text: string }).text
-}
-
-interface RispostaFormatoreEmailParams {
-  formatore_nome: string
-  corso_title: string
-  school_name: string
-  risposta: 'accettato' | 'rifiutato'
-  motivazione?: string
-  corso_admin_url: string
+        },
+      ],
+    })
+    return (message.content[0] as { type: string; text: string }).text
+  } catch (err) {
+    console.error('[email] Anthropic API non disponibile, uso testo predefinito per sollecito accettazione:', err)
+    return fallbackSollecitoAccettazioneEmail(params)
+  }
 }
 
 export async function generateRispostaFormatoreEmail(params: RispostaFormatoreEmailParams): Promise<string> {
-  const message = await anthropic.messages.create({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 400,
-    messages: [
-      {
-        role: 'user',
-        content: `Genera un'email di notifica in italiano per gli amministratori di Formascuole, comunicando la risposta di un formatore all'assegnazione di un corso.
+  try {
+    const message = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 400,
+      messages: [
+        {
+          role: 'user',
+          content: `Genera un'email di notifica in italiano per gli amministratori di Formascuole, comunicando la risposta di un formatore all'assegnazione di un corso.
 
 Dati:
 - Nome formatore: ${params.formatore_nome}
@@ -251,18 +365,17 @@ ${params.risposta === 'rifiutato' ? '4.' : '3.'} Fornire il link alla scheda cor
 5. Essere concisa e informativa
 
 Rispondi SOLO con il corpo dell'email in testo semplice (no HTML, no oggetto email).`,
-      },
-    ],
-  })
-
-  return (message.content[0] as { type: string; text: string }).text
+        },
+      ],
+    })
+    return (message.content[0] as { type: string; text: string }).text
+  } catch (err) {
+    console.error('[email] Anthropic API non disponibile, uso testo predefinito per risposta formatore:', err)
+    return fallbackRispostaFormatoreEmail(params)
+  }
 }
 
-interface EmailAction {
-  label: string
-  url: string
-  primary?: boolean
-}
+// ─── Sender ───────────────────────────────────────────────────────────────────
 
 export async function sendEmail({
   to,
