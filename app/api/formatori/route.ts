@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { sendEmail, generateBenvenutoEmail } from '@/lib/email'
+import { sendEmail, generateBenvenutoEmail, generateAdminBenvenutoEmail } from '@/lib/email'
 import { UserRole } from '@/lib/types'
 
 const ADMIN_ROLES: UserRole[] = ['admin', 'super_admin']
@@ -144,10 +144,15 @@ export async function POST(request: NextRequest) {
 
   // Send welcome email (non-blocking)
   try {
+    const isAdminUser = primaryRole === 'admin'
     await sendEmail({
       to: email,
-      subject: 'Benvenuto in Formascuole - Le tue credenziali di accesso',
-      body: generateBenvenutoEmail({ nome, email, password }),
+      subject: isAdminUser
+        ? 'Benvenuto in Formascuole — Accesso alla piattaforma'
+        : 'Benvenuto in Formascuole — Le tue credenziali di accesso',
+      body: isAdminUser
+        ? generateAdminBenvenutoEmail({ nome, email, password })
+        : generateBenvenutoEmail({ nome, email, password }),
     })
   } catch (emailErr) {
     console.error('Welcome email failed (non-fatal):', emailErr)

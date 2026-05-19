@@ -72,6 +72,16 @@ const adminNav: NavItem[] = [
       </svg>
     ),
   },
+  {
+    href: '/account',
+    label: 'Il mio account',
+    icon: (
+      <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
+        <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.5"/>
+        <path d="M4 20a8 8 0 0116 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      </svg>
+    ),
+  },
 ]
 
 const tutorNav: NavItem[] = [
@@ -84,6 +94,16 @@ const tutorNav: NavItem[] = [
         <rect x="14" y="3" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.5"/>
         <rect x="3" y="14" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.5"/>
         <rect x="14" y="14" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.5"/>
+      </svg>
+    ),
+  },
+  {
+    href: '/account',
+    label: 'Il mio account',
+    icon: (
+      <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
+        <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.5"/>
+        <path d="M4 20a8 8 0 0116 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
       </svg>
     ),
   },
@@ -112,7 +132,7 @@ const formatoreNav: NavItem[] = [
     ),
   },
   {
-    href: '/formatore/account',
+    href: '/account',
     label: 'Il mio account',
     icon: (
       <svg width="18" height="18" fill="none" viewBox="0 0 24 24">

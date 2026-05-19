@@ -184,6 +184,23 @@ Cordiali saluti,
 Il team Formascuole`
 }
 
+export function generateAdminBenvenutoEmail({ nome, email, password }: BenvenutoEmailParams): string {
+  return `Gentile ${nome},
+
+il tuo account amministratore è stato creato sulla piattaforma Formascuole.
+
+Le tue credenziali di accesso:
+- Email: ${email}
+- Password temporanea: ${password}
+
+Accedi qui: ${APP_URL}
+
+Ti consigliamo di cambiare la password al primo accesso tramite la sezione "Il mio account".
+
+Grazie,
+Il team Formascuole`
+}
+
 export async function generateAssegnazioneEmail(params: AssegnazioneEmailParams): Promise<string> {
   const hasAccettazione = !!(params.accetta_url && params.rifiuta_url)
 
