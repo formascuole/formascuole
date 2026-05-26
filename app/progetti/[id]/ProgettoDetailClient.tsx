@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ProgettoConStats, CorsoConOre, Profile, ChatMessaggio, Referente, Finanziamento } from '@/lib/types'
+import { ProgettoConStats, CorsoConOre, Profile, ChatMessaggio, Referente, Finanziamento, CatalogoCorso } from '@/lib/types'
 import { getFinanziamentoColor } from '@/app/progetti/ProgettiClient'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { StatusBadge } from '@/components/ui/StatusBadge'
@@ -21,6 +21,7 @@ interface ProgettoDetailClientProps {
   messaggi: ChatMessaggio[]
   referenti: Referente[]
   finanziamenti: Finanziamento[]
+  catalogo: CatalogoCorso[]
   currentUserId: string
   isSuperAdmin?: boolean
 }
@@ -43,6 +44,7 @@ export function ProgettoDetailClient({
   messaggi: initialMessaggi,
   referenti: initialReferenti,
   finanziamenti,
+  catalogo,
   currentUserId,
   isSuperAdmin,
 }: ProgettoDetailClientProps) {
@@ -53,10 +55,13 @@ export function ProgettoDetailClient({
 
   // ── Corso form ──────────────────────────────────────────────
   const [addCorsoOpen, setAddCorsoOpen] = useState(false)
+  const [addCorsoStep, setAddCorsoStep] = useState<1 | 2>(1)
+  const [catalogoSearch, setCatalogoSearch] = useState('')
   const [savingCorso, setSavingCorso] = useState(false)
   const [corsoForm, setCorsoForm] = useState({
     title: '', tipo: 'PF', ore_totali: '', modalita: 'presenza',
     tutor_previsto: false, tutor_nome: '', ore_tutoraggio: '',
+    descrizione: '', link_scheda: '',
   })
 
   // ── Edit scuola ─────────────────────────────────────────────
@@ -108,6 +113,24 @@ export function ProgettoDetailClient({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const resetAddCorso = () => {
+    setAddCorsoStep(1)
+    setCatalogoSearch('')
+    setCorsoForm({ title: '', tipo: 'PF', ore_totali: '', modalita: 'presenza', tutor_previsto: false, tutor_nome: '', ore_tutoraggio: '', descrizione: '', link_scheda: '' })
+  }
+
+  const selectFromCatalogo = (c: CatalogoCorso) => {
+    setCorsoForm(f => ({
+      ...f,
+      title: c.titolo,
+      tipo: c.tipo,
+      modalita: c.tipo === 'PF' ? 'presenza' : '',
+      descrizione: c.descrizione || '',
+      link_scheda: c.link_scheda || '',
+    }))
+    setAddCorsoStep(2)
+  }
+
   // ── Handlers: corso ─────────────────────────────────────────
   const handleAddCorso = async () => {
     setSavingCorso(true)
@@ -124,11 +147,13 @@ export function ProgettoDetailClient({
           tutor_previsto: corsoForm.tutor_previsto,
           ...(corsoForm.tutor_previsto && corsoForm.tutor_nome && { tutor_nome: corsoForm.tutor_nome }),
           ...(corsoForm.tutor_previsto && corsoForm.ore_tutoraggio && { ore_tutoraggio: Number(corsoForm.ore_tutoraggio) }),
+          ...(corsoForm.descrizione && { descrizione: corsoForm.descrizione }),
+          ...(corsoForm.link_scheda && { link_scheda: corsoForm.link_scheda }),
         }),
       })
       if (res.ok) {
         setAddCorsoOpen(false)
-        setCorsoForm({ title: '', tipo: 'PF', ore_totali: '', modalita: 'presenza', tutor_previsto: false, tutor_nome: '', ore_tutoraggio: '' })
+        resetAddCorso()
         router.refresh()
       }
     } finally {
@@ -618,67 +643,123 @@ export function ProgettoDetailClient({
       {/* ── Modal: Aggiungi corso ────────────────────────────────────── */}
       <Modal
         open={addCorsoOpen}
-        onClose={() => setAddCorsoOpen(false)}
-        title="Aggiungi Corso"
+        onClose={() => { setAddCorsoOpen(false); resetAddCorso() }}
+        title={addCorsoStep === 1 ? 'Aggiungi Corso — Scegli dal catalogo' : 'Aggiungi Corso — Configura'}
         footer={
-          <>
-            <Button variant="secondary" onClick={() => setAddCorsoOpen(false)}>Annulla</Button>
-            <Button
-              onClick={handleAddCorso}
-              loading={savingCorso}
-              disabled={!corsoForm.title || !corsoForm.ore_totali || (corsoForm.tipo === 'PF' && !corsoForm.modalita) || (corsoForm.tutor_previsto && !corsoForm.tutor_nome)}
-            >
-              Aggiungi
-            </Button>
-          </>
+          addCorsoStep === 1 ? (
+            <>
+              <Button variant="secondary" onClick={() => { setAddCorsoOpen(false); resetAddCorso() }}>Annulla</Button>
+              <Button variant="secondary" onClick={() => setAddCorsoStep(2)}>
+                Crea manuale
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="secondary" onClick={() => setAddCorsoStep(1)}>← Indietro</Button>
+              <Button
+                onClick={handleAddCorso}
+                loading={savingCorso}
+                disabled={!corsoForm.title || !corsoForm.ore_totali || (corsoForm.tipo === 'PF' && !corsoForm.modalita) || (corsoForm.tutor_previsto && !corsoForm.tutor_nome)}
+              >
+                Aggiungi corso
+              </Button>
+            </>
+          )
         }
       >
-        <div className="space-y-4">
-          <Input label="Titolo corso *" value={corsoForm.title} onChange={e => setCorsoForm(f => ({ ...f, title: e.target.value }))} placeholder="Es. Sicurezza sul lavoro" />
-          <div className="grid grid-cols-2 gap-3">
-            <Select
-              label="Tipo *"
-              value={corsoForm.tipo}
-              onChange={e => setCorsoForm(f => ({ ...f, tipo: e.target.value, modalita: e.target.value === 'PF' ? 'presenza' : '' }))}
-              options={[
-                { value: 'PF', label: 'Percorso Formativo (PF)' },
-                { value: 'Lab', label: 'Laboratorio sul Campo (Lab)' },
-              ]}
-            />
-            <Input label="Ore totali *" type="number" min={1} value={corsoForm.ore_totali} onChange={e => setCorsoForm(f => ({ ...f, ore_totali: e.target.value }))} placeholder="Es. 20" />
-          </div>
-          {corsoForm.tipo === 'PF' && (
-            <Select
-              label="Modalità erogazione *"
-              value={corsoForm.modalita}
-              onChange={e => setCorsoForm(f => ({ ...f, modalita: e.target.value }))}
-              options={[
-                { value: 'presenza', label: 'In presenza' },
-                { value: 'online', label: 'Online' },
-                { value: 'ibrido', label: 'Ibrido (presenza + online)' },
-              ]}
-            />
-          )}
-          {corsoForm.tipo === 'PF' && (
-            <div className="space-y-3 pt-1">
-              <label className="flex items-center gap-2.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={corsoForm.tutor_previsto}
-                  onChange={e => setCorsoForm(f => ({ ...f, tutor_previsto: e.target.checked, tutor_nome: '', ore_tutoraggio: '' }))}
-                  className="w-4 h-4 rounded accent-[#d64b55]"
-                />
-                <span className="text-sm font-medium text-gray-700">È previsto un tutor?</span>
-              </label>
-              {corsoForm.tutor_previsto && (
-                <div className="grid grid-cols-2 gap-3 pl-6">
-                  <Input label="Nome tutor *" value={corsoForm.tutor_nome} onChange={e => setCorsoForm(f => ({ ...f, tutor_nome: e.target.value }))} placeholder="Es. Anna Verdi" />
-                  <Input label="Ore tutoraggio" type="number" min={1} value={corsoForm.ore_tutoraggio} onChange={e => setCorsoForm(f => ({ ...f, ore_tutoraggio: e.target.value }))} placeholder="Es. 10" />
+        {addCorsoStep === 1 ? (
+          <div className="space-y-3">
+            <div className="relative">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" width="14" height="14" fill="none" viewBox="0 0 24 24">
+                <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="1.5"/>
+                <path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+              <input
+                type="text"
+                value={catalogoSearch}
+                onChange={e => setCatalogoSearch(e.target.value)}
+                placeholder="Cerca nel catalogo…"
+                className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-[7px] focus:outline-none focus:border-[#d64b55] transition-colors"
+              />
+            </div>
+            <div className="max-h-72 overflow-y-auto border border-gray-100 rounded-[7px] divide-y divide-gray-50">
+              {catalogo
+                .filter(c => c.attivo && (
+                  !catalogoSearch.trim() ||
+                  c.titolo.toLowerCase().includes(catalogoSearch.trim().toLowerCase()) ||
+                  c.descrizione?.toLowerCase().includes(catalogoSearch.trim().toLowerCase())
+                ))
+                .map(c => (
+                  <button
+                    key={c.id}
+                    onClick={() => selectFromCatalogo(c)}
+                    className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-sm font-medium text-gray-900">{c.titolo}</span>
+                      <span className={`inline-flex items-center text-xs font-medium px-1.5 py-0.5 rounded ${c.tipo === 'PF' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
+                        {c.tipo}
+                      </span>
+                    </div>
+                    {c.descrizione && <p className="text-xs text-gray-400 truncate">{c.descrizione}</p>}
+                  </button>
+                ))}
+              {catalogo.filter(c => c.attivo).length === 0 && (
+                <div className="px-4 py-6 text-sm text-gray-400 text-center">
+                  Nessun corso attivo nel catalogo.
                 </div>
               )}
             </div>
-          )}
-        </div>
+            <p className="text-xs text-gray-400">Oppure clicca &quot;Crea manuale&quot; per configurare il corso senza partire dal catalogo.</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <Input label="Titolo corso *" value={corsoForm.title} onChange={e => setCorsoForm(f => ({ ...f, title: e.target.value }))} placeholder="Es. Sicurezza sul lavoro" />
+            <div className="grid grid-cols-2 gap-3">
+              <Select
+                label="Tipo *"
+                value={corsoForm.tipo}
+                onChange={e => setCorsoForm(f => ({ ...f, tipo: e.target.value, modalita: e.target.value === 'PF' ? 'presenza' : '' }))}
+                options={[
+                  { value: 'PF', label: 'Percorso Formativo (PF)' },
+                  { value: 'Lab', label: 'Laboratorio sul Campo (Lab)' },
+                ]}
+              />
+              <Input label="Ore totali *" type="number" min={1} value={corsoForm.ore_totali} onChange={e => setCorsoForm(f => ({ ...f, ore_totali: e.target.value }))} placeholder="Es. 20" />
+            </div>
+            {corsoForm.tipo === 'PF' && (
+              <Select
+                label="Modalità erogazione *"
+                value={corsoForm.modalita}
+                onChange={e => setCorsoForm(f => ({ ...f, modalita: e.target.value }))}
+                options={[
+                  { value: 'presenza', label: 'In presenza' },
+                  { value: 'online', label: 'Online' },
+                  { value: 'ibrido', label: 'Ibrido (presenza + online)' },
+                ]}
+              />
+            )}
+            {corsoForm.tipo === 'PF' && (
+              <div className="space-y-3 pt-1">
+                <label className="flex items-center gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={corsoForm.tutor_previsto}
+                    onChange={e => setCorsoForm(f => ({ ...f, tutor_previsto: e.target.checked, tutor_nome: '', ore_tutoraggio: '' }))}
+                    className="w-4 h-4 rounded accent-[#d64b55]"
+                  />
+                  <span className="text-sm font-medium text-gray-700">È previsto un tutor?</span>
+                </label>
+                {corsoForm.tutor_previsto && (
+                  <div className="grid grid-cols-2 gap-3 pl-6">
+                    <Input label="Nome tutor *" value={corsoForm.tutor_nome} onChange={e => setCorsoForm(f => ({ ...f, tutor_nome: e.target.value }))} placeholder="Es. Anna Verdi" />
+                    <Input label="Ore tutoraggio" type="number" min={1} value={corsoForm.ore_tutoraggio} onChange={e => setCorsoForm(f => ({ ...f, ore_tutoraggio: e.target.value }))} placeholder="Es. 10" />
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </Modal>
     </div>
   )

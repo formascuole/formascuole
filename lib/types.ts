@@ -59,6 +59,16 @@ export interface Referente {
   created_at: string
 }
 
+export interface CatalogoCorso {
+  id: string
+  titolo: string
+  tipo: CorsoTipo
+  descrizione?: string | null
+  link_scheda?: string | null
+  attivo: boolean
+  created_at: string
+}
+
 export interface Corso {
   id: string
   project_id: string
@@ -77,6 +87,8 @@ export interface Corso {
   accettazione_richiesta_at?: string | null
   accettazione_risposta_at?: string | null
   rifiuto_motivazione?: string | null
+  descrizione?: string | null
+  link_scheda?: string | null
 }
 
 export interface CorsoConOre extends Corso {

@@ -320,6 +320,21 @@ export function ProgettoFormatoreClient({ progetto, corsi, finanziamenti }: Prop
                 )}
               </div>
               <ProgressBar value={pct} size="sm" />
+              {corso.link_scheda && (
+                <div className="mt-2">
+                  <a
+                    href={corso.link_scheda}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                  >
+                    <svg width="12" height="12" fill="none" viewBox="0 0 24 24">
+                      <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    Scheda corso
+                  </a>
+                </div>
+              )}
             </div>
           )
         })}

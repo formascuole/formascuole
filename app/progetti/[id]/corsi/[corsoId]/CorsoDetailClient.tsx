@@ -70,6 +70,11 @@ export function CorsoDetailClient({
   const [savingNota, setSavingNota] = useState(false)
   const [deletingNota, setDeletingNota] = useState<string | null>(null)
 
+  // Scheda corso edit state
+  const [schedaEditOpen, setSchedaEditOpen] = useState(false)
+  const [schedaForm, setSchedaForm] = useState({ link_scheda: corso.link_scheda || '', descrizione: corso.descrizione || '' })
+  const [savingScheda, setSavingScheda] = useState(false)
+
   const isIbrido = corso.tipo === 'PF' && corso.modalita === 'ibrido'
 
   const orePianificate = Number(corso.ore_pianificate)
@@ -228,6 +233,26 @@ export function CorsoDetailClient({
       setNote(prev => prev.filter(n => n.id !== notaId))
     } finally {
       setDeletingNota(null)
+    }
+  }
+
+  const handleSaveScheda = async () => {
+    setSavingScheda(true)
+    try {
+      const res = await fetch(`/api/corsi/${corso.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          link_scheda: schedaForm.link_scheda.trim() || null,
+          descrizione: schedaForm.descrizione.trim() || null,
+        }),
+      })
+      if (res.ok) {
+        setSchedaEditOpen(false)
+        router.refresh()
+      }
+    } finally {
+      setSavingScheda(false)
     }
   }
 
@@ -429,6 +454,42 @@ export function CorsoDetailClient({
         )}
       </div>
 
+      {/* Scheda corso */}
+      {(corso.link_scheda || corso.descrizione || isAdmin) && (
+        <div className="bg-white rounded-xl p-6 mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-semibold text-gray-900">Scheda corso</h2>
+            {isAdmin && (
+              <button
+                onClick={() => { setSchedaForm({ link_scheda: corso.link_scheda || '', descrizione: corso.descrizione || '' }); setSchedaEditOpen(true) }}
+                className="text-xs text-gray-400 hover:text-gray-700 border border-gray-200 hover:bg-gray-50 px-2.5 py-1.5 rounded-[7px] transition-colors"
+              >
+                Modifica
+              </button>
+            )}
+          </div>
+          {corso.descrizione && (
+            <p className="text-sm text-gray-600 mb-3">{corso.descrizione}</p>
+          )}
+          {corso.link_scheda ? (
+            <a
+              href={corso.link_scheda}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-sm font-medium text-white px-4 py-2 rounded-[7px] transition-colors"
+              style={{ backgroundColor: '#1a73e8' }}
+            >
+              <svg width="15" height="15" fill="none" viewBox="0 0 24 24">
+                <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Apri scheda su Google Drive
+            </a>
+          ) : isAdmin ? (
+            <p className="text-sm text-gray-400">Nessun link scheda impostato.</p>
+          ) : null}
+        </div>
+      )}
+
       {/* Sessioni */}
       <div className="bg-white rounded-xl mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
@@ -604,6 +665,39 @@ export function CorsoDetailClient({
           )}
         </div>
       </div>
+
+      {/* Scheda corso modal */}
+      <Modal
+        open={schedaEditOpen}
+        onClose={() => setSchedaEditOpen(false)}
+        title="Modifica scheda corso"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setSchedaEditOpen(false)}>Annulla</Button>
+            <Button onClick={handleSaveScheda} loading={savingScheda}>Salva</Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <Input
+            label="Link Google Drive"
+            value={schedaForm.link_scheda}
+            onChange={e => setSchedaForm(f => ({ ...f, link_scheda: e.target.value }))}
+            placeholder="https://drive.google.com/..."
+          />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Descrizione</label>
+            <textarea
+              value={schedaForm.descrizione}
+              onChange={e => setSchedaForm(f => ({ ...f, descrizione: e.target.value }))}
+              placeholder="Breve descrizione del corso…"
+              rows={3}
+              className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 focus:outline-none focus:border-[#d64b55] transition-colors resize-none"
+            />
+          </div>
+        </div>
+      </Modal>
 
       {/* Calendar Modal */}
       <Modal

@@ -65,6 +65,12 @@ export default async function ProgettoDetailPage({ params }: { params: Promise<{
     .select('*')
     .order('nome')
 
+  const { data: catalogo } = await supabase
+    .from('catalogo_corsi')
+    .select('*')
+    .eq('attivo', true)
+    .order('titolo')
+
   const { count: notifiche } = await supabase
     .from('solleciti_log')
     .select('*', { count: 'exact', head: true })
@@ -86,6 +92,7 @@ export default async function ProgettoDetailPage({ params }: { params: Promise<{
         messaggi={messaggiConLetto}
         referenti={referenti || []}
         finanziamenti={finanziamenti || []}
+        catalogo={catalogo || []}
         currentUserId={user.id}
         isSuperAdmin={isSuperAdmin}
       />
