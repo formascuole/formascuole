@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { CorsoConOre, Sessione, Profile, Progetto, NotaCorso, Referente } from '@/lib/types'
+import { CorsoConOre, Sessione, Profile, Progetto, NotaCorso, Referente, QuestionarioRisultato } from '@/lib/types'
 import { OreCounter } from '@/components/ui/OreCounter'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { Button } from '@/components/ui/Button'
@@ -21,6 +21,7 @@ interface CorsoDetailClientProps {
   dualRoleIds?: string[]
   referenti: Referente[]
   note: NotaCorso[]
+  questionari: QuestionarioRisultato[]
   progettoId: string
   currentUserId: string
   isAdmin: boolean
@@ -38,6 +39,7 @@ export function CorsoDetailClient({
   dualRoleIds = [],
   referenti,
   note: initialNote,
+  questionari,
   progettoId,
   currentUserId,
   isAdmin,
@@ -666,6 +668,9 @@ export function CorsoDetailClient({
         </div>
       </div>
 
+      {/* Risultati questionari */}
+      <QuestionariSection questionari={questionari} isAdmin={isAdmin} />
+
       {/* Scheda corso modal */}
       <Modal
         open={schedaEditOpen}
@@ -946,6 +951,237 @@ export function CorsoDetailClient({
           router.push(`/progetti/${progettoId}`)
         }}
       />
+    </div>
+  )
+}
+
+// ─── Questionari Section ─────────────────────────────────────────────────────
+
+function StarRating({ value, max = 5 }: { value: number; max?: number }) {
+  const rounded = Math.round(value * 2) / 2
+  const full = Math.floor(rounded)
+  const half = rounded % 1 !== 0
+  const empty = max - full - (half ? 1 : 0)
+  return (
+    <div className="flex items-center gap-0.5">
+      {Array.from({ length: full }).map((_, i) => (
+        <svg key={`f${i}`} width="14" height="14" viewBox="0 0 24 24" fill="#f59e0b">
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+        </svg>
+      ))}
+      {half && (
+        <svg width="14" height="14" viewBox="0 0 24 24">
+          <defs>
+            <linearGradient id="half">
+              <stop offset="50%" stopColor="#f59e0b"/>
+              <stop offset="50%" stopColor="#d1d5db"/>
+            </linearGradient>
+          </defs>
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="url(#half)"/>
+        </svg>
+      )}
+      {Array.from({ length: empty }).map((_, i) => (
+        <svg key={`e${i}`} width="14" height="14" viewBox="0 0 24 24" fill="#d1d5db">
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+        </svg>
+      ))}
+    </div>
+  )
+}
+
+function MediaCard({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="bg-gray-50 rounded-xl p-4 text-center">
+      <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">{label}</div>
+      <div className="text-2xl font-bold text-gray-900 mb-1">{value.toFixed(1)}<span className="text-sm font-normal text-gray-400">/5</span></div>
+      <div className="flex justify-center">
+        <StarRating value={value} />
+      </div>
+    </div>
+  )
+}
+
+function ImpattoBars({ counts, totale }: { counts: Record<string, number>; totale: number }) {
+  const items = [
+    { key: 'yes',      label: 'Sì',       color: '#16a34a', bg: '#dcfce7' },
+    { key: 'in_parte', label: 'In parte', color: '#d97706', bg: '#fef3c7' },
+    { key: 'no',       label: 'No',       color: '#dc2626', bg: '#fee2e2' },
+  ]
+  return (
+    <div className="space-y-2">
+      {items.map(({ key, label, color, bg }) => {
+        const n = counts[key] ?? 0
+        const pct = totale > 0 ? Math.round((n / totale) * 100) : 0
+        return (
+          <div key={key} className="flex items-center gap-3">
+            <div className="w-16 text-sm text-gray-600 shrink-0">{label}</div>
+            <div className="flex-1 bg-gray-100 rounded-full h-5 overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all"
+                style={{ width: `${pct}%`, backgroundColor: color }}
+              />
+            </div>
+            <div className="w-16 text-right">
+              <span className="text-xs font-semibold rounded-md px-1.5 py-0.5" style={{ backgroundColor: bg, color }}>
+                {pct}% ({n})
+              </span>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function QuestionariSection({ questionari, isAdmin }: { questionari: QuestionarioRisultato[]; isAdmin: boolean }) {
+  const sectionTitle = (
+    <div className="flex items-center gap-2 px-6 py-4 border-b border-gray-100">
+      <svg width="16" height="16" fill="none" viewBox="0 0 24 24" className="text-gray-400">
+        <path d="M9 11l3 3L22 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+      <h2 className="font-semibold text-gray-900">Risultati questionari</h2>
+    </div>
+  )
+
+  if (questionari.length === 0) {
+    return (
+      <div className="bg-white rounded-xl mt-4" style={{ border: '0.5px solid #e5e5e5' }}>
+        {sectionTitle}
+        <div className="px-6 py-10 text-center text-sm text-gray-400">
+          Nessun questionario ricevuto ancora.
+        </div>
+      </div>
+    )
+  }
+
+  const totaleRisposte = questionari.reduce((s, q) => s + (q.numero_risposte ?? 1), 0)
+
+  const wAvg = (field: 'media_formatore' | 'media_contenuti' | 'media_apprendimento') => {
+    const sum = questionari.reduce((s, q) => s + (Number(q[field] ?? 0) * (q.numero_risposte ?? 1)), 0)
+    return totaleRisposte > 0 ? sum / totaleRisposte : 0
+  }
+
+  const mediaFormatore = wAvg('media_formatore')
+  const mediaContenuti = wAvg('media_contenuti')
+  const mediaApprendimento = wAvg('media_apprendimento')
+  const mediaGenerale = (mediaFormatore + mediaContenuti + mediaApprendimento) / 3
+
+  const impattoCounts: Record<string, number> = {}
+  for (const q of questionari) {
+    const k = q.impatto_applicare ?? 'no'
+    impattoCounts[k] = (impattoCounts[k] ?? 0) + (q.numero_risposte ?? 1)
+  }
+
+  const latest = questionari[0]
+  const ultimaData = latest.data_somministrazione || latest.created_at.split('T')[0]
+  const latestRiassunto = questionari.find(q => q.riassunto_ai)?.riassunto_ai
+
+  const testiStrumenti = isAdmin
+    ? questionari.filter(q => q.testo_strumenti?.trim()).map(q => q.testo_strumenti!)
+    : []
+  const testiSuggerimenti = isAdmin
+    ? questionari.filter(q => q.testo_suggerimenti?.trim()).map(q => q.testo_suggerimenti!)
+    : []
+
+  return (
+    <div className="bg-white rounded-xl mt-4" style={{ border: '0.5px solid #e5e5e5' }}>
+      {sectionTitle}
+      <div className="p-6 space-y-6">
+
+        {/* Riepilogo */}
+        <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl flex-wrap">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm" style={{ backgroundColor: '#d64b55' }}>
+              {totaleRisposte}
+            </div>
+            <div>
+              <div className="text-xs text-gray-400 font-medium">RISPOSTE</div>
+              <div className="text-sm font-semibold text-gray-800">ricevute</div>
+            </div>
+          </div>
+          <div className="w-px h-10 bg-gray-200 hidden sm:block" />
+          <div>
+            <div className="text-xs text-gray-400 font-medium mb-1">MEDIA GENERALE</div>
+            <div className="flex items-center gap-2">
+              <span className="text-xl font-bold text-gray-900">{mediaGenerale.toFixed(1)}</span>
+              <span className="text-sm text-gray-400">/5</span>
+              <StarRating value={mediaGenerale} />
+            </div>
+          </div>
+          <div className="w-px h-10 bg-gray-200 hidden sm:block" />
+          <div>
+            <div className="text-xs text-gray-400 font-medium">ULTIMA COMPILAZIONE</div>
+            <div className="text-sm font-semibold text-gray-800">{ultimaData}</div>
+          </div>
+        </div>
+
+        {/* Medie per sezione */}
+        <div>
+          <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Medie per sezione</div>
+          <div className="grid grid-cols-3 gap-3">
+            <MediaCard label="Qualità formatore" value={mediaFormatore} />
+            <MediaCard label="Qualità contenuti" value={mediaContenuti} />
+            <MediaCard label="Apprendimento" value={mediaApprendimento} />
+          </div>
+        </div>
+
+        {/* Impatto */}
+        <div>
+          <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
+            Impatto atteso — Pensa di poter applicare quanto appreso?
+          </div>
+          <ImpattoBars counts={impattoCounts} totale={totaleRisposte} />
+        </div>
+
+        {/* Testi liberi — solo admin */}
+        {isAdmin && (testiStrumenti.length > 0 || testiSuggerimenti.length > 0) && (
+          <div className="space-y-4">
+            {testiStrumenti.length > 0 && (
+              <div>
+                <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
+                  Strumenti e risorse menzionati
+                </div>
+                <div className="space-y-2">
+                  {testiStrumenti.map((t, i) => (
+                    <div key={i} className="text-sm text-gray-700 bg-gray-50 rounded-[7px] px-4 py-3 border-l-2 border-gray-200">
+                      {t}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {testiSuggerimenti.length > 0 && (
+              <div>
+                <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
+                  Suggerimenti dei partecipanti
+                </div>
+                <div className="space-y-2">
+                  {testiSuggerimenti.map((t, i) => (
+                    <div key={i} className="text-sm text-gray-700 bg-gray-50 rounded-[7px] px-4 py-3 border-l-2 border-gray-200">
+                      {t}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Riassunto AI */}
+        {latestRiassunto && (
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Sintesi AI dei commenti</div>
+              <span className="text-xs px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 font-medium">Claude</span>
+            </div>
+            <div className="text-sm text-gray-700 bg-purple-50 border border-purple-100 rounded-xl px-5 py-4 leading-relaxed whitespace-pre-wrap">
+              {latestRiassunto}
+            </div>
+          </div>
+        )}
+
+      </div>
     </div>
   )
 }

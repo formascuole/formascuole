@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { CorsoDetailClient } from './CorsoDetailClient'
 import { Profile } from '@/lib/types'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export default async function CorsoDetailPage({
   params,
@@ -110,6 +111,14 @@ export default async function CorsoDetailPage({
     ? await supabase.from('solleciti_log').select('*', { count: 'exact', head: true }).eq('tipo', 'sollecito_3')
     : { count: 0 }
 
+  // Questionari — use admin client to bypass RLS for formatori
+  const adminQ = createAdminClient()
+  const { data: questionari } = await adminQ
+    .from('questionari_risultati')
+    .select('*')
+    .eq('corso_id', corsoId)
+    .order('created_at', { ascending: false })
+
   // Il formatore assegnato può confermare le sessioni
   const canConfirmSessions = isAdmin || corsoData.formatore_id === user.id
 
@@ -131,6 +140,7 @@ export default async function CorsoDetailPage({
         dualRoleIds={dualRoleIds}
         referenti={referenti || []}
         note={note || []}
+        questionari={questionari || []}
         progettoId={id}
         currentUserId={user.id}
         isAdmin={isAdmin}

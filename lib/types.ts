@@ -139,3 +139,25 @@ export interface SollecitoLog {
   corso?: CorsoConOre
   formatore?: Profile
 }
+
+export interface QuestionarioRisultato {
+  id: string
+  corso_id: string | null
+  scuola: string | null
+  titolo_corso: string | null
+  tipo_corso: string | null
+  formatore: string | null
+  regione: string | null
+  provincia: string | null
+  linea_finanziamento: string | null
+  data_somministrazione: string | null
+  media_formatore: number | null
+  media_contenuti: number | null
+  media_apprendimento: number | null
+  impatto_applicare: string | null
+  testo_strumenti: string | null
+  testo_suggerimenti: string | null
+  riassunto_ai: string | null
+  numero_risposte: number
+  created_at: string
+}
