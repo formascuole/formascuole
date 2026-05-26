@@ -39,6 +39,7 @@ export function ProgettiClient({ progetti, finanziamenti, inAttesaProjectIds }: 
   const [filterFinId, setFilterFinId] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
   const [form, setForm] = useState({
     school_name: '',
     address: '',
@@ -76,6 +77,7 @@ export function ProgettiClient({ progetti, finanziamenti, inAttesaProjectIds }: 
 
   const handleSave = async () => {
     setSaving(true)
+    setSaveError('')
     try {
       const res = await fetch('/api/progetti', {
         method: 'POST',
@@ -85,11 +87,15 @@ export function ProgettiClient({ progetti, finanziamenti, inAttesaProjectIds }: 
           finanziamento_id: form.finanziamento_id || null,
         }),
       })
-      if (res.ok) {
-        setModalOpen(false)
-        setForm({ school_name: '', address: '', finanziamento_id: '', ref_name: '', ref_email: '', ref_tel: '', status: 'active' })
-        router.refresh()
+      const json = await res.json()
+      if (!res.ok) {
+        setSaveError(json.error || 'Errore durante il salvataggio')
+        return
       }
+      setModalOpen(false)
+      setSaveError('')
+      setForm({ school_name: '', address: '', finanziamento_id: '', ref_name: '', ref_email: '', ref_tel: '', status: 'active' })
+      router.refresh()
     } finally {
       setSaving(false)
     }
@@ -102,7 +108,7 @@ export function ProgettiClient({ progetti, finanziamenti, inAttesaProjectIds }: 
           <h1 className="text-2xl font-bold text-gray-900">Progetti</h1>
           <p className="text-sm text-gray-500 mt-1">{progetti.length} progett{progetti.length === 1 ? 'o' : 'i'} totali</p>
         </div>
-        <Button onClick={() => setModalOpen(true)}>
+        <Button onClick={() => { setSaveError(''); setModalOpen(true) }}>
           <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
             <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
           </svg>
@@ -175,13 +181,13 @@ export function ProgettiClient({ progetti, finanziamenti, inAttesaProjectIds }: 
       {/* Modal nuovo progetto */}
       <Modal
         open={modalOpen}
-        onClose={() => setModalOpen(false)}
+        onClose={() => { setModalOpen(false); setSaveError('') }}
         title="Nuovo Progetto"
         size="md"
         footer={
           <>
             <Button variant="secondary" onClick={() => setModalOpen(false)}>Annulla</Button>
-            <Button onClick={handleSave} loading={saving} disabled={!form.school_name || !form.ref_name || !form.ref_email}>
+            <Button onClick={handleSave} loading={saving} disabled={!form.school_name || !form.address || !form.ref_name || !form.ref_email}>
               Crea Progetto
             </Button>
           </>
@@ -218,6 +224,7 @@ export function ProgettiClient({ progetti, finanziamenti, inAttesaProjectIds }: 
               { value: 'completed', label: 'Completato' },
             ]}
           />
+          {saveError && <p className="text-sm text-red-600">{saveError}</p>}
         </div>
       </Modal>
     </div>
