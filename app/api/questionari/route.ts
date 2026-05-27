@@ -1,6 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
+function stripHtml(s: unknown): string | null {
+  if (s == null || s === '') return null
+  return String(s).replace(/<[^>]*>/g, '').trim() || null
+}
+
+function toMedia(v: unknown): number | null {
+  if (v == null || v === '') return null
+  const n = parseFloat(String(v))
+  return isNaN(n) ? null : n
+}
+
 export async function POST(request: NextRequest) {
   const secret = request.headers.get('x-webhook-secret')
   if (!secret || secret !== process.env.WEBHOOK_SECRET) {
@@ -14,12 +25,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
 
+  console.log('[questionari/webhook] received fields:', JSON.stringify(body, null, 2))
+
   const {
     corso_id,
     scuola,
     titolo_corso,
     tipo_corso,
     formatore,
+    nome_formatore,
     regione,
     provincia,
     linea_finanziamento,
@@ -43,18 +57,18 @@ export async function POST(request: NextRequest) {
       scuola: scuola || null,
       titolo_corso: titolo_corso || null,
       tipo_corso: tipo_corso || null,
-      formatore: formatore || null,
+      formatore: formatore || nome_formatore || null,
       regione: regione || null,
       provincia: provincia || null,
       linea_finanziamento: linea_finanziamento || null,
       data_somministrazione: data_somministrazione || null,
-      media_formatore: media_formatore != null ? Number(media_formatore) : null,
-      media_contenuti: media_contenuti != null ? Number(media_contenuti) : null,
-      media_apprendimento: media_apprendimento != null ? Number(media_apprendimento) : null,
+      media_formatore: toMedia(media_formatore),
+      media_contenuti: toMedia(media_contenuti),
+      media_apprendimento: toMedia(media_apprendimento),
       impatto_applicare: impatto_applicare || null,
-      testo_strumenti: testo_strumenti || null,
-      testo_suggerimenti: testo_suggerimenti || null,
-      riassunto_ai: riassunto_ai || null,
+      testo_strumenti: stripHtml(testo_strumenti),
+      testo_suggerimenti: stripHtml(testo_suggerimenti),
+      riassunto_ai: stripHtml(riassunto_ai),
       numero_risposte: numero_risposte ? Number(numero_risposte) : 1,
     })
     .select('id')
@@ -65,5 +79,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
+  console.log('[questionari/webhook] inserted id:', data.id)
   return NextResponse.json({ success: true, id: data.id })
 }
