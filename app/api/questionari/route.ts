@@ -8,8 +8,20 @@ function stripHtml(s: unknown): string | null {
 
 function toMedia(v: unknown): number | null {
   if (v == null || v === '') return null
-  const n = parseFloat(String(v))
+  const n = parseFloat(String(v).replace(',', '.'))
   return isNaN(n) ? null : n
+}
+
+async function parseBody(request: NextRequest): Promise<Record<string, unknown>> {
+  const ct = request.headers.get('content-type') ?? ''
+  if (ct.includes('application/x-www-form-urlencoded')) {
+    const text = await request.text()
+    const params = new URLSearchParams(text)
+    const obj: Record<string, unknown> = {}
+    params.forEach((value, key) => { obj[key] = value })
+    return obj
+  }
+  return request.json()
 }
 
 export async function POST(request: NextRequest) {
@@ -20,9 +32,9 @@ export async function POST(request: NextRequest) {
 
   let body: Record<string, unknown>
   try {
-    body = await request.json()
+    body = await parseBody(request)
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
   }
 
   console.log('[questionari/webhook] received fields:', JSON.stringify(body, null, 2))
