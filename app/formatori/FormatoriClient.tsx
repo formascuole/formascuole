@@ -221,8 +221,9 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
         </div>
       </div>
 
-      <div className="bg-white rounded-xl" style={{ border: '0.5px solid #e5e5e5' }}>
-        <table className="w-full">
+      <div className="bg-white rounded-xl overflow-hidden" style={{ border: '0.5px solid #e5e5e5' }}>
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[860px]">
           <thead>
             <tr className="border-b border-gray-100">
               <th className="text-left text-xs font-medium text-gray-400 px-6 py-3">UTENTE</th>
@@ -344,6 +345,7 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* ── Modal: Crea utente ──────────────────────────────────────────────── */}
