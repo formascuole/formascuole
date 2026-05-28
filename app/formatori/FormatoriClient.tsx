@@ -222,26 +222,25 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
       </div>
 
       <div className="bg-white rounded-xl overflow-hidden" style={{ border: '0.5px solid #e5e5e5' }}>
-        <div className="overflow-x-auto">
-        <table className="w-full min-w-[860px]">
+        <table className="w-full">
           <thead>
             <tr className="border-b border-gray-100">
-              <th className="text-left text-xs font-medium text-gray-400 px-6 py-3">UTENTE</th>
-              <th className="text-left text-xs font-medium text-gray-400 px-6 py-3">RUOLO</th>
-              <th className="text-center text-xs font-medium text-gray-400 px-4 py-3">CORSI FORM.</th>
-              <th className="text-center text-xs font-medium text-gray-400 px-4 py-3">ORE FORM.</th>
-              <th className="text-center text-xs font-medium text-gray-400 px-4 py-3">CORSI TUTOR</th>
-              <th className="text-center text-xs font-medium text-gray-400 px-4 py-3">ORE TUTOR</th>
-              <th className="text-left text-xs font-medium text-gray-400 px-4 py-3 min-w-[130px]">PIANIFICATO %</th>
-              <th className="text-center text-xs font-medium text-gray-400 px-4 py-3">ACCETTAZIONE %</th>
-              <th className="px-6 py-3"></th>
+              <th className="text-left text-xs font-medium text-gray-400 px-4 py-3">UTENTE</th>
+              <th className="text-left text-xs font-medium text-gray-400 px-3 py-3">RUOLO</th>
+              <th className="text-center text-xs font-medium text-gray-400 px-2 py-3">C.FORM.</th>
+              <th className="text-center text-xs font-medium text-gray-400 px-2 py-3">ORE</th>
+              <th className="text-center text-xs font-medium text-gray-400 px-2 py-3">C.TUTOR</th>
+              <th className="text-center text-xs font-medium text-gray-400 px-2 py-3">ORE</th>
+              <th className="text-left text-xs font-medium text-gray-400 px-3 py-3 min-w-[110px]">PIANIF. %</th>
+              <th className="text-center text-xs font-medium text-gray-400 px-2 py-3">ACCETT. %</th>
+              <th className="px-3 py-3"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
             {filtered.map(u => (
               <tr key={u.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4">
-                  <Link href={`/utenti/${u.id}`} className="flex items-center gap-3 group">
+                <td className="px-4 py-3">
+                  <Link href={`/utenti/${u.id}`} className="flex items-center gap-2.5 group">
                     <Avatar nome={u.nome} id={u.id} initials={u.avatar_initials} size="md" />
                     <div>
                       <div className="font-medium text-sm text-gray-900 group-hover:text-[#d64b55] transition-colors">{u.nome}</div>
@@ -249,7 +248,7 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
                     </div>
                   </Link>
                 </td>
-                <td className="px-6 py-4">
+                <td className="px-3 py-3">
                   <div className="flex flex-wrap gap-1">
                     {(u.roles || [u.role]).filter(r => r !== 'super_admin').map(r => (
                       <span key={r} className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md ${ROLE_COLORS[r as UserRole]}`}>
@@ -260,12 +259,12 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
                 </td>
                 {statsLoading ? (
                   <>
-                    <td className="px-4 py-4 text-center"><span className="inline-block w-8 h-3 bg-gray-100 rounded animate-pulse" /></td>
-                    <td className="px-4 py-4 text-center"><span className="inline-block w-10 h-3 bg-gray-100 rounded animate-pulse" /></td>
-                    <td className="px-4 py-4 text-center"><span className="inline-block w-8 h-3 bg-gray-100 rounded animate-pulse" /></td>
-                    <td className="px-4 py-4 text-center"><span className="inline-block w-10 h-3 bg-gray-100 rounded animate-pulse" /></td>
-                    <td className="px-4 py-4"><span className="inline-block w-20 h-3 bg-gray-100 rounded animate-pulse" /></td>
-                    <td className="px-4 py-4 text-center"><span className="inline-block w-12 h-3 bg-gray-100 rounded animate-pulse" /></td>
+                    <td className="px-2 py-3 text-center"><span className="inline-block w-6 h-3 bg-gray-100 rounded animate-pulse" /></td>
+                    <td className="px-2 py-3 text-center"><span className="inline-block w-8 h-3 bg-gray-100 rounded animate-pulse" /></td>
+                    <td className="px-2 py-3 text-center"><span className="inline-block w-6 h-3 bg-gray-100 rounded animate-pulse" /></td>
+                    <td className="px-2 py-3 text-center"><span className="inline-block w-8 h-3 bg-gray-100 rounded animate-pulse" /></td>
+                    <td className="px-3 py-3"><span className="inline-block w-16 h-3 bg-gray-100 rounded animate-pulse" /></td>
+                    <td className="px-2 py-3 text-center"><span className="inline-block w-10 h-3 bg-gray-100 rounded animate-pulse" /></td>
                   </>
                 ) : (() => {
                   const s = statsMap[u.id]
@@ -276,26 +275,26 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
                   const pct = s?.pct ?? 0
                   return (
                     <>
-                      <td className="px-4 py-4 text-center text-sm text-gray-700">
+                      <td className="px-2 py-3 text-center text-sm text-gray-700">
                         {nF > 0 ? <span className="font-medium">{nF}</span> : <span className="text-gray-300">—</span>}
                       </td>
-                      <td className="px-4 py-4 text-center text-sm text-gray-700">
+                      <td className="px-2 py-3 text-center text-sm text-gray-700">
                         {oF > 0 ? <span>{oF}h</span> : <span className="text-gray-300">—</span>}
                       </td>
-                      <td className="px-4 py-4 text-center text-sm text-gray-700">
+                      <td className="px-2 py-3 text-center text-sm text-gray-700">
                         {nT > 0 ? <span className="font-medium">{nT}</span> : <span className="text-gray-300">—</span>}
                       </td>
-                      <td className="px-4 py-4 text-center text-sm text-gray-700">
+                      <td className="px-2 py-3 text-center text-sm text-gray-700">
                         {oT > 0 ? <span>{oT}h</span> : <span className="text-gray-300">—</span>}
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="px-3 py-3">
                         {(nF + nT) > 0 ? (
                           <ProgressBar value={pct} size="sm" showLabel />
                         ) : (
                           <span className="text-xs text-gray-300">—</span>
                         )}
                       </td>
-                      <td className="px-4 py-4 text-center text-sm text-gray-700">
+                      <td className="px-2 py-3 text-center text-sm text-gray-700">
                         {(() => {
                           const ta = s?.tasso_accettazione
                           if (ta === null || ta === undefined) return <span className="text-gray-300">—</span>
@@ -306,30 +305,28 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
                     </>
                   )
                 })()}
-                <td className="px-6 py-4 text-right">
-                  <div className="flex items-center justify-end gap-2">
+                <td className="px-3 py-3">
+                  <div className="flex items-center justify-end gap-1">
                     <button
                       onClick={() => openEdit(u)}
-                      className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-800 px-2.5 py-1.5 rounded-[7px] hover:bg-gray-100 transition-colors"
-                      title="Modifica utente"
+                      className="p-1.5 rounded-[7px] text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+                      title="Modifica"
                     >
-                      <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
+                      <svg width="15" height="15" fill="none" viewBox="0 0 24 24">
                         <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                         <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                       </svg>
-                      Modifica
                     </button>
                     {isSuperAdmin && !(u.roles || [u.role]).includes('super_admin') && (
                       <button
                         onClick={() => setDeleteTarget(u)}
-                        className="inline-flex items-center gap-1.5 text-xs font-medium text-red-400 hover:text-red-600 px-2.5 py-1.5 rounded-[7px] hover:bg-red-50 transition-colors"
-                        title="Elimina utente"
+                        className="p-1.5 rounded-[7px] text-red-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                        title="Elimina"
                       >
-                        <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
+                        <svg width="15" height="15" fill="none" viewBox="0 0 24 24">
                           <polyline points="3 6 5 6 21 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                           <path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                         </svg>
-                        Elimina
                       </button>
                     )}
                   </div>
@@ -345,7 +342,6 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
             )}
           </tbody>
         </table>
-        </div>
       </div>
 
       {/* ── Modal: Crea utente ──────────────────────────────────────────────── */}
