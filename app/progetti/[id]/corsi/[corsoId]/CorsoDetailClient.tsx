@@ -1,5 +1,5 @@
 'use client'
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { CorsoConOre, Sessione, Profile, Progetto, NotaCorso, Referente, QuestionarioRisultato, Candidatura } from '@/lib/types'
@@ -54,6 +54,7 @@ export function CorsoDetailClient({
 }: CorsoDetailClientProps) {
   const router = useRouter()
   const [sessioni, setSessioni] = useState<Sessione[]>(initialSessioni)
+  useEffect(() => { setSessioni(initialSessioni) }, [initialSessioni])
   const [deleteCorsoOpen, setDeleteCorsoOpen] = useState(false)
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
   const [calendarOpen, setCalendarOpen] = useState(false)
@@ -74,6 +75,7 @@ export function CorsoDetailClient({
 
   // Notes state
   const [note, setNote] = useState<NotaCorso[]>(initialNote)
+  useEffect(() => { setNote(initialNote) }, [initialNote])
   const [newNota, setNewNota] = useState('')
   const [savingNota, setSavingNota] = useState(false)
   const [deletingNota, setDeletingNota] = useState<string | null>(null)
@@ -135,6 +137,8 @@ export function CorsoDetailClient({
         }),
       })
       if (res.ok) {
+        const data = await res.json()
+        setSessioni(prev => [...prev, data].sort((a, b) => a.data.localeCompare(b.data)))
         setCalendarOpen(false)
         setNewData('')
         setNewOre('')
@@ -150,6 +154,7 @@ export function CorsoDetailClient({
     setDeletingId(sessioneId)
     try {
       await fetch(`/api/sessioni/${sessioneId}`, { method: 'DELETE' })
+      setSessioni(prev => prev.filter(s => s.id !== sessioneId))
       router.refresh()
     } finally {
       setDeletingId(null)
@@ -257,6 +262,7 @@ export function CorsoDetailClient({
         const data = await res.json()
         setNote(prev => [...prev, data])
         setNewNota('')
+        router.refresh()
       }
     } finally {
       setSavingNota(false)
@@ -268,6 +274,7 @@ export function CorsoDetailClient({
     try {
       await fetch(`/api/note/${notaId}`, { method: 'DELETE' })
       setNote(prev => prev.filter(n => n.id !== notaId))
+      router.refresh()
     } finally {
       setDeletingNota(null)
     }
@@ -319,6 +326,8 @@ export function CorsoDetailClient({
         }),
       })
       if (res.ok) {
+        const updated = await res.json()
+        setSessioni(prev => prev.map(s => s.id === editingSession.id ? { ...s, data: updated.data, ore: updated.ore } : s).sort((a, b) => a.data.localeCompare(b.data)))
         setEditModalOpen(false)
         setEditingSession(null)
         if (logLoaded) fetchLog()
@@ -356,6 +365,7 @@ export function CorsoDetailClient({
       if (res.ok) {
         const updated = await res.json()
         setSessioni(prev => prev.map(s => s.id === sessioneId ? { ...s, completata: true, completata_at: updated.completata_at } : s))
+        router.refresh()
       }
     } finally {
       setConfirmingId(null)

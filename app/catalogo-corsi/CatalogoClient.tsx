@@ -1,5 +1,6 @@
 'use client'
 import { useState, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { CatalogoCorso } from '@/lib/types'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
@@ -25,6 +26,7 @@ interface Props {
 }
 
 export function CatalogoClient({ initialCorsi, isSuperAdmin }: Props) {
+  const router = useRouter()
   const [corsi, setCorsi] = useState<CatalogoCorso[]>(initialCorsi)
   const [search, setSearch] = useState('')
 
@@ -76,6 +78,7 @@ export function CatalogoClient({ initialCorsi, isSuperAdmin }: Props) {
       setCorsi(prev => [...prev, data].sort((a, b) => a.titolo.localeCompare(b.titolo)))
       setAddOpen(false)
       setAddForm(emptyForm)
+      router.refresh()
     } finally {
       setSaving(false)
     }
@@ -108,6 +111,7 @@ export function CatalogoClient({ initialCorsi, isSuperAdmin }: Props) {
       if (!res.ok) { setEditError(data.error || 'Errore'); return }
       setCorsi(prev => prev.map(c => c.id === data.id ? data : c).sort((a, b) => a.titolo.localeCompare(b.titolo)))
       setEditCorso(null)
+      router.refresh()
     } finally {
       setSavingEdit(false)
     }
@@ -124,6 +128,7 @@ export function CatalogoClient({ initialCorsi, isSuperAdmin }: Props) {
       if (res.ok) {
         const data = await res.json()
         setCorsi(prev => prev.map(c => c.id === data.id ? data : c))
+        router.refresh()
       }
     } finally {
       setToggling(null)
@@ -136,6 +141,7 @@ export function CatalogoClient({ initialCorsi, isSuperAdmin }: Props) {
     if (res.ok || res.status === 204) {
       setCorsi(prev => prev.filter(c => c.id !== deletingCorso.id))
       setDeletingCorso(null)
+      router.refresh()
     } else {
       const j = await res.json().catch(() => ({}))
       throw new Error(j.error || 'Errore durante l\'eliminazione')

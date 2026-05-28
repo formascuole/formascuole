@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Finanziamento } from '@/lib/types'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
@@ -13,6 +14,7 @@ type FormState = { nome: string; descrizione: string; attivo: boolean }
 const emptyForm: FormState = { nome: '', descrizione: '', attivo: true }
 
 export function FinanziamentiClient({ finanziamenti: initial }: FinanziamentiClientProps) {
+  const router = useRouter()
   const [finanziamenti, setFinanziamenti] = useState<Finanziamento[]>(initial)
   const [addOpen, setAddOpen] = useState(false)
   const [addForm, setAddForm] = useState<FormState>(emptyForm)
@@ -39,6 +41,7 @@ export function FinanziamentiClient({ finanziamenti: initial }: FinanziamentiCli
       setFinanziamenti(prev => [...prev, json].sort((a, b) => a.nome.localeCompare(b.nome)))
       setAddOpen(false)
       setAddForm(emptyForm)
+      router.refresh()
     } finally {
       setSaving(false)
     }
@@ -64,6 +67,7 @@ export function FinanziamentiClient({ finanziamenti: initial }: FinanziamentiCli
       if (!res.ok) { setEditError(json.error || 'Errore'); return }
       setFinanziamenti(prev => prev.map(f => f.id === json.id ? json : f).sort((a, b) => a.nome.localeCompare(b.nome)))
       setEditTarget(null)
+      router.refresh()
     } finally {
       setSavingEdit(false)
     }
@@ -78,7 +82,10 @@ export function FinanziamentiClient({ finanziamenti: initial }: FinanziamentiCli
         body: JSON.stringify({ attivo: !f.attivo }),
       })
       const json = await res.json()
-      if (res.ok) setFinanziamenti(prev => prev.map(item => item.id === json.id ? json : item))
+      if (res.ok) {
+        setFinanziamenti(prev => prev.map(item => item.id === json.id ? json : item))
+        router.refresh()
+      }
     } finally {
       setTogglingId(null)
     }
