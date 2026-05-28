@@ -125,6 +125,9 @@ export default async function CorsoDetailPage({
     .from('questionari_risultati')
     .select('*')
     .eq('corso_id', corsoId)
+    .not('media_formatore', 'is', null)
+    .not('media_contenuti', 'is', null)
+    .not('media_apprendimento', 'is', null)
     .order('created_at', { ascending: false })
 
   // Il formatore assegnato può confermare le sessioni

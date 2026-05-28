@@ -80,7 +80,7 @@ export default async function ProgettoDetailPage({ params }: { params: Promise<{
   const corsiIds = (corsi || []).map(c => c.id)
   const adminQ = createAdminClient()
   const { data: questionari } = corsiIds.length > 0
-    ? await adminQ.from('questionari_risultati').select('*').in('corso_id', corsiIds).order('created_at', { ascending: false })
+    ? await adminQ.from('questionari_risultati').select('*').in('corso_id', corsiIds).not('media_formatore', 'is', null).not('media_contenuti', 'is', null).not('media_apprendimento', 'is', null).order('created_at', { ascending: false })
     : { data: [] }
 
   return (

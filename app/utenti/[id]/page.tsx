@@ -82,9 +82,9 @@ export default async function UtenteDetailPage({ params }: { params: Promise<{ i
   const corsiIds = (corsiFormatore || []).map(c => c.id)
   const [{ data: questionari }, { data: allQuestionari }] = await Promise.all([
     corsiIds.length > 0
-      ? adminQ.from('questionari_risultati').select('*').in('corso_id', corsiIds).order('created_at', { ascending: false })
+      ? adminQ.from('questionari_risultati').select('*').in('corso_id', corsiIds).not('media_formatore', 'is', null).not('media_contenuti', 'is', null).not('media_apprendimento', 'is', null).order('created_at', { ascending: false })
       : Promise.resolve({ data: [] }),
-    adminQ.from('questionari_risultati').select('media_formatore,media_contenuti,media_apprendimento,numero_risposte'),
+    adminQ.from('questionari_risultati').select('media_formatore,media_contenuti,media_apprendimento,numero_risposte').not('media_formatore', 'is', null).not('media_contenuti', 'is', null).not('media_apprendimento', 'is', null),
   ])
 
   const globalTot = (allQuestionari || []).reduce((s, q) => s + (q.numero_risposte ?? 1), 0)

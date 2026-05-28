@@ -21,6 +21,9 @@ export default async function QuestionariStatPage() {
   const { data: questionari } = await admin
     .from('questionari_risultati')
     .select('*')
+    .not('media_formatore', 'is', null)
+    .not('media_contenuti', 'is', null)
+    .not('media_apprendimento', 'is', null)
     .order('created_at', { ascending: false })
 
   return (
