@@ -5,7 +5,7 @@ import { CorsoConOre, Profile, QuestionarioRisultato } from '@/lib/types'
 import { QuestionariMiniCard } from '@/components/ui/QuestionariBlock'
 import { OreCounter } from '@/components/ui/OreCounter'
 import { StatusBadge } from '@/components/ui/StatusBadge'
-import { ProgressBar } from '@/components/ui/ProgressBar'
+import { DualProgressBar } from '@/components/ui/DualProgressBar'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
@@ -60,9 +60,10 @@ interface FormatoreClientProps {
   mediaGlobale?: number | null
   corsiDisponibili?: CorsoDisponibile[]
   oreErogate?: number
+  oreErogatePerCorso?: Record<string, number>
 }
 
-export function FormatoreClient({ corsi, profile, finanziamenti, questionari = [], mediaGlobale = null, corsiDisponibili = [], oreErogate = 0 }: FormatoreClientProps) {
+export function FormatoreClient({ corsi, profile, finanziamenti, questionari = [], mediaGlobale = null, corsiDisponibili = [], oreErogate = 0, oreErogatePerCorso = {} }: FormatoreClientProps) {
   const router = useRouter()
 
   // Calendar modal
@@ -365,12 +366,10 @@ export function FormatoreClient({ corsi, profile, finanziamenti, questionari = [
                 {/* Corsi del progetto */}
                 <div className="space-y-2 pl-3">
                   {corsiProgetto.map(corso => {
-                    const pct = corso.ore_totali > 0
-                      ? Math.min(Math.round((Number(corso.ore_pianificate) / Number(corso.ore_totali)) * 100), 100)
-                      : 0
                     const orePian = Number(corso.ore_pianificate)
                     const oreTot = Number(corso.ore_totali)
-                    const statoCalendario = corso.calendario_completo
+                    const oreEro = oreErogatePerCorso[corso.id] ?? 0
+                    const statoCalendario = (oreTot > 0 && oreEro >= oreTot)
                       ? { label: 'Completato', bg: '#dcfce7', text: '#166534' }
                       : orePian === 0
                       ? { label: 'Da pianificare', bg: '#f3f4f6', text: '#6b7280' }
@@ -421,15 +420,13 @@ export function FormatoreClient({ corsi, profile, finanziamenti, questionari = [
                             </div>
                             <div className="flex items-center gap-3 text-xs text-gray-400">
                               <span>{oreTot}h totali</span>
-                              <span>{orePian}h pianificate</span>
-                              <span className="font-medium text-gray-600">{pct}%</span>
                             </div>
                           </div>
                           {!inAttesa && (
                             <div className="flex items-center gap-2 shrink-0">
-                              <Button size="sm" variant={corso.calendario_completo ? 'secondary' : 'primary'}
+                              <Button size="sm" variant={statoCalendario.label === 'Completato' ? 'secondary' : 'primary'}
                                 onClick={() => openModal(corso)}>
-                                {corso.calendario_completo ? 'Vedi calendario' : 'Pianifica'}
+                                {statoCalendario.label === 'Completato' ? 'Vedi calendario' : 'Pianifica'}
                               </Button>
                               <button
                                 onClick={() => router.push(`/progetti/${corso.project_id}/corsi/${corso.id}`)}
@@ -443,7 +440,7 @@ export function FormatoreClient({ corsi, profile, finanziamenti, questionari = [
                             </div>
                           )}
                         </div>
-                        <ProgressBar value={pct} size="sm" />
+                        <DualProgressBar oreTotali={oreTot} orePianificate={orePian} oreErogate={oreEro} />
                       </div>
                     )
                   })}

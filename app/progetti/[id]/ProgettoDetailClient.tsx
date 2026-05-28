@@ -6,6 +6,7 @@ import { ProgettoConStats, CorsoConOre, Profile, ChatMessaggio, Referente, Finan
 import { QuestionariBlock } from '@/components/ui/QuestionariBlock'
 import { getFinanziamentoColor } from '@/app/progetti/ProgettiClient'
 import { ProgressBar } from '@/components/ui/ProgressBar'
+import { DualProgressBar } from '@/components/ui/DualProgressBar'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
@@ -798,11 +799,13 @@ const ASSEGNAZIONE_BADGES: Record<string, { label: string; cls: string }> = {
   rifiutato:  { label: 'Rifiutato',  cls: 'bg-red-100 text-red-700'    },
 }
 
-function CourseRow({ corso, progettoId, oreErogate }: { corso: CorsoConOre; progettoId: string; oreErogate?: number }) {
+function CourseRow({ corso, progettoId, oreErogate = 0 }: { corso: CorsoConOre; progettoId: string; oreErogate?: number }) {
   const router = useRouter()
-  const pct = corso.ore_totali > 0 ? Math.min(Math.round((corso.ore_pianificate / corso.ore_totali) * 100), 100) : 0
   const formatore = corso.formatore as Profile | undefined
   const badgeInfo = corso.stato_assegnazione ? ASSEGNAZIONE_BADGES[corso.stato_assegnazione] : undefined
+  const oreTot = Number(corso.ore_totali)
+  const orePian = Number(corso.ore_pianificate)
+  const isCompletato = oreTot > 0 && oreErogate >= oreTot
 
   return (
     <div
@@ -814,25 +817,14 @@ function CourseRow({ corso, progettoId, oreErogate }: { corso: CorsoConOre; prog
           <div className="flex items-center gap-2 mb-1">
             <span className="font-medium text-sm text-gray-900">{corso.title}</span>
             <StatusBadge variant={corso.tipo} size="sm" />
-          </div>
-          <div className="flex items-center gap-4 text-xs text-gray-400">
-            <span>{corso.ore_totali}h totali</span>
-            <span>{corso.ore_pianificate}h pianificate</span>
-            {oreErogate !== undefined && oreErogate > 0 && (
-              <span className="text-blue-600 font-medium">{oreErogate}h erogate</span>
-            )}
-            {corso.calendario_completo && (
-              <span className="text-green-600 flex items-center gap-1">
-                <svg width="10" height="10" fill="none" viewBox="0 0 24 24">
-                  <polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                Completo
-              </span>
+            {isCompletato && (
+              <span className="text-xs font-medium text-green-700 bg-green-100 px-2 py-0.5 rounded-md">Completato</span>
             )}
           </div>
+          <div className="text-xs text-gray-400">{oreTot}h totali</div>
         </div>
-        <div className="w-36">
-          <ProgressBar value={pct} size="sm" showLabel />
+        <div className="w-52">
+          <DualProgressBar oreTotali={oreTot} orePianificate={orePian} oreErogate={oreErogate} />
         </div>
         <div className="w-44 shrink-0 flex flex-col gap-1">
           {formatore ? (

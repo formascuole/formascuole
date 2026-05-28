@@ -84,7 +84,7 @@ export default async function UtenteDetailPage({ params }: { params: Promise<{ i
 
   const [{ data: sessioniFormatore }, { data: sessioniTutor }, { data: corsiTutorData }] = await Promise.all([
     corsiFormatoreIds.length > 0
-      ? adminQ.from('sessioni').select('ore').in('corso_id', corsiFormatoreIds).eq('completata', true)
+      ? adminQ.from('sessioni').select('corso_id, ore').in('corso_id', corsiFormatoreIds).eq('completata', true)
       : Promise.resolve({ data: [] }),
     corsiTutorIds.length > 0
       ? adminQ.from('sessioni').select('corso_id, ore').in('corso_id', corsiTutorIds).eq('completata', true)
@@ -94,15 +94,21 @@ export default async function UtenteDetailPage({ params }: { params: Promise<{ i
       : Promise.resolve({ data: [] }),
   ])
 
-  const oreErogateFormatore = (sessioniFormatore || []).reduce((s, x) => s + Number(x.ore), 0)
-
-  // Ore tutor erogate: proporzionale per ciascun corso
-  const oreCompPerCorso = new Map<string, number>()
-  for (const s of sessioniTutor || []) {
-    oreCompPerCorso.set(s.corso_id, (oreCompPerCorso.get(s.corso_id) ?? 0) + Number(s.ore))
+  const oreErogatePerCorsoFormatore: Record<string, number> = {}
+  let oreErogateFormatore = 0
+  for (const s of sessioniFormatore || []) {
+    oreErogatePerCorsoFormatore[s.corso_id] = (oreErogatePerCorsoFormatore[s.corso_id] ?? 0) + Number(s.ore)
+    oreErogateFormatore += Number(s.ore)
   }
+
+  const oreErogatePerCorsoTutor: Record<string, number> = {}
+  for (const s of sessioniTutor || []) {
+    oreErogatePerCorsoTutor[s.corso_id] = (oreErogatePerCorsoTutor[s.corso_id] ?? 0) + Number(s.ore)
+  }
+
+  // Ore tutor erogate totali: proporzionale per ciascun corso
   const oreErogateTutor = (corsiTutorData || []).reduce((sum, c) => {
-    const oreComp = oreCompPerCorso.get(c.id) ?? 0
+    const oreComp = oreErogatePerCorsoTutor[c.id] ?? 0
     if (!c.ore_tutoraggio || !c.ore_totali || Number(c.ore_totali) === 0) return sum
     return sum + Math.round(Number(c.ore_tutoraggio) * (oreComp / Number(c.ore_totali)))
   }, 0)
@@ -144,6 +150,8 @@ export default async function UtenteDetailPage({ params }: { params: Promise<{ i
         mediaGlobale={globalMedia}
         oreErogateFormatore={oreErogateFormatore}
         oreErogateTutor={oreErogateTutor}
+        oreErogatePerCorsoFormatore={oreErogatePerCorsoFormatore}
+        oreErogatePerCorsoTutor={oreErogatePerCorsoTutor}
       />
     </AppLayout>
   )

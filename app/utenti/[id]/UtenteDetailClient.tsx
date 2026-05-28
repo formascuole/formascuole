@@ -7,7 +7,7 @@ import { QuestionariBlock, QuestionariMiniCard } from '@/components/ui/Questiona
 import { Avatar } from '@/components/ui/Avatar'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { StatCard } from '@/components/ui/StatCard'
-import { ProgressBar } from '@/components/ui/ProgressBar'
+import { DualProgressBar } from '@/components/ui/DualProgressBar'
 import { DeleteConfirmModal } from '@/components/ui/DeleteConfirmModal'
 import { ROLE_LABELS, ROLE_COLORS } from '@/lib/auth'
 import { formatDate } from '@/lib/utils'
@@ -28,18 +28,19 @@ interface UtenteDetailClientProps {
   mediaGlobale?: number | null
   oreErogateFormatore?: number
   oreErogateTutor?: number
+  oreErogatePerCorsoFormatore?: Record<string, number>
+  oreErogatePerCorsoTutor?: Record<string, number>
 }
 
-function corsoStato(c: CorsoConOre): { label: string; color: string } {
-  const pct = Number(c.ore_totali) > 0
-    ? Math.round((Number(c.ore_pianificate) / Number(c.ore_totali)) * 100)
-    : 0
-  if (pct === 0) return { label: 'Da pianificare', color: 'text-gray-400 bg-gray-100' }
-  if (pct >= 100) return { label: 'Completato', color: 'text-green-700 bg-green-100' }
+function corsoStato(c: CorsoConOre, oreErogate: number): { label: string; color: string } {
+  const oreTotali = Number(c.ore_totali)
+  const orePianificate = Number(c.ore_pianificate)
+  if (orePianificate === 0) return { label: 'Da pianificare', color: 'text-gray-400 bg-gray-100' }
+  if (oreTotali > 0 && oreErogate >= oreTotali) return { label: 'Completato', color: 'text-green-700 bg-green-100' }
   return { label: 'In corso', color: 'text-amber-700 bg-amber-100' }
 }
 
-function CorsiTable({ corsi }: { corsi: CorsoConProgetto[] }) {
+function CorsiTable({ corsi, oreErogateMap = {} }: { corsi: CorsoConProgetto[]; oreErogateMap?: Record<string, number> }) {
   if (corsi.length === 0) {
     return (
       <div className="px-6 py-10 text-center text-sm text-gray-400">
@@ -63,9 +64,8 @@ function CorsiTable({ corsi }: { corsi: CorsoConProgetto[] }) {
         {corsi.map(c => {
           const oreTotali = Number(c.ore_totali)
           const orePianificate = Number(c.ore_pianificate)
-          const oreResidue = Math.max(oreTotali - orePianificate, 0)
-          const pct = oreTotali > 0 ? Math.round((orePianificate / oreTotali) * 100) : 0
-          const stato = corsoStato(c)
+          const oreEro = oreErogateMap[c.id] ?? 0
+          const stato = corsoStato(c, oreEro)
           const progettoIdCorrente = c.project?.id
 
           return (
@@ -82,14 +82,8 @@ function CorsiTable({ corsi }: { corsi: CorsoConProgetto[] }) {
                   <div className="text-xs text-gray-400">{c.project.anno_scolastico}</div>
                 )}
               </td>
-              <td className="px-6 py-4">
-                <div className="space-y-1">
-                  <ProgressBar value={pct} size="sm" showLabel />
-                  <div className="text-xs text-gray-400">
-                    {orePianificate}h / {oreTotali}h
-                    {oreResidue > 0 && <span className="text-gray-300"> · {oreResidue}h residue</span>}
-                  </div>
-                </div>
+              <td className="px-6 py-4 min-w-[200px]">
+                <DualProgressBar oreTotali={oreTotali} orePianificate={orePianificate} oreErogate={oreEro} />
               </td>
               <td className="px-6 py-4">
                 <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md ${stato.color}`}>
@@ -117,7 +111,7 @@ function CorsiTable({ corsi }: { corsi: CorsoConProgetto[] }) {
   )
 }
 
-export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSuperAdmin, currentUserId, nRifiutati = 0, tassoAccettazione = null, questionari = [], mediaGlobale = null, oreErogateFormatore = 0, oreErogateTutor = 0 }: UtenteDetailClientProps) {
+export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSuperAdmin, currentUserId, nRifiutati = 0, tassoAccettazione = null, questionari = [], mediaGlobale = null, oreErogateFormatore = 0, oreErogateTutor = 0, oreErogatePerCorsoFormatore = {}, oreErogatePerCorsoTutor = {} }: UtenteDetailClientProps) {
   const router = useRouter()
   const [deleteOpen, setDeleteOpen] = useState(false)
 
@@ -241,7 +235,7 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
               <span className="ml-2 text-sm font-normal text-gray-400">({corsiFormatore.length})</span>
             </h2>
           </div>
-          <CorsiTable corsi={corsiFormatore} />
+          <CorsiTable corsi={corsiFormatore} oreErogateMap={oreErogatePerCorsoFormatore} />
         </div>
       )}
 
@@ -253,7 +247,7 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
               <span className="ml-2 text-sm font-normal text-gray-400">({corsiTutor.length})</span>
             </h2>
           </div>
-          <CorsiTable corsi={corsiTutor} />
+          <CorsiTable corsi={corsiTutor} oreErogateMap={oreErogatePerCorsoTutor} />
         </div>
       )}
 

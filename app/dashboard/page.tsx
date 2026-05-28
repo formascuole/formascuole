@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { StatCard } from '@/components/ui/StatCard'
-import { ProgressBar } from '@/components/ui/ProgressBar'
+import { DualProgressBar } from '@/components/ui/DualProgressBar'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { ProgettoConStats } from '@/lib/types'
 import Link from 'next/link'
@@ -51,6 +51,14 @@ export default async function DashboardPage() {
     if (!c.ore_tutoraggio || !c.ore_totali || Number(c.ore_totali) === 0) return sum
     return sum + Math.round(Number(c.ore_tutoraggio) * (oreComp / Number(c.ore_totali)))
   }, 0)
+
+  // Ore erogate per progetto
+  const { data: allCorsi } = await supabase.from('corsi').select('id, project_id')
+  const oreErogatePerProgetto: Record<string, number> = {}
+  for (const c of allCorsi || []) {
+    const oreEro = oreCompletatePerCorso.get(c.id) ?? 0
+    if (oreEro > 0) oreErogatePerProgetto[c.project_id] = (oreErogatePerProgetto[c.project_id] ?? 0) + oreEro
+  }
 
   const { count: notifiche } = await supabase
     .from('solleciti_log')
@@ -201,12 +209,11 @@ export default async function DashboardPage() {
                     <td className="px-6 py-4 text-sm text-gray-600">{p.anno_scolastico}</td>
                     <td className="px-6 py-4 text-center text-sm font-medium text-gray-700">{p.n_corsi}</td>
                     <td className="px-6 py-4">
-                      <div className="space-y-1">
-                        <ProgressBar value={Number(p.percentuale_completamento)} size="sm" />
-                        <div className="text-xs text-gray-400">
-                          {p.ore_pianificate}h / {p.ore_totali}h ({p.percentuale_completamento}%)
-                        </div>
-                      </div>
+                      <DualProgressBar
+                        oreTotali={Number(p.ore_totali)}
+                        orePianificate={Number(p.ore_pianificate)}
+                        oreErogate={oreErogatePerProgetto[p.id] ?? 0}
+                      />
                     </td>
                     <td className="px-6 py-4">
                       <StatusBadge variant={p.status} size="sm" />

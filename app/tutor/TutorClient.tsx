@@ -4,7 +4,6 @@ import { useRouter } from 'next/navigation'
 import { CorsoConOre, NotaCorso, Profile } from '@/lib/types'
 import { OreCounter } from '@/components/ui/OreCounter'
 import { StatusBadge } from '@/components/ui/StatusBadge'
-import { ProgressBar } from '@/components/ui/ProgressBar'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { StatCard } from '@/components/ui/StatCard'
@@ -224,7 +223,8 @@ export function TutorClient({ corsi, profile, finanziamenti, oreErogate = 0, ore
                       : 0
                     const orePian = Number(corso.ore_pianificate)
                     const oreTot = Number(corso.ore_totali)
-                    const stato = corso.calendario_completo
+                    const oreEro = oreErogatePerCorso[corso.id] ?? 0
+                    const stato = (oreTot > 0 && oreEro >= oreTot)
                       ? { label: 'Completato', bg: '#dcfce7', text: '#166534' }
                       : orePian === 0
                       ? { label: 'Da pianificare', bg: '#f3f4f6', text: '#6b7280' }
@@ -252,8 +252,6 @@ export function TutorClient({ corsi, profile, finanziamenti, oreErogate = 0, ore
                             )}
                             <div className="flex items-center gap-3 text-xs text-gray-400">
                               <span>{oreTot}h totali</span>
-                              <span>{orePian}h pianificate</span>
-                              <span className="font-medium text-gray-600">{pct}%</span>
                             </div>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
@@ -280,9 +278,6 @@ export function TutorClient({ corsi, profile, finanziamenti, oreErogate = 0, ore
                           orePianificate={orePian}
                           oreErogate={oreErogatePerCorso[corso.id] ?? 0}
                         />
-                        <div className="mt-2">
-                          <ProgressBar value={pct} size="sm" />
-                        </div>
                       </div>
                     )
                   })}

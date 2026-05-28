@@ -111,16 +111,20 @@ export default async function FormatorePage() {
     già_candidato: mieCandidatureSet.has(c.id),
   }))
 
-  // Ore erogate per questo formatore
+  // Ore erogate per questo formatore (totale + per corso)
   const corsiIds = (corsi || []).map(c => c.id)
+  const oreErogatePerCorso: Record<string, number> = {}
   let oreErogate = 0
   if (corsiIds.length > 0) {
     const { data: sessioni } = await admin
       .from('sessioni')
-      .select('ore')
+      .select('corso_id, ore')
       .in('corso_id', corsiIds)
       .eq('completata', true)
-    oreErogate = (sessioni || []).reduce((s, x) => s + Number(x.ore), 0)
+    for (const s of sessioni || []) {
+      oreErogatePerCorso[s.corso_id] = (oreErogatePerCorso[s.corso_id] ?? 0) + Number(s.ore)
+      oreErogate += Number(s.ore)
+    }
   }
 
   // Questionari per questo formatore
@@ -149,6 +153,7 @@ export default async function FormatorePage() {
         mediaGlobale={mediaGlobale}
         corsiDisponibili={corsiDisponibili}
         oreErogate={oreErogate}
+        oreErogatePerCorso={oreErogatePerCorso}
       />
     </AppLayout>
   )
