@@ -65,9 +65,17 @@ export default async function CorsoDetailPage({
 
   const { data: progetto } = await supabase
     .from('progetti')
-    .select('school_name,anno_scolastico,ref_name,ref_email')
+    .select('school_name,anno_scolastico,ref_name,ref_email,finanziamento_id')
     .eq('id', id)
     .single()
+
+  const { data: finanziamenti } = await supabase
+    .from('finanziamenti')
+    .select('id,nome')
+
+  const finanziamentoNome = progetto?.finanziamento_id
+    ? (finanziamenti || []).find(f => f.id === progetto.finanziamento_id)?.nome || null
+    : null
 
   const { data: sessioni } = await supabase
     .from('sessioni')
@@ -146,6 +154,7 @@ export default async function CorsoDetailPage({
         isAdmin={isAdmin}
         canConfirmSessions={canConfirmSessions}
         isSuperAdmin={isSuperAdmin}
+        finanziamentoNome={finanziamentoNome}
       />
     </AppLayout>
   )

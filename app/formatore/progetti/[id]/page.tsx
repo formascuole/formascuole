@@ -61,6 +61,7 @@ export default async function ProgettoFormatorePage({ params }: { params: Promis
         progetto={progetto}
         corsi={corsiConReferente}
         finanziamenti={finanziamenti || []}
+        formatoreNome={profile.nome}
       />
     </AppLayout>
   )

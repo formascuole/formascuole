@@ -12,10 +12,12 @@ import { Avatar } from '@/components/ui/Avatar'
 import { formatDate } from '@/lib/utils'
 import { DeleteConfirmModal } from '@/components/ui/DeleteConfirmModal'
 import { QuestionariBlock } from '@/components/ui/QuestionariBlock'
+import { QuestionarioModal, buildQuestionarioUrl } from '@/components/ui/QuestionarioModal'
 
 interface CorsoDetailClientProps {
   corso: CorsoConOre & { formatore?: Profile; tutor?: Profile; referente?: Referente }
-  progetto: Pick<Progetto, 'school_name' | 'anno_scolastico' | 'ref_name' | 'ref_email'> | null
+  progetto: Pick<Progetto, 'school_name' | 'anno_scolastico' | 'ref_name' | 'ref_email' | 'finanziamento_id'> | null
+  finanziamentoNome?: string | null
   sessioni: Sessione[]
   formatori: Profile[]
   tutori: Profile[]
@@ -46,6 +48,7 @@ export function CorsoDetailClient({
   isAdmin,
   canConfirmSessions,
   isSuperAdmin,
+  finanziamentoNome,
 }: CorsoDetailClientProps) {
   const router = useRouter()
   const [sessioni, setSessioni] = useState<Sessione[]>(initialSessioni)
@@ -72,6 +75,8 @@ export function CorsoDetailClient({
   const [newNota, setNewNota] = useState('')
   const [savingNota, setSavingNota] = useState(false)
   const [deletingNota, setDeletingNota] = useState<string | null>(null)
+
+  const [questionarioOpen, setQuestionarioOpen] = useState(false)
 
   // Scheda corso edit state
   const [schedaEditOpen, setSchedaEditOpen] = useState(false)
@@ -307,18 +312,32 @@ export function CorsoDetailClient({
               </span>
             )}
           </div>
-          {isSuperAdmin && (
-            <button
-              onClick={() => setDeleteCorsoOpen(true)}
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 px-3 py-1.5 rounded-[7px] transition-colors shrink-0"
-            >
-              <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
-                <polyline points="3 6 5 6 21 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                <path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              Elimina corso
-            </button>
-          )}
+          <div className="flex items-center gap-2 shrink-0">
+            {corso.tipo === 'PF' && (
+              <button
+                onClick={() => setQuestionarioOpen(true)}
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-gray-900 bg-white hover:bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-[7px] transition-colors"
+              >
+                <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
+                  <path d="M9 12h6M9 16h4M17 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V5a2 2 0 00-2-2z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  <path d="M9 8h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+                Questionario
+              </button>
+            )}
+            {isSuperAdmin && (
+              <button
+                onClick={() => setDeleteCorsoOpen(true)}
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 px-3 py-1.5 rounded-[7px] transition-colors"
+              >
+                <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
+                  <polyline points="3 6 5 6 21 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  <path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                Elimina corso
+              </button>
+            )}
+          </div>
         </div>
         {corso.tipo === 'PF' && (
           <div className="flex flex-wrap gap-2 mb-4">
@@ -952,6 +971,23 @@ export function CorsoDetailClient({
           router.push(`/progetti/${progettoId}`)
         }}
       />
+
+      {corso.tipo === 'PF' && (
+        <QuestionarioModal
+          open={questionarioOpen}
+          onClose={() => setQuestionarioOpen(false)}
+          url={buildQuestionarioUrl({
+            scuola: progetto?.school_name || '',
+            titoloCorso: corso.title,
+            formatore: corso.formatore?.nome || '',
+            tipoCorso: corso.tipo || '',
+            lineaFinanziamento: finanziamentoNome || '',
+          })}
+          titoloCorso={corso.title}
+          corsoId={corso.id}
+          hasFormatore={!!corso.formatore}
+        />
+      )}
     </div>
   )
 }
