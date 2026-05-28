@@ -40,9 +40,12 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
   const corsoUrl = `${APP_URL}/formatore`
 
-  // Fire-and-forget: send emails to all formatori
-  ;(async () => {
-    for (const f of formatori || []) {
+  const formatori_list = formatori || []
+  console.log(`[candidature/apri] Invio email a ${formatori_list.length} formatori per corso "${corso.title}"`)
+
+  // Await all emails before responding — fire-and-forget is killed by serverless on return
+  await Promise.allSettled(
+    formatori_list.map(async (f) => {
       try {
         const body = await generateCandidaturaDisponibileEmail({
           formatore_nome: f.nome,
@@ -58,9 +61,14 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
           body,
           actions: [{ label: 'Candidati ora', url: corsoUrl, primary: true }],
         })
-      } catch { /* ignore per-email errors */ }
-    }
-  })()
+        console.log(`[candidature/apri] Email inviata a ${f.email}`)
+      } catch (err) {
+        console.error(`[candidature/apri] Errore invio email a ${f.email}:`, err)
+      }
+    })
+  )
+
+  console.log(`[candidature/apri] Completato — ${formatori_list.length} email processate`)
 
   return NextResponse.json({ success: true })
 }
