@@ -313,18 +313,16 @@ export function CorsoDetailClient({
             )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            {corso.tipo === 'PF' && (
-              <button
-                onClick={() => setQuestionarioOpen(true)}
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-gray-900 bg-white hover:bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-[7px] transition-colors"
-              >
-                <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
-                  <path d="M9 12h6M9 16h4M17 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V5a2 2 0 00-2-2z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                  <path d="M9 8h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                </svg>
-                Questionario
-              </button>
-            )}
+            <button
+              onClick={() => setQuestionarioOpen(true)}
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-gray-900 bg-white hover:bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-[7px] transition-colors"
+            >
+              <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
+                <path d="M9 12h6M9 16h4M17 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V5a2 2 0 00-2-2z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                <path d="M9 8h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+              Questionario
+            </button>
             {isSuperAdmin && (
               <button
                 onClick={() => setDeleteCorsoOpen(true)}
@@ -972,22 +970,20 @@ export function CorsoDetailClient({
         }}
       />
 
-      {corso.tipo === 'PF' && (
-        <QuestionarioModal
-          open={questionarioOpen}
-          onClose={() => setQuestionarioOpen(false)}
-          url={buildQuestionarioUrl({
-            scuola: progetto?.school_name || '',
-            titoloCorso: corso.title,
-            formatore: corso.formatore?.nome || '',
-            tipoCorso: corso.tipo || '',
-            lineaFinanziamento: finanziamentoNome || '',
-          })}
-          titoloCorso={corso.title}
-          corsoId={corso.id}
-          hasFormatore={!!corso.formatore}
-        />
-      )}
+      <QuestionarioModal
+        open={questionarioOpen}
+        onClose={() => setQuestionarioOpen(false)}
+        url={buildQuestionarioUrl({
+          scuola: progetto?.school_name || '',
+          titoloCorso: corso.title,
+          formatore: corso.formatore?.nome || '',
+          tipoCorso: corso.tipo || '',
+          lineaFinanziamento: finanziamentoNome || '',
+        })}
+        titoloCorso={corso.title}
+        corsoId={corso.id}
+        hasFormatore={!!corso.formatore}
+      />
     </div>
   )
 }
