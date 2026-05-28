@@ -60,6 +60,13 @@ interface RispostaFormatoreEmailParams {
   corso_admin_url: string
 }
 
+interface ReminderQuestionarioEmailParams {
+  formatore_nome: string
+  corso_title: string
+  school_name: string
+  questionario_url: string
+}
+
 interface EmailAction {
   label: string
   url: string
@@ -140,6 +147,19 @@ ti ricordiamo che devi ancora rispondere all'assegnazione del corso "${p.corso_t
 
 Hai ${p.ore_rimanenti} ore rimaste per accettare o rifiutare l'incarico.
 In assenza di risposta il corso verrà riassegnato ad altro formatore.
+
+Grazie,
+Il team Formascuole`
+}
+
+function fallbackReminderQuestionarioEmail(p: ReminderQuestionarioEmailParams): string {
+  return `Gentile ${p.formatore_nome},
+
+oggi si conclude il corso "${p.corso_title}" presso ${p.school_name}.
+
+Ricorda di somministrare il questionario di valutazione ai partecipanti prima della fine della sessione.
+
+Link questionario: ${p.questionario_url}
 
 Grazie,
 Il team Formascuole`
@@ -390,6 +410,85 @@ Rispondi SOLO con il corpo dell'email in testo semplice (no HTML, no oggetto ema
     console.error('[email] Anthropic API non disponibile, uso testo predefinito per risposta formatore:', err)
     return fallbackRispostaFormatoreEmail(params)
   }
+}
+
+export async function generateReminderQuestionarioEmail(params: ReminderQuestionarioEmailParams): Promise<string> {
+  try {
+    const message = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 400,
+      messages: [
+        {
+          role: 'user',
+          content: `Genera un reminder email breve e cordiale in italiano per un formatore che oggi tiene l'ultima sessione di un corso e deve somministrare il questionario di valutazione.
+
+Dati:
+- Nome formatore: ${params.formatore_nome}
+- Titolo corso: ${params.corso_title}
+- Nome scuola: ${params.school_name}
+- Link questionario: ${params.questionario_url}
+
+L'email deve:
+1. Salutare il formatore per nome
+2. Ricordare che oggi si conclude il corso presso la scuola
+3. Chiedere di somministrare il questionario di valutazione ai partecipanti prima della fine della sessione
+4. Indicare il link al questionario (che precompila automaticamente i dati del corso)
+5. Precisare che in allegato c'è il QR code per la compilazione rapida
+6. Essere breve (max 6 righe di corpo), tono cordiale e professionale
+
+Rispondi SOLO con il corpo dell'email in testo semplice (no HTML, no oggetto email).`,
+        },
+      ],
+    })
+    return (message.content[0] as { type: string; text: string }).text
+  } catch (err) {
+    console.error('[email] Anthropic API non disponibile, uso testo predefinito per reminder questionario:', err)
+    return fallbackReminderQuestionarioEmail(params)
+  }
+}
+
+export async function sendQuestionarioReminderEmail({
+  to,
+  subject,
+  body,
+  questionario_url,
+  qrDataUrl,
+}: {
+  to: string
+  subject: string
+  body: string
+  questionario_url: string
+  qrDataUrl?: string
+}) {
+  const qrHtml = qrDataUrl
+    ? `<div style="margin-top:24px;text-align:center;">
+        <p style="font-size:13px;color:#6b7280;margin-bottom:8px;">QR code da mostrare ai partecipanti:</p>
+        <img src="${qrDataUrl}" width="180" height="180" alt="QR Code questionario" style="border:1px solid #e5e7eb;border-radius:8px;padding:8px;" />
+      </div>`
+    : ''
+
+  await resend.emails.send({
+    from: 'Formascuole <noreply@formascuole.it>',
+    to,
+    subject,
+    text: body + `\n\nLink questionario: ${questionario_url}`,
+    html: `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto;padding:24px;">
+      <div style="margin-bottom:24px;">
+        <span style="font-size:20px;font-weight:bold;color:#d64b55;">Formascuole</span>
+      </div>
+      <div style="white-space:pre-wrap;color:#1a1a1a;line-height:1.6;">${body.replace(/\n/g, '<br/>')}</div>
+      <div style="margin-top:20px;">
+        <a href="${questionario_url}" style="display:inline-block;padding:10px 22px;background-color:#d64b55;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px;">
+          Apri questionario
+        </a>
+      </div>
+      ${qrHtml}
+      <div style="margin-top:32px;padding-top:16px;border-top:1px solid #e5e5e5;font-size:12px;color:#888;">
+        <p>Formascuole — Piattaforma gestione progetti formativi</p>
+        <p><a href="${APP_URL}" style="color:#d64b55;">${APP_URL}</a></p>
+      </div>
+    </div>`,
+  })
 }
 
 // ─── Sender ───────────────────────────────────────────────────────────────────

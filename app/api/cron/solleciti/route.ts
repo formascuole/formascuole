@@ -1,15 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import QRCode from 'qrcode'
 import {
   generateSollecitoEmail,
   generateSollecitoAccettazioneEmail,
   generateRispostaFormatoreEmail,
   generateReminderSessioneEmail,
+  generateReminderQuestionarioEmail,
   sendEmail,
+  sendQuestionarioReminderEmail,
 } from '@/lib/email'
 
 const CRON_SECRET = process.env.CRON_SECRET
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://formascuole.vercel.app'
+
+function buildQuestionarioUrlServer(params: {
+  scuola: string
+  titoloCorso: string
+  formatore: string
+  tipoCorso: string
+  lineaFinanziamento?: string
+  dataSomministrazione: string
+}): string {
+  const base = new URL('https://www.formascuole.it/')
+  base.searchParams.set('ff_landing', '13')
+  base.searchParams.set('scuola', params.scuola)
+  base.searchParams.set('titolo_corso', params.titoloCorso)
+  base.searchParams.set('formatore', params.formatore)
+  base.searchParams.set('tipo_corso', params.tipoCorso)
+  base.searchParams.set('regione', '')
+  base.searchParams.set('provincia', '')
+  base.searchParams.set('linea_finanziamento', params.lineaFinanziamento || '')
+  base.searchParams.set('data_somministrazione', params.dataSomministrazione)
+  return base.toString()
+}
 
 const SOLLECITO_DELAYS = {
   first: 3,
@@ -175,22 +199,9 @@ export async function GET(request: NextRequest) {
       .eq('calendario_completo', false)
       .eq('stato_assegnazione', 'accettato')
 
-    if (!corsiIncomplete?.length) {
-      return NextResponse.json({
-        message: 'No incomplete courses found',
-        accettazione_processed: (pendingCorsi || []).length,
-        accettazione_results: accettazioneResults,
-        processed: 0,
-        results: [],
-        reminder_sessioni_processed: 0,
-        reminder_results: [],
-        timestamp: now.toISOString(),
-      })
-    }
-
     const results: { corso_id: string; action: string }[] = []
 
-    for (const corso of corsiIncomplete) {
+    for (const corso of corsiIncomplete || []) {
       const formatore = (corso.formatore as unknown) as { nome: string; email: string } | null
       const project = (corso.project as unknown) as { school_name: string; ref_name: string; ref_email: string } | null
 
@@ -341,14 +352,122 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // ── FASE 4: Reminder questionario — ultima sessione oggi ──────────────────
+    const todayStr = now.toISOString().split('T')[0]
+
+    const { data: sessioniOggi } = await supabase
+      .from('sessioni')
+      .select('corso_id')
+      .eq('data', todayStr)
+
+    const corsoIdsOggi = [...new Set((sessioniOggi || []).map(s => s.corso_id as string))]
+
+    const questionarioResults: { corso_id: string; action: string }[] = []
+
+    for (const corsoId of corsoIdsOggi) {
+      // Only proceed if today is the last planned session for this corso
+      const { count: afterCount } = await supabase
+        .from('sessioni')
+        .select('*', { count: 'exact', head: true })
+        .eq('corso_id', corsoId)
+        .gt('data', todayStr)
+
+      if (afterCount && afterCount > 0) {
+        questionarioResults.push({ corso_id: corsoId, action: 'not_last_session' })
+        continue
+      }
+
+      const { data: corso } = await supabase
+        .from('corsi')
+        .select('id, title, tipo, formatore_id, project_id, stato_assegnazione')
+        .eq('id', corsoId)
+        .single()
+
+      if (!corso || !corso.formatore_id || corso.stato_assegnazione !== 'accettato') {
+        questionarioResults.push({ corso_id: corsoId, action: 'skip_not_eligible' })
+        continue
+      }
+
+      // Deduplica: non inviare più di una volta al giorno per questo corso
+      const { data: existingReminder } = await supabase
+        .from('solleciti_log')
+        .select('id')
+        .eq('corso_id', corsoId)
+        .eq('tipo', 'reminder_questionario')
+        .gte('sent_at', `${todayStr}T00:00:00Z`)
+        .maybeSingle()
+
+      if (existingReminder) {
+        questionarioResults.push({ corso_id: corsoId, action: 'already_sent_today' })
+        continue
+      }
+
+      const [{ data: formatore }, { data: progetto }] = await Promise.all([
+        supabase.from('profiles').select('nome, email').eq('id', corso.formatore_id).single(),
+        supabase.from('progetti').select('school_name, finanziamento_id').eq('id', corso.project_id).single(),
+      ])
+
+      if (!formatore?.email) {
+        questionarioResults.push({ corso_id: corsoId, action: 'no_formatore_email' })
+        continue
+      }
+
+      const { data: finanziamento } = progetto?.finanziamento_id
+        ? await supabase.from('finanziamenti').select('nome').eq('id', progetto.finanziamento_id).single()
+        : { data: null }
+
+      const questionarioUrl = buildQuestionarioUrlServer({
+        scuola: progetto?.school_name || '',
+        titoloCorso: corso.title,
+        formatore: formatore.nome,
+        tipoCorso: corso.tipo || '',
+        lineaFinanziamento: finanziamento?.nome || '',
+        dataSomministrazione: todayStr,
+      })
+
+      let qrDataUrl: string | undefined
+      try {
+        qrDataUrl = await QRCode.toDataURL(questionarioUrl, { margin: 2, width: 180 })
+      } catch { /* continue without QR */ }
+
+      try {
+        const emailBody = await generateReminderQuestionarioEmail({
+          formatore_nome: formatore.nome,
+          corso_title: corso.title,
+          school_name: progetto?.school_name || '',
+          questionario_url: questionarioUrl,
+        })
+
+        await sendQuestionarioReminderEmail({
+          to: formatore.email,
+          subject: `Oggi ultima sessione — ricorda il questionario di valutazione!`,
+          body: emailBody,
+          questionario_url: questionarioUrl,
+          qrDataUrl,
+        })
+
+        await supabase.from('solleciti_log').insert({
+          corso_id: corsoId,
+          formatore_id: corso.formatore_id,
+          tipo: 'reminder_questionario',
+        })
+
+        questionarioResults.push({ corso_id: corsoId, action: 'sent_reminder' })
+      } catch {
+        questionarioResults.push({ corso_id: corsoId, action: 'email_error' })
+      }
+    }
+
     return NextResponse.json({
       success: true,
       accettazione_processed: (pendingCorsi || []).length,
       accettazione_results: accettazioneResults,
-      processed: corsiIncomplete.length,
+      processed: (corsiIncomplete || []).length,
       results,
       reminder_sessioni_processed: (sessioniDaConfermare || []).length,
       reminder_results: reminderResults,
+      questionario_processed: corsoIdsOggi.length,
+      questionario_results: questionarioResults,
       timestamp: now.toISOString(),
     })
   } catch (error) {
