@@ -50,9 +50,11 @@ interface TutorClientProps {
   corsi: CorsoConProgetto[]
   profile: Profile
   finanziamenti: { id: string; nome: string }[]
+  oreErogate?: number
+  oreErogatePerCorso?: Record<string, number>
 }
 
-export function TutorClient({ corsi, profile, finanziamenti }: TutorClientProps) {
+export function TutorClient({ corsi, profile, finanziamenti, oreErogate = 0, oreErogatePerCorso = {} }: TutorClientProps) {
   const router = useRouter()
   const [selectedCorso, setSelectedCorso] = useState<CorsoConProgetto | null>(null)
   const [note, setNote] = useState<NotaCorso[]>([])
@@ -128,7 +130,7 @@ export function TutorClient({ corsi, profile, finanziamenti }: TutorClientProps)
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-4 gap-4 mb-8">
         <StatCard
           label="Corsi assegnati"
           value={corsi.length}
@@ -136,8 +138,15 @@ export function TutorClient({ corsi, profile, finanziamenti }: TutorClientProps)
         />
         <StatCard
           label="Ore totali"
-          value={`${totalPianificate}/${totalOre}h`}
+          value={`${totalOre}h`}
+          subtitle={`${totalPianificate}h pianificate`}
           icon={<svg width="20" height="20" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5"/><path d="M12 6v6l4 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>}
+        />
+        <StatCard
+          label="Ore erogate"
+          value={`${oreErogate}h`}
+          subtitle="sessioni confermate"
+          icon={<svg width="20" height="20" fill="none" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
         />
         <StatCard
           label="Avanzamento"
@@ -266,7 +275,11 @@ export function TutorClient({ corsi, profile, finanziamenti }: TutorClientProps)
                             </button>
                           </div>
                         </div>
-                        <OreCounter oreTotali={oreTot} orePianificate={orePian} />
+                        <OreCounter
+                          oreTotali={oreTot}
+                          orePianificate={orePian}
+                          oreErogate={oreErogatePerCorso[corso.id] ?? 0}
+                        />
                         <div className="mt-2">
                           <ProgressBar value={pct} size="sm" />
                         </div>

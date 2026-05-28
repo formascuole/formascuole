@@ -292,6 +292,18 @@ export function CorsoDetailClient({
   const today = new Date().toISOString().split('T')[0]
   const sessioniCompletate = sessioni.filter(s => s.completata).length
   const sessioniScadute = sessioni.filter(s => !s.completata && s.data <= today).length
+  const oreErogate = sessioni.filter(s => s.completata).reduce((sum, s) => sum + Number(s.ore), 0)
+
+  // Ore tutor (proporzionale al completamento delle sessioni)
+  const oreTutoraggio = Number(corso.ore_tutoraggio || 0)
+  const oreTotaliNum = Number(corso.ore_totali)
+  const oreTutorPianificate = oreTotaliNum > 0 && oreTutoraggio > 0
+    ? Math.round(oreTutoraggio * (orePianificate / oreTotaliNum))
+    : 0
+  const oreTutorErogate = oreTotaliNum > 0 && oreTutoraggio > 0
+    ? Math.round(oreTutoraggio * (oreErogate / oreTotaliNum))
+    : 0
+  const pctTutor = oreTutoraggio > 0 ? Math.round((oreTutorErogate / oreTutoraggio) * 100) : 0
 
   return (
     <div className="p-8 max-w-4xl mx-auto">
@@ -362,6 +374,7 @@ export function CorsoDetailClient({
         <OreCounter
           oreTotali={Number(corso.ore_totali)}
           orePianificate={orePianificate}
+          oreErogate={oreErogate}
           sessioniCompletate={sessioniCompletate}
           sessioniTotali={sessioni.length}
         />
@@ -555,6 +568,36 @@ export function CorsoDetailClient({
               {isAdmin && <Button size="sm" onClick={() => setTutorePickerOpen(true)}>Assegna Tutor</Button>}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Ore tutor section */}
+      {corso.tipo === 'PF' && corso.tutor && oreTutoraggio > 0 && (
+        <div className="bg-white rounded-xl p-6 mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
+          <h2 className="font-semibold text-gray-900 mb-4">Ore tutoraggio</h2>
+          <div className="grid grid-cols-4 gap-4">
+            <div className="bg-gray-50 rounded-[10px] p-4 text-center">
+              <div className="text-xl font-bold text-gray-900">{oreTutoraggio}h</div>
+              <div className="text-xs text-gray-500 mt-0.5">Assegnate</div>
+            </div>
+            <div className="bg-gray-50 rounded-[10px] p-4 text-center">
+              <div className="text-xl font-bold text-gray-700">{oreTutorPianificate}h</div>
+              <div className="text-xs text-gray-500 mt-0.5">Pianificate</div>
+            </div>
+            <div className="bg-gray-50 rounded-[10px] p-4 text-center">
+              <div className={`text-xl font-bold ${oreTutorErogate >= oreTutoraggio ? 'text-green-600' : oreTutorErogate > 0 ? 'text-blue-600' : 'text-gray-400'}`}>
+                {oreTutorErogate}h
+              </div>
+              <div className="text-xs text-gray-500 mt-0.5">Erogate</div>
+            </div>
+            <div className="rounded-[10px] p-4 text-center" style={{ backgroundColor: pctTutor >= 100 ? '#f0fdf4' : pctTutor > 0 ? '#eff6ff' : '#f9fafb' }}>
+              <div className={`text-xl font-bold ${pctTutor >= 100 ? 'text-green-700' : pctTutor > 0 ? 'text-blue-700' : 'text-gray-400'}`}>
+                {pctTutor}%
+              </div>
+              <div className="text-xs text-gray-500 mt-0.5">Completamento</div>
+            </div>
+          </div>
+          <p className="text-xs text-gray-400 mt-3">Ore proporzionali al completamento delle sessioni di formazione.</p>
         </div>
       )}
 

@@ -19,6 +19,7 @@ export interface FormatoreStatRow {
   nome: string
   nCorsi: number
   oreTotali: number
+  oreErogate: number
   pct: number
   tassoAccettazione: number | null
   nRifiuti: number
@@ -98,8 +99,12 @@ export default async function StatistichePage() {
 
   // ── ore per corso ────────────────────────────────────────────────────────────
   const orePianMap = new Map<string, number>()
+  const oreErogateMap = new Map<string, number>()
   for (const s of sessioniList) {
     orePianMap.set(s.corso_id, (orePianMap.get(s.corso_id) ?? 0) + Number(s.ore))
+    if (s.completata) {
+      oreErogateMap.set(s.corso_id, (oreErogateMap.get(s.corso_id) ?? 0) + Number(s.ore))
+    }
   }
 
   // ── Riepilogo ────────────────────────────────────────────────────────────────
@@ -164,15 +169,16 @@ export default async function StatistichePage() {
   }).length
 
   // ── Per formatore ─────────────────────────────────────────────────────────────
-  type FmAcc = { nCorsi: number; oreTotali: number; orePian: number; accettati: number; rifiutati: number }
+  type FmAcc = { nCorsi: number; oreTotali: number; orePian: number; oreErogate: number; accettati: number; rifiutati: number }
   const fmAcc = new Map<string, FmAcc>()
 
   for (const c of corsiList) {
     if (!c.formatore_id) continue
-    const s = fmAcc.get(c.formatore_id) ?? { nCorsi: 0, oreTotali: 0, orePian: 0, accettati: 0, rifiutati: 0 }
+    const s = fmAcc.get(c.formatore_id) ?? { nCorsi: 0, oreTotali: 0, orePian: 0, oreErogate: 0, accettati: 0, rifiutati: 0 }
     s.nCorsi++
     s.oreTotali += Number(c.ore_totali)
     s.orePian += orePianMap.get(c.id) ?? 0
+    s.oreErogate += oreErogateMap.get(c.id) ?? 0
     if (c.stato_assegnazione === 'accettato') s.accettati++
     fmAcc.set(c.formatore_id, s)
   }
@@ -181,7 +187,7 @@ export default async function StatistichePage() {
   const rifiutatiCorsiIds = new Set(corsiList.filter(c => c.stato_assegnazione === 'rifiutato').map(c => c.id))
   for (const log of rifiutiLog || []) {
     if (!log.formatore_id || !rifiutatiCorsiIds.has(log.corso_id)) continue
-    const s = fmAcc.get(log.formatore_id) ?? { nCorsi: 0, oreTotali: 0, orePian: 0, accettati: 0, rifiutati: 0 }
+    const s = fmAcc.get(log.formatore_id) ?? { nCorsi: 0, oreTotali: 0, orePian: 0, oreErogate: 0, accettati: 0, rifiutati: 0 }
     s.rifiutati++
     fmAcc.set(log.formatore_id, s)
   }
@@ -202,6 +208,7 @@ export default async function StatistichePage() {
       nome: profilesMap.get(id) ?? '—',
       nCorsi: s.nCorsi,
       oreTotali: s.oreTotali,
+      oreErogate: s.oreErogate,
       pct: s.oreTotali > 0 ? Math.round((s.orePian / s.oreTotali) * 100) : 0,
       tassoAccettazione: totRisposte > 0 ? Math.round((s.accettati / totRisposte) * 100) : null,
       nRifiuti: s.rifiutati,

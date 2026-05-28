@@ -29,6 +29,29 @@ export default async function DashboardPage() {
   const oreTutoraggioTotali = progettiList.reduce((s, p) => s + Number(p.ore_tutoraggio_totali || 0), 0)
   const oreTutor_aggioPianificate = progettiList.reduce((s, p) => s + Number(p.ore_tutoraggio_pianificate || 0), 0)
 
+  // Ore erogate (sessioni completate)
+  const { data: sessioniCompletate } = await supabase
+    .from('sessioni')
+    .select('ore, corso_id')
+    .eq('completata', true)
+  const oreErogate = (sessioniCompletate || []).reduce((s, x) => s + Number(x.ore), 0)
+
+  // Ore tutor erogate: proporzionale alle sessioni completate per corsi con tutor
+  const oreCompletatePerCorso = new Map<string, number>()
+  for (const s of sessioniCompletate || []) {
+    oreCompletatePerCorso.set(s.corso_id, (oreCompletatePerCorso.get(s.corso_id) ?? 0) + Number(s.ore))
+  }
+  const { data: corsiConTutor } = await supabase
+    .from('corsi')
+    .select('id, ore_tutoraggio, ore_totali')
+    .eq('tutor_previsto', true)
+    .not('ore_tutoraggio', 'is', null)
+  const oreTutorErogate = (corsiConTutor || []).reduce((sum, c) => {
+    const oreComp = oreCompletatePerCorso.get(c.id) ?? 0
+    if (!c.ore_tutoraggio || !c.ore_totali || Number(c.ore_totali) === 0) return sum
+    return sum + Math.round(Number(c.ore_tutoraggio) * (oreComp / Number(c.ore_totali)))
+  }, 0)
+
   const { count: notifiche } = await supabase
     .from('solleciti_log')
     .select('*', { count: 'exact', head: true })
@@ -65,7 +88,7 @@ export default async function DashboardPage() {
         </div>
 
         {/* Stat cards — riga 1 */}
-        <div className="grid grid-cols-4 gap-4 mb-4">
+        <div className="grid grid-cols-5 gap-4 mb-4">
           <StatCard
             label="Progetti attivi"
             value={nProgetti}
@@ -85,6 +108,12 @@ export default async function DashboardPage() {
             icon={<svg width="20" height="20" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5"/><path d="M12 7v5l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>}
           />
           <StatCard
+            label="Ore erogate"
+            value={`${oreErogate}h`}
+            subtitle="sessioni confermate"
+            icon={<svg width="20" height="20" fill="none" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+          />
+          <StatCard
             label="Completamento globale"
             value={`${pctGlobale}%`}
             subtitle="calendari pianificati"
@@ -98,14 +127,20 @@ export default async function DashboardPage() {
             <StatCard
               label="Ore tutoraggio totali"
               value={`${oreTutoraggioTotali}h`}
-              subtitle="corsi PF con tutor previsto"
+              subtitle="corsi con tutor previsto"
               icon={<svg width="20" height="20" fill="none" viewBox="0 0 24 24"><circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="1.5"/><path d="M3 20a6 6 0 0112 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><path d="M19 13v6M16 16h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>}
             />
             <StatCard
               label="Ore tutoraggio pianificate"
               value={`${oreTutor_aggioPianificate}h`}
-              subtitle="stima proporzionale al completamento"
+              subtitle="proporzionale al completamento"
               icon={<svg width="20" height="20" fill="none" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.5"/><path d="M3 9h18M8 2v4M16 2v4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>}
+            />
+            <StatCard
+              label="Ore tutor erogate"
+              value={`${oreTutorErogate}h`}
+              subtitle="proporzionale alle sessioni completate"
+              icon={<svg width="20" height="20" fill="none" viewBox="0 0 24 24"><circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="1.5"/><path d="M3 20a6 6 0 0112 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><polyline points="16 13 18 15 22 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
             />
           </div>
         )}

@@ -79,6 +79,22 @@ export default async function TutorPage() {
     .select('id,nome')
     .order('nome')
 
+  // Ore erogate per i corsi del tutor
+  const corsiIds = (corsi || []).map(c => c.id)
+  const oreErogatePerCorso = new Map<string, number>()
+  let oreTutorErogate = 0
+  if (corsiIds.length > 0) {
+    const { data: sessioni } = await admin
+      .from('sessioni')
+      .select('corso_id, ore')
+      .in('corso_id', corsiIds)
+      .eq('completata', true)
+    for (const s of sessioni || []) {
+      oreErogatePerCorso.set(s.corso_id, (oreErogatePerCorso.get(s.corso_id) ?? 0) + Number(s.ore))
+      oreTutorErogate += Number(s.ore)
+    }
+  }
+
   return (
     <AppLayout
       role="tutor"
@@ -86,7 +102,13 @@ export default async function TutorPage() {
       email={profile.email}
       avatarInitials={profile.avatar_initials}
     >
-      <TutorClient corsi={corsiConReferente} profile={profile} finanziamenti={finanziamenti || []} />
+      <TutorClient
+        corsi={corsiConReferente}
+        profile={profile}
+        finanziamenti={finanziamenti || []}
+        oreErogate={oreTutorErogate}
+        oreErogatePerCorso={Object.fromEntries(oreErogatePerCorso)}
+      />
     </AppLayout>
   )
 }

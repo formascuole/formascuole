@@ -26,6 +26,7 @@ interface ProgettoDetailClientProps {
   currentUserId: string
   isSuperAdmin?: boolean
   questionari?: QuestionarioRisultato[]
+  oreErogatePerCorso?: Record<string, number>
 }
 
 type EditScuolaForm = {
@@ -50,6 +51,7 @@ export function ProgettoDetailClient({
   currentUserId,
   isSuperAdmin,
   questionari = [],
+  oreErogatePerCorso = {},
 }: ProgettoDetailClientProps) {
   const router = useRouter()
 
@@ -350,6 +352,17 @@ export function ProgettoDetailClient({
             <span className="font-semibold text-gray-700">{progetto.ore_pianificate}h / {progetto.ore_totali}h ({pct}%)</span>
           </div>
           <ProgressBar value={pct} size="lg" />
+          {(() => {
+            const totErogate = Object.values(oreErogatePerCorso).reduce((s, x) => s + x, 0)
+            if (totErogate === 0) return null
+            const pctErogate = Number(progetto.ore_totali) > 0 ? Math.round((totErogate / Number(progetto.ore_totali)) * 100) : 0
+            return (
+              <div className="flex items-center justify-between text-xs text-gray-400 pt-0.5">
+                <span>Ore erogate (sessioni confermate)</span>
+                <span className="font-medium text-blue-600">{totErogate}h — {pctErogate}%</span>
+              </div>
+            )
+          })()}
         </div>
       </div>
 
@@ -459,7 +472,7 @@ export function ProgettoDetailClient({
               Nessun corso aggiunto. Clicca &quot;Aggiungi Corso&quot; per iniziare.
             </div>
           ) : (
-            corsi.map(corso => <CourseRow key={corso.id} corso={corso} progettoId={progetto.id} />)
+            corsi.map(corso => <CourseRow key={corso.id} corso={corso} progettoId={progetto.id} oreErogate={oreErogatePerCorso[corso.id] ?? 0} />)
           )}
         </div>
       </div>
@@ -785,7 +798,7 @@ const ASSEGNAZIONE_BADGES: Record<string, { label: string; cls: string }> = {
   rifiutato:  { label: 'Rifiutato',  cls: 'bg-red-100 text-red-700'    },
 }
 
-function CourseRow({ corso, progettoId }: { corso: CorsoConOre; progettoId: string }) {
+function CourseRow({ corso, progettoId, oreErogate }: { corso: CorsoConOre; progettoId: string; oreErogate?: number }) {
   const router = useRouter()
   const pct = corso.ore_totali > 0 ? Math.min(Math.round((corso.ore_pianificate / corso.ore_totali) * 100), 100) : 0
   const formatore = corso.formatore as Profile | undefined
@@ -805,6 +818,9 @@ function CourseRow({ corso, progettoId }: { corso: CorsoConOre; progettoId: stri
           <div className="flex items-center gap-4 text-xs text-gray-400">
             <span>{corso.ore_totali}h totali</span>
             <span>{corso.ore_pianificate}h pianificate</span>
+            {oreErogate !== undefined && oreErogate > 0 && (
+              <span className="text-blue-600 font-medium">{oreErogate}h erogate</span>
+            )}
             {corso.calendario_completo && (
               <span className="text-green-600 flex items-center gap-1">
                 <svg width="10" height="10" fill="none" viewBox="0 0 24 24">

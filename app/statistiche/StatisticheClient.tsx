@@ -89,10 +89,10 @@ function exportCSV(data: StatisticheData) {
   rows.push([])
 
   rows.push(['STATISTICHE PER FORMATORE'])
-  rows.push(['Formatore', 'N. Corsi', 'Ore totali', '% completamento', 'Tasso accettazione', 'N. rifiuti'])
+  rows.push(['Formatore', 'N. Corsi', 'Ore totali', 'Ore erogate', '% completamento', 'Tasso accettazione', 'N. rifiuti'])
   for (const f of data.perFormatore) {
     rows.push([
-      f.nome, String(f.nCorsi), String(f.oreTotali), String(f.pct) + '%',
+      f.nome, String(f.nCorsi), String(f.oreTotali), String(f.oreErogate), String(f.pct) + '%',
       f.tassoAccettazione !== null ? String(f.tassoAccettazione) + '%' : '—',
       String(f.nRifiuti),
     ])
@@ -305,7 +305,8 @@ export function StatisticheClient({ data }: Props) {
                 <tr className="border-b border-gray-100">
                   <th className="text-left text-xs font-medium text-gray-400 px-6 py-3">FORMATORE</th>
                   <th className="text-center text-xs font-medium text-gray-400 px-4 py-3">CORSI</th>
-                  <th className="text-center text-xs font-medium text-gray-400 px-4 py-3">ORE</th>
+                  <th className="text-center text-xs font-medium text-gray-400 px-4 py-3">ORE TOT.</th>
+                  <th className="text-center text-xs font-medium text-gray-400 px-4 py-3">ORE EROGATE</th>
                   <th className="text-left text-xs font-medium text-gray-400 px-4 py-3 min-w-[140px]">COMPLETAMENTO</th>
                   <th className="text-center text-xs font-medium text-gray-400 px-4 py-3">ACCETTAZIONE</th>
                   <th className="text-center text-xs font-medium text-gray-400 px-4 py-3">RIFIUTI</th>
@@ -318,6 +319,7 @@ export function StatisticheClient({ data }: Props) {
                     <td className="px-6 py-3 text-sm font-medium text-gray-900">{f.nome}</td>
                     <td className="px-4 py-3 text-center text-sm text-gray-700">{f.nCorsi}</td>
                     <td className="px-4 py-3 text-center text-sm text-gray-700">{f.oreTotali}h</td>
+                    <td className="px-4 py-3 text-center text-sm font-medium text-blue-700">{f.oreErogate}h</td>
                     <td className="px-4 py-3">
                       <MiniBar value={f.pct} max={100} />
                     </td>

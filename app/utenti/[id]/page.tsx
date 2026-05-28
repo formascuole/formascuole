@@ -77,8 +77,37 @@ export default async function UtenteDetailPage({ params }: { params: Promise<{ i
     .select('*', { count: 'exact', head: true })
     .eq('tipo', 'sollecito_3')
 
-  // Questionari per questo formatore
+  // Ore erogate come formatore
   const adminQ = createAdminClient()
+  const corsiFormatoreIds = (corsiFormatore || []).map(c => c.id)
+  const corsiTutorIds = (corsiTutor || []).map(c => c.id)
+
+  const [{ data: sessioniFormatore }, { data: sessioniTutor }, { data: corsiTutorData }] = await Promise.all([
+    corsiFormatoreIds.length > 0
+      ? adminQ.from('sessioni').select('ore').in('corso_id', corsiFormatoreIds).eq('completata', true)
+      : Promise.resolve({ data: [] }),
+    corsiTutorIds.length > 0
+      ? adminQ.from('sessioni').select('corso_id, ore').in('corso_id', corsiTutorIds).eq('completata', true)
+      : Promise.resolve({ data: [] }),
+    corsiTutorIds.length > 0
+      ? adminQ.from('corsi').select('id, ore_tutoraggio, ore_totali').in('id', corsiTutorIds)
+      : Promise.resolve({ data: [] }),
+  ])
+
+  const oreErogateFormatore = (sessioniFormatore || []).reduce((s, x) => s + Number(x.ore), 0)
+
+  // Ore tutor erogate: proporzionale per ciascun corso
+  const oreCompPerCorso = new Map<string, number>()
+  for (const s of sessioniTutor || []) {
+    oreCompPerCorso.set(s.corso_id, (oreCompPerCorso.get(s.corso_id) ?? 0) + Number(s.ore))
+  }
+  const oreErogateTutor = (corsiTutorData || []).reduce((sum, c) => {
+    const oreComp = oreCompPerCorso.get(c.id) ?? 0
+    if (!c.ore_tutoraggio || !c.ore_totali || Number(c.ore_totali) === 0) return sum
+    return sum + Math.round(Number(c.ore_tutoraggio) * (oreComp / Number(c.ore_totali)))
+  }, 0)
+
+  // Questionari per questo formatore
   const corsiIds = (corsiFormatore || []).map(c => c.id)
   const [{ data: questionari }, { data: allQuestionari }] = await Promise.all([
     corsiIds.length > 0
@@ -113,6 +142,8 @@ export default async function UtenteDetailPage({ params }: { params: Promise<{ i
         tassoAccettazione={tassoAccettazione}
         questionari={questionari || []}
         mediaGlobale={globalMedia}
+        oreErogateFormatore={oreErogateFormatore}
+        oreErogateTutor={oreErogateTutor}
       />
     </AppLayout>
   )

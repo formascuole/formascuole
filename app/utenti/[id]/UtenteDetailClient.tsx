@@ -26,6 +26,8 @@ interface UtenteDetailClientProps {
   tassoAccettazione?: number | null
   questionari?: QuestionarioRisultato[]
   mediaGlobale?: number | null
+  oreErogateFormatore?: number
+  oreErogateTutor?: number
 }
 
 function corsoStato(c: CorsoConOre): { label: string; color: string } {
@@ -115,7 +117,7 @@ function CorsiTable({ corsi }: { corsi: CorsoConProgetto[] }) {
   )
 }
 
-export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSuperAdmin, currentUserId, nRifiutati = 0, tassoAccettazione = null, questionari = [], mediaGlobale = null }: UtenteDetailClientProps) {
+export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSuperAdmin, currentUserId, nRifiutati = 0, tassoAccettazione = null, questionari = [], mediaGlobale = null, oreErogateFormatore = 0, oreErogateTutor = 0 }: UtenteDetailClientProps) {
   const router = useRouter()
   const [deleteOpen, setDeleteOpen] = useState(false)
 
@@ -126,6 +128,9 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
   const canDelete = isSuperAdmin && !isSelf && !isTargetSuperAdmin
 
   // Stats
+  const oreTotaliFormatore = corsiFormatore.reduce((s, c) => s + Number(c.ore_totali), 0)
+  const orePianificateFormatore = corsiFormatore.reduce((s, c) => s + Number(c.ore_pianificate), 0)
+  const oreTotaliTutor = corsiTutor.reduce((s, c) => s + Number(c.ore_tutoraggio || 0), 0)
   const tuttiCorsi = [...corsiFormatore, ...corsiTutor]
   const oreTotali = tuttiCorsi.reduce((s, c) => s + Number(c.ore_totali), 0)
   const orePianificate = tuttiCorsi.reduce((s, c) => s + Number(c.ore_pianificate), 0)
@@ -182,13 +187,28 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <StatCard label="Corsi come formatore" value={corsiFormatore.length} />
         <StatCard label="Corsi come tutor" value={corsiTutor.length} />
-        <StatCard label="Ore totali assegnate" value={`${oreTotali}h`} subtitle={`${orePianificate}h pianificate`} />
+        <StatCard
+          label={isFormatore ? 'Ore formazione' : 'Ore totali assegnate'}
+          value={`${oreTotaliFormatore}h`}
+          subtitle={`${oreErogateFormatore}h erogate`}
+        />
         <StatCard
           label="Completamento medio"
           value={`${pctMedia}%`}
           subtitle={tuttiCorsi.length > 0 ? `su ${tuttiCorsi.length} cors${tuttiCorsi.length === 1 ? 'o' : 'i'}` : 'nessun corso'}
         />
       </div>
+      {isTutor && oreTotaliTutor > 0 && (
+        <div className="grid grid-cols-3 gap-4 mb-6">
+          <StatCard label="Ore tutoraggio totali" value={`${oreTotaliTutor}h`} subtitle="budget assegnato" />
+          <StatCard label="Ore tutor erogate" value={`${oreErogateTutor}h`} subtitle="proporzionale alle sessioni" />
+          <StatCard
+            label="% tutoraggio"
+            value={oreTotaliTutor > 0 ? `${Math.round((oreErogateTutor / oreTotaliTutor) * 100)}%` : '—'}
+            subtitle="completamento tutor"
+          />
+        </div>
+      )}
 
       {/* Tasso accettazione — solo per formatori */}
       {isFormatore && (corsiFormatore.length > 0 || nRifiutati > 0) && (

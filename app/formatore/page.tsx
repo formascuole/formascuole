@@ -111,8 +111,19 @@ export default async function FormatorePage() {
     già_candidato: mieCandidatureSet.has(c.id),
   }))
 
-  // Questionari per questo formatore
+  // Ore erogate per questo formatore
   const corsiIds = (corsi || []).map(c => c.id)
+  let oreErogate = 0
+  if (corsiIds.length > 0) {
+    const { data: sessioni } = await admin
+      .from('sessioni')
+      .select('ore')
+      .in('corso_id', corsiIds)
+      .eq('completata', true)
+    oreErogate = (sessioni || []).reduce((s, x) => s + Number(x.ore), 0)
+  }
+
+  // Questionari per questo formatore
   const [{ data: questionari }, { data: allQuestionari }] = await Promise.all([
     corsiIds.length > 0
       ? admin.from('questionari_risultati').select('*').in('corso_id', corsiIds).not('media_formatore', 'is', null).not('media_contenuti', 'is', null).not('media_apprendimento', 'is', null).order('created_at', { ascending: false })
@@ -137,6 +148,7 @@ export default async function FormatorePage() {
         questionari={questionari || []}
         mediaGlobale={mediaGlobale}
         corsiDisponibili={corsiDisponibili}
+        oreErogate={oreErogate}
       />
     </AppLayout>
   )

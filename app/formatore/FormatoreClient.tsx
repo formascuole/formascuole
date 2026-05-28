@@ -59,9 +59,10 @@ interface FormatoreClientProps {
   questionari?: QuestionarioRisultato[]
   mediaGlobale?: number | null
   corsiDisponibili?: CorsoDisponibile[]
+  oreErogate?: number
 }
 
-export function FormatoreClient({ corsi, profile, finanziamenti, questionari = [], mediaGlobale = null, corsiDisponibili = [] }: FormatoreClientProps) {
+export function FormatoreClient({ corsi, profile, finanziamenti, questionari = [], mediaGlobale = null, corsiDisponibili = [], oreErogate = 0 }: FormatoreClientProps) {
   const router = useRouter()
 
   // Calendar modal
@@ -294,9 +295,10 @@ export function FormatoreClient({ corsi, profile, finanziamenti, questionari = [
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4 mb-4">
+      <div className="grid grid-cols-4 gap-4 mb-4">
         <StatCard label="Corsi assegnati" value={corsi.length} />
         <StatCard label="Ore totali" value={`${totalOre}h`} subtitle={`${totalPianificate}h pianificate`} />
+        <StatCard label="Ore erogate" value={`${oreErogate}h`} subtitle="sessioni confermate" />
         <StatCard label="Completamento" value={`${pctGlobale}%`} />
       </div>
 

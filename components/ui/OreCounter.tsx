@@ -1,22 +1,26 @@
 interface OreCounterProps {
   oreTotali: number
   orePianificate: number
+  oreErogate?: number
   sessioniCompletate?: number
   sessioniTotali?: number
 }
 
-export function OreCounter({ oreTotali, orePianificate, sessioniCompletate, sessioniTotali }: OreCounterProps) {
+export function OreCounter({ oreTotali, orePianificate, oreErogate, sessioniCompletate, sessioniTotali }: OreCounterProps) {
   const oreResidue = Math.max(oreTotali - orePianificate, 0)
   const pct = oreTotali > 0 ? Math.min(Math.round((orePianificate / oreTotali) * 100), 100) : 0
   const showSessioni = sessioniTotali !== undefined && sessioniTotali > 0
+  const showErogate = oreErogate !== undefined
 
   const hasSessioniScadute = showSessioni &&
     sessioniCompletate !== undefined &&
     sessioniCompletate < sessioniTotali!
 
+  const colClass = showErogate && showSessioni ? 'grid-cols-5' : (showErogate || showSessioni) ? 'grid-cols-4' : 'grid-cols-3'
+
   return (
     <div className="bg-[#fbeced] rounded-lg p-4 space-y-3">
-      <div className={`grid gap-3 text-center ${showSessioni ? 'grid-cols-4' : 'grid-cols-3'}`}>
+      <div className={`grid gap-3 text-center ${colClass}`}>
         <div>
           <div className="text-2xl font-bold text-gray-900">{oreTotali}h</div>
           <div className="text-xs text-gray-500 mt-0.5">Totali</div>
@@ -31,6 +35,14 @@ export function OreCounter({ oreTotali, orePianificate, sessioniCompletate, sess
           </div>
           <div className="text-xs text-gray-500 mt-0.5">Residue</div>
         </div>
+        {showErogate && (
+          <div>
+            <div className={`text-2xl font-bold ${oreErogate! >= oreTotali ? 'text-green-600' : oreErogate! > 0 ? 'text-blue-600' : 'text-gray-400'}`}>
+              {oreErogate}h
+            </div>
+            <div className="text-xs text-gray-500 mt-0.5">Erogate</div>
+          </div>
+        )}
         {showSessioni && (
           <div>
             <div className={`text-2xl font-bold ${sessioniCompletate === sessioniTotali ? 'text-green-600' : hasSessioniScadute ? 'text-amber-600' : 'text-gray-700'}`}>
