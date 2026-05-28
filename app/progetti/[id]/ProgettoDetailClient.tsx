@@ -2,7 +2,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ProgettoConStats, CorsoConOre, Profile, ChatMessaggio, Referente, Finanziamento, CatalogoCorso } from '@/lib/types'
+import { ProgettoConStats, CorsoConOre, Profile, ChatMessaggio, Referente, Finanziamento, CatalogoCorso, QuestionarioRisultato } from '@/lib/types'
+import { QuestionariBlock } from '@/components/ui/QuestionariBlock'
 import { getFinanziamentoColor } from '@/app/progetti/ProgettiClient'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { StatusBadge } from '@/components/ui/StatusBadge'
@@ -24,6 +25,7 @@ interface ProgettoDetailClientProps {
   catalogo: CatalogoCorso[]
   currentUserId: string
   isSuperAdmin?: boolean
+  questionari?: QuestionarioRisultato[]
 }
 
 type EditScuolaForm = {
@@ -47,6 +49,7 @@ export function ProgettoDetailClient({
   catalogo,
   currentUserId,
   isSuperAdmin,
+  questionari = [],
 }: ProgettoDetailClientProps) {
   const router = useRouter()
 
@@ -511,6 +514,17 @@ export function ProgettoDetailClient({
           </div>
         </div>
       </div>
+
+      {/* Valutazioni questionari */}
+      {questionari.length > 0 && (
+        <div className="mt-4">
+          <div className="flex items-center gap-2 mb-2">
+            <h2 className="text-lg font-bold text-gray-900">Valutazioni questionari</h2>
+            <span className="text-sm text-gray-400">· tutti i corsi del progetto</span>
+          </div>
+          <QuestionariBlock questionari={questionari} showTexts showStorico />
+        </div>
+      )}
 
       {/* ── Modal: Modifica dati scuola ─────────────────────────────── */}
       <Modal

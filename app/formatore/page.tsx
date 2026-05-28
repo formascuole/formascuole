@@ -72,9 +72,32 @@ export default async function FormatorePage() {
     .select('id,nome')
     .order('nome')
 
+  // Questionari per questo formatore
+  const corsiIds = (corsi || []).map(c => c.id)
+  const [{ data: questionari }, { data: allQuestionari }] = await Promise.all([
+    corsiIds.length > 0
+      ? admin.from('questionari_risultati').select('*').in('corso_id', corsiIds).order('created_at', { ascending: false })
+      : Promise.resolve({ data: [] }),
+    admin.from('questionari_risultati').select('media_formatore,media_contenuti,media_apprendimento,numero_risposte'),
+  ])
+
+  const globalTot = (allQuestionari || []).reduce((s, q) => s + (q.numero_risposte ?? 1), 0)
+  const mediaGlobale = globalTot > 0
+    ? (allQuestionari || []).reduce((s, q) => {
+        const avg = (Number(q.media_formatore ?? 0) + Number(q.media_contenuti ?? 0) + Number(q.media_apprendimento ?? 0)) / 3
+        return s + avg * (q.numero_risposte ?? 1)
+      }, 0) / globalTot
+    : null
+
   return (
     <AppLayout role="formatore" nome={profile.nome} email={profile.email} avatarInitials={profile.avatar_initials}>
-      <FormatoreClient corsi={corsiConReferente} profile={profile} finanziamenti={finanziamenti || []} />
+      <FormatoreClient
+        corsi={corsiConReferente}
+        profile={profile}
+        finanziamenti={finanziamenti || []}
+        questionari={questionari || []}
+        mediaGlobale={mediaGlobale}
+      />
     </AppLayout>
   )
 }

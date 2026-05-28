@@ -1,6 +1,6 @@
 import { redirect, notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { checkIsSuperAdmin } from '@/lib/supabase/admin'
+import { checkIsSuperAdmin, createAdminClient } from '@/lib/supabase/admin'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { ProgettoDetailClient } from './ProgettoDetailClient'
 
@@ -76,6 +76,13 @@ export default async function ProgettoDetailPage({ params }: { params: Promise<{
     .select('*', { count: 'exact', head: true })
     .eq('tipo', 'sollecito_3')
 
+  // Questionari per tutti i corsi di questo progetto
+  const corsiIds = (corsi || []).map(c => c.id)
+  const adminQ = createAdminClient()
+  const { data: questionari } = corsiIds.length > 0
+    ? await adminQ.from('questionari_risultati').select('*').in('corso_id', corsiIds).order('created_at', { ascending: false })
+    : { data: [] }
+
   return (
     <AppLayout
       role={profile.role}
@@ -95,6 +102,7 @@ export default async function ProgettoDetailPage({ params }: { params: Promise<{
         catalogo={catalogo || []}
         currentUserId={user.id}
         isSuperAdmin={isSuperAdmin}
+        questionari={questionari || []}
       />
     </AppLayout>
   )

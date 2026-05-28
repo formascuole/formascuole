@@ -160,6 +160,16 @@ export function StatisticheClient({ data }: Props) {
           <p className="text-sm text-gray-500 mt-1">Report aggregato di tutti i dati della piattaforma</p>
         </div>
         <div className="flex gap-2 print:hidden">
+          <Link
+            href="/statistiche/questionari"
+            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-[7px] border border-gray-200 hover:bg-gray-50 text-gray-600 transition-colors"
+          >
+            <svg width="15" height="15" fill="none" viewBox="0 0 24 24">
+              <path d="M9 11l3 3L22 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            Valutazioni questionari
+          </Link>
           <button
             onClick={() => exportCSV(data)}
             className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-[7px] border border-gray-200 hover:bg-gray-50 text-gray-600 transition-colors"

@@ -1,7 +1,8 @@
 'use client'
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { CorsoConOre, Profile } from '@/lib/types'
+import { CorsoConOre, Profile, QuestionarioRisultato } from '@/lib/types'
+import { QuestionariMiniCard } from '@/components/ui/QuestionariBlock'
 import { OreCounter } from '@/components/ui/OreCounter'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { ProgressBar } from '@/components/ui/ProgressBar'
@@ -45,9 +46,11 @@ interface FormatoreClientProps {
   corsi: CorsoConProgetto[]
   profile: Profile
   finanziamenti: { id: string; nome: string }[]
+  questionari?: QuestionarioRisultato[]
+  mediaGlobale?: number | null
 }
 
-export function FormatoreClient({ corsi, profile, finanziamenti }: FormatoreClientProps) {
+export function FormatoreClient({ corsi, profile, finanziamenti, questionari = [], mediaGlobale = null }: FormatoreClientProps) {
   const router = useRouter()
 
   // Calendar modal
@@ -188,10 +191,15 @@ export function FormatoreClient({ corsi, profile, finanziamenti }: FormatoreClie
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-3 gap-4 mb-4">
         <StatCard label="Corsi assegnati" value={corsi.length} />
         <StatCard label="Ore totali" value={`${totalOre}h`} subtitle={`${totalPianificate}h pianificate`} />
         <StatCard label="Completamento" value={`${pctGlobale}%`} />
+      </div>
+
+      {/* Valutazioni */}
+      <div className="mb-8">
+        <QuestionariMiniCard questionari={questionari} mediaGlobale={mediaGlobale} />
       </div>
 
       {/* Corsi raggruppati per progetto */}

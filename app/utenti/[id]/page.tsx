@@ -1,6 +1,6 @@
 import { redirect, notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { checkIsSuperAdmin } from '@/lib/supabase/admin'
+import { checkIsSuperAdmin, createAdminClient } from '@/lib/supabase/admin'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { UtenteDetailClient } from './UtenteDetailClient'
 import { UserRole } from '@/lib/types'
@@ -77,6 +77,24 @@ export default async function UtenteDetailPage({ params }: { params: Promise<{ i
     .select('*', { count: 'exact', head: true })
     .eq('tipo', 'sollecito_3')
 
+  // Questionari per questo formatore
+  const adminQ = createAdminClient()
+  const corsiIds = (corsiFormatore || []).map(c => c.id)
+  const [{ data: questionari }, { data: allQuestionari }] = await Promise.all([
+    corsiIds.length > 0
+      ? adminQ.from('questionari_risultati').select('*').in('corso_id', corsiIds).order('created_at', { ascending: false })
+      : Promise.resolve({ data: [] }),
+    adminQ.from('questionari_risultati').select('media_formatore,media_contenuti,media_apprendimento,numero_risposte'),
+  ])
+
+  const globalTot = (allQuestionari || []).reduce((s, q) => s + (q.numero_risposte ?? 1), 0)
+  const globalMedia = globalTot > 0
+    ? (allQuestionari || []).reduce((s, q) => {
+        const avg = (Number(q.media_formatore ?? 0) + Number(q.media_contenuti ?? 0) + Number(q.media_apprendimento ?? 0)) / 3
+        return s + avg * (q.numero_risposte ?? 1)
+      }, 0) / globalTot
+    : null
+
   return (
     <AppLayout
       role={currentProfile.role}
@@ -93,6 +111,8 @@ export default async function UtenteDetailPage({ params }: { params: Promise<{ i
         currentUserId={user.id}
         nRifiutati={nRifiutati}
         tassoAccettazione={tassoAccettazione}
+        questionari={questionari || []}
+        mediaGlobale={globalMedia}
       />
     </AppLayout>
   )

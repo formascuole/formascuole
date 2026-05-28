@@ -2,7 +2,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Profile, CorsoConOre, UserRole } from '@/lib/types'
+import { Profile, CorsoConOre, UserRole, QuestionarioRisultato } from '@/lib/types'
+import { QuestionariBlock, QuestionariMiniCard } from '@/components/ui/QuestionariBlock'
 import { Avatar } from '@/components/ui/Avatar'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { StatCard } from '@/components/ui/StatCard'
@@ -23,6 +24,8 @@ interface UtenteDetailClientProps {
   currentUserId: string
   nRifiutati?: number
   tassoAccettazione?: number | null
+  questionari?: QuestionarioRisultato[]
+  mediaGlobale?: number | null
 }
 
 function corsoStato(c: CorsoConOre): { label: string; color: string } {
@@ -112,7 +115,7 @@ function CorsiTable({ corsi }: { corsi: CorsoConProgetto[] }) {
   )
 }
 
-export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSuperAdmin, currentUserId, nRifiutati = 0, tassoAccettazione = null }: UtenteDetailClientProps) {
+export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSuperAdmin, currentUserId, nRifiutati = 0, tassoAccettazione = null, questionari = [], mediaGlobale = null }: UtenteDetailClientProps) {
   const router = useRouter()
   const [deleteOpen, setDeleteOpen] = useState(false)
 
@@ -237,6 +240,24 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
       {!isFormatore && !isTutor && (
         <div className="bg-white rounded-xl p-10 text-center" style={{ border: '0.5px solid #e5e5e5' }}>
           <p className="text-sm text-gray-400">Nessun corso assegnato a questo utente.</p>
+        </div>
+      )}
+
+      {/* Valutazioni — solo per formatori */}
+      {isFormatore && (
+        <div className="mt-6">
+          <div className="mb-4">
+            <h2 className="text-lg font-bold text-gray-900">Valutazioni questionari</h2>
+            <p className="text-sm text-gray-400 mt-0.5">Risultati aggregati dei questionari di valutazione per questo formatore</p>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="lg:col-span-1">
+              <QuestionariMiniCard questionari={questionari} mediaGlobale={mediaGlobale ?? null} />
+            </div>
+            <div className="lg:col-span-2">
+              <QuestionariBlock questionari={questionari} showTexts showStorico />
+            </div>
+          </div>
         </div>
       )}
 
