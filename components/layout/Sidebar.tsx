@@ -142,6 +142,16 @@ const formatoreNav: NavItem[] = [
     ),
   },
   {
+    href: '/formatore/calendario',
+    label: 'Calendario',
+    icon: (
+      <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
+        <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+        <path d="M3 9h18M8 2v4M16 2v4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      </svg>
+    ),
+  },
+  {
     href: '/account',
     label: 'Il mio account',
     icon: (

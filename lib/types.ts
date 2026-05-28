@@ -1,4 +1,5 @@
 export type UserRole = 'super_admin' | 'admin' | 'formatore' | 'tutor'
+export type FasciaIndisponibilita = 'mattina' | 'pomeriggio' | 'tutto_il_giorno'
 export type ProjectStatus = 'active' | 'pending' | 'completed'
 export type CorsoTipo = 'PF' | 'Lab'
 export type ModalitaCorso = 'presenza' | 'online' | 'ibrido'
@@ -151,6 +152,16 @@ export interface SollecitoLog {
   sent_at: string
   corso?: CorsoConOre
   formatore?: Profile
+}
+
+export interface Indisponibilita {
+  id: string
+  formatore_id: string
+  data: string
+  fascia: FasciaIndisponibilita
+  note?: string | null
+  created_at: string
+  formatore?: Pick<Profile, 'id' | 'nome'> | null
 }
 
 export interface QuestionarioRisultato {

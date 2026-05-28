@@ -1,145 +1,154 @@
 'use client'
-import { useState, useMemo } from 'react'
-import { Sessione } from '@/lib/types'
-import { StatusBadge } from '@/components/ui/StatusBadge'
+import { useState, useMemo, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { CalendarioGrid, CalendarioEvent, SessioneCalendarioEvent, IndisponibilitaCalendarioEvent } from '@/components/calendario/CalendarioGrid'
 
-interface SessioneConCorso extends Sessione {
-  corso?: {
-    id: string
-    title: string
-    project_id: string
-    tipo: 'PF' | 'Lab'
-    progetti?: { school_name: string }
-  }
+export type SessioneRow = {
+  id: string
+  data: string
+  ore: number
+  completata: boolean
+  corso_id: string
+  corso_title: string
+  school_name: string
+  project_id: string
+  formatore_id: string | null
+  formatore_nome: string | null
 }
 
-interface CalendarioClientProps {
-  sessioni: SessioneConCorso[]
+export type IndisponibilitaRow = {
+  id: string
+  formatore_id: string
+  formatore_nome: string | null
+  data: string
+  fascia: 'mattina' | 'pomeriggio' | 'tutto_il_giorno'
+  note: string | null
 }
 
-const MONTHS_IT = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre']
-const DAYS_IT = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom']
+interface Props {
+  initialSessioni: SessioneRow[]
+  initialIndisponibilita: IndisponibilitaRow[]
+  formatori: { id: string; nome: string }[]
+  progetti: { id: string; school_name: string }[]
+  currentUserId: string
+}
 
-export function CalendarioClient({ sessioni }: CalendarioClientProps) {
-  const today = new Date()
-  const [currentMonth, setCurrentMonth] = useState(today.getMonth())
-  const [currentYear, setCurrentYear] = useState(today.getFullYear())
+export function CalendarioClient({
+  initialSessioni,
+  initialIndisponibilita,
+  formatori,
+  progetti,
+  currentUserId,
+}: Props) {
+  const router = useRouter()
+  const [sessioni, setSessioni] = useState<SessioneRow[]>(initialSessioni)
+  const [indisponibilita, setIndisponibilita] = useState<IndisponibilitaRow[]>(initialIndisponibilita)
+  const [filterFormatore, setFilterFormatore] = useState('')
+  const [filterProgetto, setFilterProgetto] = useState('')
+  const [showIndisponibilita, setShowIndisponibilita] = useState(true)
 
-  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate()
-  const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay()
-  // Convert Sunday=0 to Monday=0 grid
-  const startPad = (firstDayOfMonth + 6) % 7
+  useEffect(() => { setSessioni(initialSessioni) }, [initialSessioni])
+  useEffect(() => { setIndisponibilita(initialIndisponibilita) }, [initialIndisponibilita])
 
-  const sessioniByDate = useMemo(() => {
-    const map: Record<string, SessioneConCorso[]> = {}
-    sessioni.forEach(s => {
-      if (!map[s.data]) map[s.data] = []
-      map[s.data].push(s)
-    })
-    return map
-  }, [sessioni])
+  const events = useMemo((): CalendarioEvent[] => {
+    const sessEvs: SessioneCalendarioEvent[] = sessioni.map(s => ({
+      kind: 'sessione',
+      id: s.id,
+      data: s.data,
+      ore: s.ore,
+      completata: s.completata,
+      corso_id: s.corso_id,
+      corso_title: s.corso_title,
+      school_name: s.school_name,
+      project_id: s.project_id,
+      formatore_id: s.formatore_id,
+      formatore_nome: s.formatore_nome,
+    }))
 
-  const upcomingSessioni = useMemo(() =>
-    sessioni
-      .filter(s => s.data >= today.toISOString().split('T')[0])
-      .slice(0, 10),
-    [sessioni]
-  )
+    const indEvs: IndisponibilitaCalendarioEvent[] = showIndisponibilita
+      ? indisponibilita.map(i => ({
+          kind: 'indisponibilita',
+          id: i.id,
+          formatore_id: i.formatore_id,
+          formatore_nome: i.formatore_nome,
+          data: i.data,
+          fascia: i.fascia,
+          note: i.note,
+        }))
+      : []
 
-  const prevMonth = () => {
-    if (currentMonth === 0) { setCurrentMonth(11); setCurrentYear(y => y - 1) }
-    else setCurrentMonth(m => m - 1)
+    let combined: CalendarioEvent[] = [...sessEvs, ...indEvs]
+
+    if (filterFormatore) {
+      combined = combined.filter(ev => ev.formatore_id === filterFormatore)
+    }
+    if (filterProgetto) {
+      combined = combined.filter(ev =>
+        ev.kind === 'sessione' ? ev.project_id === filterProgetto : true
+      )
+    }
+
+    return combined
+  }, [sessioni, indisponibilita, filterFormatore, filterProgetto, showIndisponibilita])
+
+  const handleDeleteIndisponibilita = async (id: string) => {
+    const res = await fetch(`/api/indisponibilita/${id}`, { method: 'DELETE' })
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}))
+      throw new Error(j.error || 'Errore')
+    }
+    setIndisponibilita(prev => prev.filter(i => i.id !== id))
+    router.refresh()
   }
-  const nextMonth = () => {
-    if (currentMonth === 11) { setCurrentMonth(0); setCurrentYear(y => y + 1) }
-    else setCurrentMonth(m => m + 1)
-  }
-
-  const days: (number | null)[] = [
-    ...Array(startPad).fill(null),
-    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
-  ]
 
   return (
     <div className="p-8 max-w-7xl mx-auto">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Calendario</h1>
-        <p className="text-sm text-gray-500 mt-1">Tutte le sessioni pianificate</p>
+        <p className="text-sm text-gray-500 mt-1">Sessioni e disponibilità di tutti i formatori</p>
       </div>
 
-      <div className="flex gap-6">
-        {/* Calendar */}
-        <div className="flex-1 bg-white rounded-xl p-6" style={{ border: '0.5px solid #e5e5e5' }}>
-          {/* Month nav */}
-          <div className="flex items-center justify-between mb-5">
-            <button onClick={prevMonth} className="w-8 h-8 flex items-center justify-center rounded-[7px] hover:bg-gray-100 transition-colors">
-              <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
-            </button>
-            <h2 className="font-semibold text-gray-900">{MONTHS_IT[currentMonth]} {currentYear}</h2>
-            <button onClick={nextMonth} className="w-8 h-8 flex items-center justify-center rounded-[7px] hover:bg-gray-100 transition-colors">
-              <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
-            </button>
+      {/* Filters */}
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
+        <select
+          value={filterFormatore}
+          onChange={e => setFilterFormatore(e.target.value)}
+          className="text-sm px-3 py-2 border border-gray-200 rounded-[7px] text-gray-700 bg-white focus:outline-none focus:border-[#d64b55] transition-colors appearance-none"
+        >
+          <option value="">Tutti i formatori</option>
+          {formatori.map(f => (
+            <option key={f.id} value={f.id}>{f.nome}</option>
+          ))}
+        </select>
+        <select
+          value={filterProgetto}
+          onChange={e => setFilterProgetto(e.target.value)}
+          className="text-sm px-3 py-2 border border-gray-200 rounded-[7px] text-gray-700 bg-white focus:outline-none focus:border-[#d64b55] transition-colors appearance-none"
+        >
+          <option value="">Tutte le scuole</option>
+          {progetti.map(p => (
+            <option key={p.id} value={p.id}>{p.school_name}</option>
+          ))}
+        </select>
+        <label className="flex items-center gap-2 cursor-pointer select-none">
+          <div
+            onClick={() => setShowIndisponibilita(v => !v)}
+            className={`relative w-8 h-4 rounded-full transition-colors ${showIndisponibilita ? 'bg-[#EA580C]' : 'bg-gray-200'}`}
+          >
+            <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-transform ${showIndisponibilita ? 'translate-x-4' : 'translate-x-0.5'}`} />
           </div>
+          <span className="text-sm text-gray-600">Indisponibilità</span>
+        </label>
+      </div>
 
-          {/* Day headers */}
-          <div className="grid grid-cols-7 mb-2">
-            {DAYS_IT.map(d => (
-              <div key={d} className="text-center text-xs font-medium text-gray-400 py-1">{d}</div>
-            ))}
-          </div>
-
-          {/* Days grid */}
-          <div className="grid grid-cols-7 gap-1">
-            {days.map((day, idx) => {
-              if (!day) return <div key={idx} />
-              const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-              const hasSessions = !!sessioniByDate[dateStr]
-              const isToday = dateStr === today.toISOString().split('T')[0]
-              return (
-                <div
-                  key={idx}
-                  className={`aspect-square flex flex-col items-center justify-center rounded-[7px] relative cursor-default ${
-                    isToday ? 'text-white font-bold' : hasSessions ? 'font-medium text-gray-900' : 'text-gray-400'
-                  }`}
-                  style={isToday ? { backgroundColor: '#d64b55' } : hasSessions ? { backgroundColor: '#fbeced' } : {}}
-                  title={hasSessions ? `${sessioniByDate[dateStr].length} sessione/i` : undefined}
-                >
-                  <span className="text-sm">{day}</span>
-                  {hasSessions && !isToday && (
-                    <div className="w-1.5 h-1.5 rounded-full mt-0.5" style={{ backgroundColor: '#d64b55' }} />
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* Upcoming sessions */}
-        <div className="w-72 shrink-0">
-          <div className="bg-white rounded-xl" style={{ border: '0.5px solid #e5e5e5' }}>
-            <div className="px-4 py-4 border-b border-gray-100">
-              <h3 className="font-semibold text-sm text-gray-900">Prossime sessioni</h3>
-            </div>
-            <div className="divide-y divide-gray-50 max-h-[500px] overflow-y-auto">
-              {upcomingSessioni.length === 0 ? (
-                <div className="px-4 py-8 text-center text-sm text-gray-400">Nessuna sessione in programma</div>
-              ) : (
-                upcomingSessioni.map(s => (
-                  <div key={s.id} className="px-4 py-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs font-medium text-gray-900 truncate">{s.corso?.title || '—'}</div>
-                        <div className="text-xs text-gray-400 mt-0.5">{s.corso?.progetti?.school_name || '—'}</div>
-                        <div className="text-xs text-gray-500 mt-0.5">{s.data} · {s.ore}h</div>
-                      </div>
-                      {s.corso?.tipo && <StatusBadge variant={s.corso.tipo as 'PF' | 'Lab'} size="sm" />}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
+      {/* Calendar */}
+      <div className="bg-white rounded-xl p-6" style={{ border: '0.5px solid #e5e5e5' }}>
+        <CalendarioGrid
+          events={events}
+          isAdmin
+          currentUserId={currentUserId}
+          onDeleteIndisponibilita={handleDeleteIndisponibilita}
+        />
       </div>
     </div>
   )
