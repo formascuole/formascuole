@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { CorsoConOre, Sessione, Profile, Progetto, NotaCorso, Referente, QuestionarioRisultato, Candidatura } from '@/lib/types'
@@ -79,6 +79,28 @@ export function CorsoDetailClient({
   const [deletingNota, setDeletingNota] = useState<string | null>(null)
 
   const [questionarioOpen, setQuestionarioOpen] = useState(false)
+
+  // Edit session state
+  type LogEntry = {
+    id: string; sessione_id: string | null; corso_id: string; utente_id: string
+    tipo_modifica: string
+    data_precedente?: string | null; data_nuova?: string | null
+    ore_precedenti?: number | null; ore_nuove?: number | null
+    motivazione_categoria?: string | null; motivazione_dettaglio?: string | null
+    created_at: string
+    utente?: { id: string; nome: string; role: string; avatar_initials?: string } | null
+  }
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [editingSession, setEditingSession] = useState<Sessione | null>(null)
+  const [editData, setEditData] = useState('')
+  const [editOre, setEditOre] = useState('')
+  const [editMotivazioneCategoria, setEditMotivazioneCategoria] = useState('')
+  const [editMotivazioneDettaglio, setEditMotivazioneDettaglio] = useState('')
+  const [savingEdit, setSavingEdit] = useState(false)
+  const [editError, setEditError] = useState<string | null>(null)
+  const [logModifiche, setLogModifiche] = useState<LogEntry[]>([])
+  const [loadingLog, setLoadingLog] = useState(false)
+  const [logLoaded, setLogLoaded] = useState(false)
 
   // Candidature state
   const [candidatureLoading, setCandidatureLoading] = useState<string | null>(null)
@@ -268,6 +290,58 @@ export function CorsoDetailClient({
       }
     } finally {
       setSavingScheda(false)
+    }
+  }
+
+  const openEditModal = (s: Sessione) => {
+    setEditingSession(s)
+    setEditData(s.data)
+    setEditOre(String(s.ore))
+    setEditMotivazioneCategoria('')
+    setEditMotivazioneDettaglio('')
+    setEditError(null)
+    setEditModalOpen(true)
+  }
+
+  const handleEditSession = async () => {
+    if (!editingSession || !editMotivazioneCategoria) return
+    setSavingEdit(true)
+    setEditError(null)
+    try {
+      const res = await fetch(`/api/sessioni/${editingSession.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          data: editData,
+          ore: Number(editOre),
+          motivazione_categoria: editMotivazioneCategoria,
+          motivazione_dettaglio: editMotivazioneDettaglio.trim() || undefined,
+        }),
+      })
+      if (res.ok) {
+        setEditModalOpen(false)
+        setEditingSession(null)
+        if (logLoaded) fetchLog()
+        router.refresh()
+      } else {
+        const j = await res.json()
+        setEditError(j.error || 'Errore durante la modifica')
+      }
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+
+  const fetchLog = async () => {
+    setLoadingLog(true)
+    try {
+      const res = await fetch(`/api/sessioni-log?corso_id=${corso.id}`)
+      if (res.ok) {
+        setLogModifiche(await res.json())
+        setLogLoaded(true)
+      }
+    } finally {
+      setLoadingLog(false)
     }
   }
 
@@ -708,7 +782,7 @@ export function CorsoDetailClient({
                 <th className="text-left text-xs font-medium text-gray-400 px-6 py-3">ORE</th>
                 {isIbrido && <th className="text-left text-xs font-medium text-gray-400 px-6 py-3">MODALITÀ</th>}
                 <th className="text-left text-xs font-medium text-gray-400 px-6 py-3">STATO</th>
-                {isAdmin && <th className="px-6 py-3"></th>}
+                {canConfirmSessions && <th className="px-6 py-3"></th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -776,6 +850,19 @@ export function CorsoDetailClient({
                               </svg>
                             )}
                             {s.completata ? 'Confermata' : 'Conferma'}
+                          </button>
+                        )}
+                        {canConfirmSessions && !s.completata && (
+                          <button
+                            onClick={() => openEditModal(s)}
+                            title="Modifica sessione"
+                            className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-blue-600 border border-gray-200 hover:border-blue-300 hover:bg-blue-50 px-2 py-1 rounded-[6px] transition-colors"
+                          >
+                            <svg width="11" height="11" fill="none" viewBox="0 0 24 24">
+                              <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                              <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                            Modifica
                           </button>
                         )}
                         {isAdmin && !s.completata && (
@@ -848,6 +935,101 @@ export function CorsoDetailClient({
         </div>
       </div>
 
+      {/* Storico modifiche calendario — solo admin */}
+      {isAdmin && (() => {
+        const MOTIV_LABELS: Record<string, string> = {
+          richiesta_scuola: 'Richiesta della scuola',
+          impegno_formatore: 'Impegno del formatore',
+          causa_forza_maggiore: 'Causa di forza maggiore',
+          problemi_tecnici_logistici: 'Problemi tecnici/logistici',
+          accordo_reciproco: 'Accordo reciproco',
+          altro: 'Altro',
+        }
+        const MOTIV_COLORS: Record<string, string> = {
+          richiesta_scuola: 'bg-blue-100 text-blue-700',
+          impegno_formatore: 'bg-orange-100 text-orange-700',
+          causa_forza_maggiore: 'bg-gray-100 text-gray-600',
+          problemi_tecnici_logistici: 'bg-yellow-100 text-yellow-700',
+          accordo_reciproco: 'bg-green-100 text-green-700',
+          altro: 'bg-red-100 text-red-700',
+        }
+        const TIPO_ICONS: Record<string, React.ReactNode> = {
+          creazione: <svg width="13" height="13" fill="none" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>,
+          modifica_data: <svg width="13" height="13" fill="none" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.5"/><path d="M3 9h18M8 2v4M16 2v4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>,
+          modifica_ore: <svg width="13" height="13" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5"/><path d="M12 7v5l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>,
+          eliminazione: <svg width="13" height="13" fill="none" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+        }
+        const TIPO_LABELS: Record<string, string> = {
+          creazione: 'Creazione',
+          modifica_data: 'Modifica data',
+          modifica_ore: 'Modifica ore',
+          eliminazione: 'Eliminazione',
+        }
+        return (
+          <div className="bg-white rounded-xl mt-4" style={{ border: '0.5px solid #e5e5e5' }}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h2 className="font-semibold text-gray-900">Storico modifiche calendario</h2>
+              {!logLoaded && (
+                <Button size="sm" variant="secondary" onClick={fetchLog} loading={loadingLog}>
+                  Carica storico
+                </Button>
+              )}
+            </div>
+            {!logLoaded ? (
+              <div className="px-6 py-8 text-center text-sm text-gray-400">
+                Clicca &ldquo;Carica storico&rdquo; per visualizzare le modifiche alle sessioni.
+              </div>
+            ) : logModifiche.length === 0 ? (
+              <div className="px-6 py-8 text-center text-sm text-gray-400">Nessuna modifica registrata.</div>
+            ) : (
+              <div className="divide-y divide-gray-50">
+                {logModifiche.map(log => (
+                  <div key={log.id} className="px-6 py-4">
+                    <div className="flex items-start gap-3">
+                      <div className="flex items-center gap-1.5 text-gray-500 mt-0.5 shrink-0">
+                        {TIPO_ICONS[log.tipo_modifica]}
+                        <span className="text-xs font-medium text-gray-600">{TIPO_LABELS[log.tipo_modifica] || log.tipo_modifica}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          {log.data_precedente && log.data_nuova && (
+                            <span className="text-xs text-gray-700">
+                              <span className="line-through text-gray-400">{formatDate(log.data_precedente)}</span>
+                              {' → '}
+                              <span className="font-medium">{formatDate(log.data_nuova)}</span>
+                            </span>
+                          )}
+                          {log.ore_precedenti != null && log.ore_nuove != null && (
+                            <span className="text-xs text-gray-700">
+                              <span className="line-through text-gray-400">{log.ore_precedenti}h</span>
+                              {' → '}
+                              <span className="font-medium">{log.ore_nuove}h</span>
+                            </span>
+                          )}
+                          {log.motivazione_categoria && (
+                            <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md ${MOTIV_COLORS[log.motivazione_categoria] || 'bg-gray-100 text-gray-600'}`}>
+                              {MOTIV_LABELS[log.motivazione_categoria] || log.motivazione_categoria}
+                            </span>
+                          )}
+                        </div>
+                        {log.motivazione_dettaglio && (
+                          <p className="text-xs text-gray-500 mb-1">{log.motivazione_dettaglio}</p>
+                        )}
+                        <div className="flex items-center gap-2 text-xs text-gray-400">
+                          {log.utente && <span>{log.utente.nome}</span>}
+                          <span>·</span>
+                          <span>{new Date(log.created_at).toLocaleString('it-IT', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )
+      })()}
+
       {/* Risultati questionari */}
       <QuestionariBlock questionari={questionari} showTexts={isAdmin} showStorico />
 
@@ -883,6 +1065,92 @@ export function CorsoDetailClient({
           </div>
         </div>
       </Modal>
+
+      {/* Edit Session Modal */}
+      {(() => {
+        const editOreMax = oreResidue + (editingSession ? Number(editingSession.ore) : 0)
+        const editOreNum = Number(editOre)
+        const editOreError = editOre && (editOreNum < 1 ? 'Min 1h' : editOreNum > editOreMax ? `Max ${editOreMax}h` : '')
+        const needsDettaglio = editMotivazioneCategoria === 'altro'
+        const canSubmitEdit = !!editMotivazioneCategoria &&
+          (!needsDettaglio || editMotivazioneDettaglio.trim() !== '') &&
+          !!editData && !!editOre && !editOreError && editOreNum > 0
+
+        const MOTIV_OPTIONS = [
+          { value: 'richiesta_scuola', label: 'Richiesta della scuola' },
+          { value: 'impegno_formatore', label: 'Impegno del formatore' },
+          { value: 'causa_forza_maggiore', label: 'Causa di forza maggiore' },
+          { value: 'problemi_tecnici_logistici', label: 'Problemi tecnici/logistici' },
+          { value: 'accordo_reciproco', label: 'Accordo reciproco' },
+          { value: 'altro', label: 'Altro' },
+        ]
+
+        return (
+          <Modal
+            open={editModalOpen}
+            onClose={() => { setEditModalOpen(false); setEditingSession(null); setEditError(null) }}
+            title={editingSession ? `Modifica sessione — ${formatDate(editingSession.data)}` : 'Modifica sessione'}
+            size="sm"
+            footer={
+              <>
+                <Button variant="secondary" onClick={() => { setEditModalOpen(false); setEditingSession(null) }}>Annulla</Button>
+                <Button onClick={handleEditSession} loading={savingEdit} disabled={!canSubmitEdit}>Salva modifiche</Button>
+              </>
+            }
+          >
+            <div className="space-y-4">
+              {editError && (
+                <div className="bg-red-50 border border-red-200 rounded-[7px] px-3 py-2 text-sm text-red-700">{editError}</div>
+              )}
+              <Input
+                label="Data sessione *"
+                type="date"
+                value={editData}
+                onChange={e => setEditData(e.target.value)}
+              />
+              <Input
+                label="Ore *"
+                type="number"
+                min={1}
+                max={editOreMax}
+                value={editOre}
+                onChange={e => setEditOre(e.target.value)}
+                hint={`Max ${editOreMax}h`}
+                error={editOreError || undefined}
+              />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Motivazione <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={editMotivazioneCategoria}
+                  onChange={e => setEditMotivazioneCategoria(e.target.value)}
+                  className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 focus:outline-none focus:border-[#d64b55] transition-colors bg-white"
+                >
+                  <option value="">— Seleziona motivazione —</option>
+                  {MOTIV_OPTIONS.map(o => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
+              {(editMotivazioneCategoria || true) && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    Dettaglio{needsDettaglio ? <span className="text-red-500"> *</span> : <span className="text-gray-400"> (opzionale)</span>}
+                  </label>
+                  <textarea
+                    value={editMotivazioneDettaglio}
+                    onChange={e => setEditMotivazioneDettaglio(e.target.value)}
+                    placeholder={needsDettaglio ? 'Descrivi il motivo della modifica…' : 'Aggiungi dettagli opzionali…'}
+                    rows={3}
+                    className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 focus:outline-none focus:border-[#d64b55] transition-colors resize-none"
+                  />
+                </div>
+              )}
+            </div>
+          </Modal>
+        )
+      })()}
 
       {/* Calendar Modal */}
       <Modal

@@ -82,6 +82,19 @@ interface CandidaturaRingraziamentoEmailParams {
   school_name: string
 }
 
+interface ModificaSessioneEmailParams {
+  formatore_nome: string
+  corso_title: string
+  school_name: string
+  data_precedente?: string
+  data_nuova?: string
+  ore_precedenti?: number
+  ore_nuove?: number
+  motivazione_categoria: string
+  motivazione_dettaglio?: string
+  corso_admin_url: string
+}
+
 interface EmailAction {
   label: string
   url: string
@@ -598,6 +611,72 @@ export async function sendQuestionarioReminderEmail({
       </div>
     </div>`,
   })
+}
+
+const MOTIVAZIONE_LABELS: Record<string, string> = {
+  richiesta_scuola: 'Richiesta della scuola',
+  impegno_formatore: 'Impegno del formatore',
+  causa_forza_maggiore: 'Causa di forza maggiore',
+  problemi_tecnici_logistici: 'Problemi tecnici/logistici',
+  accordo_reciproco: 'Accordo reciproco',
+  altro: 'Altro',
+}
+
+function fallbackModificaSessioneEmail(p: ModificaSessioneEmailParams): string {
+  const changes: string[] = []
+  if (p.data_precedente && p.data_nuova) changes.push(`Data: ${p.data_precedente} → ${p.data_nuova}`)
+  if (p.ore_precedenti !== undefined && p.ore_nuove !== undefined) changes.push(`Ore: ${p.ore_precedenti}h → ${p.ore_nuove}h`)
+  return `Una sessione del corso è stata modificata dal formatore.
+
+Formatore: ${p.formatore_nome}
+Corso: ${p.corso_title}
+Scuola: ${p.school_name}
+
+Modifiche:
+${changes.join('\n')}
+
+Motivazione: ${MOTIVAZIONE_LABELS[p.motivazione_categoria] || p.motivazione_categoria}${p.motivazione_dettaglio ? `\nDettaglio: ${p.motivazione_dettaglio}` : ''}
+
+Scheda corso: ${p.corso_admin_url}`
+}
+
+export async function generateModificaSessioneEmail(params: ModificaSessioneEmailParams): Promise<{ subject: string; body: string }> {
+  const subject = `Sessione modificata — ${params.corso_title} — ${params.school_name}`
+  const changes: string[] = []
+  if (params.data_precedente && params.data_nuova) changes.push(`- Data: ${params.data_precedente} → ${params.data_nuova}`)
+  if (params.ore_precedenti !== undefined && params.ore_nuove !== undefined) changes.push(`- Ore: ${params.ore_precedenti}h → ${params.ore_nuove}h`)
+
+  try {
+    const message = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 400,
+      messages: [{
+        role: 'user',
+        content: `Genera un'email di notifica breve in italiano per informare gli amministratori che un formatore ha modificato una sessione di un corso.
+
+Dati:
+- Nome formatore: ${params.formatore_nome}
+- Titolo corso: ${params.corso_title}
+- Nome scuola: ${params.school_name}
+- Modifiche effettuate: ${changes.join(', ') || 'aggiornamento sessione'}
+- Motivazione: ${MOTIVAZIONE_LABELS[params.motivazione_categoria] || params.motivazione_categoria}${params.motivazione_dettaglio ? ` — ${params.motivazione_dettaglio}` : ''}
+- Link scheda corso: ${params.corso_admin_url}
+
+L'email deve:
+1. Informare brevemente che il formatore ha modificato una sessione
+2. Riportare le modifiche (data/ore precedente → nuova)
+3. Indicare la motivazione fornita
+4. Fornire il link alla scheda corso per verificare
+5. Essere concisa (max 6 righe), tono neutro e professionale
+
+Rispondi SOLO con il corpo dell'email in testo semplice (no HTML, no oggetto email).`,
+      }],
+    })
+    return { subject, body: (message.content[0] as { type: string; text: string }).text }
+  } catch (err) {
+    console.error('[email] Anthropic API non disponibile, uso testo predefinito per modifica sessione:', err)
+    return { subject, body: fallbackModificaSessioneEmail(params) }
+  }
 }
 
 // ─── Sender ───────────────────────────────────────────────────────────────────
