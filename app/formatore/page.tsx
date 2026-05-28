@@ -75,7 +75,7 @@ export default async function FormatorePage() {
   // Corsi disponibili (candidature aperte, nessun formatore assegnato)
   const { data: corsiAperti } = await admin
     .from('corsi')
-    .select('id, title, tipo, ore_totali, project_id, candidature_aperte_at')
+    .select('id, title, tipo, ore_totali, project_id, candidature_aperte_at, link_scheda, modalita')
     .eq('candidature_aperte', true)
     .is('formatore_id', null)
 
@@ -83,11 +83,12 @@ export default async function FormatorePage() {
 
   // Fetch scuole per i corsi aperti
   const progettiApertiIds = [...new Set((corsiAperti || []).map(c => c.project_id))]
-  let progettiApertiMap = new Map<string, string>()
+  type ProgettoApertoRow = { id: string; school_name: string; address: string | null }
+  let progettiApertiMap = new Map<string, ProgettoApertoRow>()
   if (progettiApertiIds.length > 0) {
     const { data: progettiAperti } = await admin
-      .from('progetti').select('id, school_name').in('id', progettiApertiIds)
-    for (const p of progettiAperti || []) progettiApertiMap.set(p.id, p.school_name)
+      .from('progetti').select('id, school_name, address').in('id', progettiApertiIds)
+    for (const p of (progettiAperti || []) as ProgettoApertoRow[]) progettiApertiMap.set(p.id, p)
   }
 
   // Mie candidature esistenti per questi corsi
@@ -101,15 +102,25 @@ export default async function FormatorePage() {
     for (const c of mieCandidature || []) mieCandidatureSet.add(c.corso_id)
   }
 
-  const corsiDisponibili = (corsiAperti || []).map(c => ({
-    id: c.id,
-    title: c.title,
-    tipo: c.tipo as string,
-    ore_totali: c.ore_totali as number,
-    school_name: progettiApertiMap.get(c.project_id) || '',
-    candidature_aperte_at: c.candidature_aperte_at as string | null,
-    già_candidato: mieCandidatureSet.has(c.id),
-  }))
+  const corsiDisponibili = (corsiAperti || []).map(c => {
+    const prog = progettiApertiMap.get(c.project_id)
+    const address = prog?.address || ''
+    const parts = address.split(',')
+    const lastPart = parts[parts.length - 1].trim()
+    const city = lastPart.replace(/^\d{5}\s*/, '').trim() || address
+    return {
+      id: c.id,
+      title: c.title,
+      tipo: c.tipo as string,
+      ore_totali: c.ore_totali as number,
+      school_name: prog?.school_name || '',
+      city: city || null,
+      link_scheda: c.link_scheda as string | null,
+      modalita: c.modalita as string | null,
+      candidature_aperte_at: c.candidature_aperte_at as string | null,
+      già_candidato: mieCandidatureSet.has(c.id),
+    }
+  })
 
   // Ore erogate per questo formatore (totale + per corso)
   const corsiIds = (corsi || []).map(c => c.id)

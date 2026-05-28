@@ -48,6 +48,9 @@ type CorsoDisponibile = {
   tipo: string
   ore_totali: number
   school_name: string
+  city?: string | null
+  link_scheda?: string | null
+  modalita?: string | null
   candidature_aperte_at: string | null
   già_candidato: boolean
 }
@@ -225,6 +228,14 @@ export function FormatoreClient({ corsi, profile, finanziamenti, questionari = [
               const oreRimaste = scadenza
                 ? Math.max(0, Math.round((scadenza.getTime() - Date.now()) / (1000 * 60 * 60)))
                 : null
+              const modalitaEffettiva = corso.tipo === 'Lab' ? 'presenza' : (corso.modalita || 'presenza')
+              const modalitaLabel = corso.tipo === 'Lab' ? 'Solo in presenza' : { presenza: 'In presenza', online: 'Online', ibrido: 'Ibrido' }[modalitaEffettiva] ?? 'In presenza'
+              const modalitaIcon = modalitaEffettiva === 'online'
+                ? <svg width="12" height="12" fill="none" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="1.5"/><path d="M8 21h8M12 17v4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                : modalitaEffettiva === 'ibrido'
+                ? <svg width="12" height="12" fill="none" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><rect x="9" y="13" width="6" height="8" rx="1" stroke="currentColor" strokeWidth="1.5"/><circle cx="19" cy="7" r="3" fill="currentColor" opacity=".3" stroke="currentColor" strokeWidth="1"/></svg>
+                : <svg width="12" height="12" fill="none" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M9 22V12h6v10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+
               return (
                 <div key={corso.id} className="bg-white rounded-xl px-5 py-4" style={{ border: '0.5px solid #bfdbfe' }}>
                   <div className="flex items-start justify-between gap-3 mb-3">
@@ -233,48 +244,72 @@ export function FormatoreClient({ corsi, profile, finanziamenti, questionari = [
                         <h3 className="font-medium text-gray-900 text-sm">{corso.title}</h3>
                         <StatusBadge variant={corso.tipo as 'PF' | 'Lab'} size="sm" />
                       </div>
-                      <div className="flex items-center gap-3 text-xs text-gray-400">
-                        <span>{corso.school_name}</span>
+                      <div className="flex items-center gap-3 text-xs text-gray-400 flex-wrap">
+                        <span>{corso.school_name}{corso.city ? ` — ${corso.city}` : ''}</span>
+                        <span>·</span>
                         <span>{corso.ore_totali}h</span>
+                        <span>·</span>
+                        <span className="flex items-center gap-1">
+                          {modalitaIcon}
+                          {modalitaLabel}
+                        </span>
                         {oreRimaste !== null && (
-                          <span className={oreRimaste < 4 ? 'text-red-500 font-medium' : 'text-amber-600'}>
-                            Scade tra {oreRimaste}h
-                          </span>
+                          <>
+                            <span>·</span>
+                            <span className={oreRimaste < 4 ? 'text-red-500 font-medium' : 'text-amber-600'}>
+                              Scade tra {oreRimaste}h
+                            </span>
+                          </>
                         )}
                       </div>
                     </div>
-                    {giàCandidato ? (
-                      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-green-700 bg-green-100 px-2.5 py-1.5 rounded-[7px] shrink-0">
-                        <svg width="11" height="11" fill="none" viewBox="0 0 24 24">
-                          <polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
-                        </svg>
-                        Candidatura inviata
-                      </span>
-                    ) : (
-                      <Button
-                        size="sm"
-                        loading={candidaturaLoading === corso.id}
-                        onClick={async () => {
-                          setCandidaturaLoading(corso.id)
-                          setCandidaturaError(prev => ({ ...prev, [corso.id]: '' }))
-                          try {
-                            const res = await fetch(`/api/corsi/${corso.id}/candidature/candidati`, {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ note: noteMap[corso.id] || '' }),
-                            })
-                            const j = await res.json()
-                            if (!res.ok) {
-                              setCandidaturaError(prev => ({ ...prev, [corso.id]: j.error || 'Errore' }))
-                              return
-                            }
-                            setCandidaturaInviata(prev => new Set([...prev, corso.id]))
-                          } finally { setCandidaturaLoading(null) }
-                        }}
-                      >
-                        Mi candido
-                      </Button>
-                    )}
+                    <div className="flex items-center gap-2 shrink-0">
+                      {corso.link_scheda && (
+                        <a
+                          href={corso.link_scheda}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-800 border border-gray-200 hover:bg-gray-50 px-2.5 py-1.5 rounded-[7px] transition-colors"
+                        >
+                          Scheda corso
+                          <svg width="10" height="10" fill="none" viewBox="0 0 24 24">
+                            <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        </a>
+                      )}
+                      {giàCandidato ? (
+                        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-green-700 bg-green-100 px-2.5 py-1.5 rounded-[7px]">
+                          <svg width="11" height="11" fill="none" viewBox="0 0 24 24">
+                            <polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
+                          </svg>
+                          Candidatura inviata
+                        </span>
+                      ) : (
+                        <Button
+                          size="sm"
+                          loading={candidaturaLoading === corso.id}
+                          onClick={async () => {
+                            setCandidaturaLoading(corso.id)
+                            setCandidaturaError(prev => ({ ...prev, [corso.id]: '' }))
+                            try {
+                              const res = await fetch(`/api/corsi/${corso.id}/candidature/candidati`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ note: noteMap[corso.id] || '' }),
+                              })
+                              const j = await res.json()
+                              if (!res.ok) {
+                                setCandidaturaError(prev => ({ ...prev, [corso.id]: j.error || 'Errore' }))
+                                return
+                              }
+                              setCandidaturaInviata(prev => new Set([...prev, corso.id]))
+                            } finally { setCandidaturaLoading(null) }
+                          }}
+                        >
+                          Mi candido
+                        </Button>
+                      )}
+                    </div>
                   </div>
                   {!giàCandidato && (
                     <textarea
