@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { CorsoConOre, Sessione, Profile, Progetto, NotaCorso, Referente, QuestionarioRisultato } from '@/lib/types'
+import { CorsoConOre, Sessione, Profile, Progetto, NotaCorso, Referente, QuestionarioRisultato, Candidatura } from '@/lib/types'
 import { OreCounter } from '@/components/ui/OreCounter'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { Button } from '@/components/ui/Button'
@@ -25,6 +25,7 @@ interface CorsoDetailClientProps {
   referenti: Referente[]
   note: NotaCorso[]
   questionari: QuestionarioRisultato[]
+  candidature?: Candidatura[]
   progettoId: string
   currentUserId: string
   isAdmin: boolean
@@ -43,6 +44,7 @@ export function CorsoDetailClient({
   referenti,
   note: initialNote,
   questionari,
+  candidature = [],
   progettoId,
   currentUserId,
   isAdmin,
@@ -77,6 +79,11 @@ export function CorsoDetailClient({
   const [deletingNota, setDeletingNota] = useState<string | null>(null)
 
   const [questionarioOpen, setQuestionarioOpen] = useState(false)
+
+  // Candidature state
+  const [candidatureLoading, setCandidatureLoading] = useState<string | null>(null)
+  const [candidatureError, setCandidatureError] = useState<string | null>(null)
+  const [aperturaLoading, setAperturaLoading] = useState(false)
 
   // Scheda corso edit state
   const [schedaEditOpen, setSchedaEditOpen] = useState(false)
@@ -401,12 +408,124 @@ export function CorsoDetailClient({
             )}
           </div>
         ) : (
-          <div className="flex items-center justify-between py-2">
+          <div className="space-y-3">
             <p className="text-sm text-gray-400">Nessun formatore assegnato a questo corso.</p>
-            {isAdmin && <Button size="sm" onClick={() => setFormatorePickerOpen(true)}>Assegna Formatore</Button>}
+            {isAdmin && (
+              <div className="flex flex-wrap items-center gap-2">
+                <Button size="sm" onClick={() => setFormatorePickerOpen(true)}>Assegna Formatore</Button>
+                {corso.candidature_aperte ? (
+                  <>
+                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-green-700 bg-green-100 px-2.5 py-1 rounded-md">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                      Candidature aperte ({candidature.length})
+                    </span>
+                    <button
+                      onClick={async () => {
+                        setAperturaLoading(true)
+                        try {
+                          await fetch(`/api/corsi/${corso.id}/candidature/chiudi`, { method: 'POST' })
+                          router.refresh()
+                        } finally { setAperturaLoading(false) }
+                      }}
+                      disabled={aperturaLoading}
+                      className="text-xs text-gray-500 hover:text-gray-800 border border-gray-200 hover:bg-gray-50 px-2.5 py-1.5 rounded-[7px] transition-colors disabled:opacity-50"
+                    >
+                      {aperturaLoading ? '...' : 'Chiudi candidature'}
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={async () => {
+                      setAperturaLoading(true)
+                      setCandidatureError(null)
+                      try {
+                        const res = await fetch(`/api/corsi/${corso.id}/candidature/apri`, { method: 'POST' })
+                        if (!res.ok) { const j = await res.json(); setCandidatureError(j.error || 'Errore'); return }
+                        router.refresh()
+                      } finally { setAperturaLoading(false) }
+                    }}
+                    disabled={aperturaLoading}
+                    className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2.5 py-1.5 rounded-[7px] transition-colors disabled:opacity-50"
+                  >
+                    <svg width="12" height="12" fill="none" viewBox="0 0 24 24">
+                      <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 7a4 4 0 100 8 4 4 0 000-8zM23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                    </svg>
+                    {aperturaLoading ? '...' : 'Richiedi candidature'}
+                  </button>
+                )}
+              </div>
+            )}
+            {candidatureError && <p className="text-xs text-red-500">{candidatureError}</p>}
           </div>
         )}
       </div>
+
+      {/* Candidature ricevute */}
+      {isAdmin && (candidature.length > 0 || corso.candidature_aperte) && (
+        <div className="bg-white rounded-xl p-6 mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
+          <h2 className="font-semibold text-gray-900 mb-4">
+            Candidature ricevute
+            {candidature.length > 0 && (
+              <span className="ml-2 text-xs font-normal text-gray-400">({candidature.length})</span>
+            )}
+          </h2>
+          {candidature.length === 0 ? (
+            <p className="text-sm text-gray-400">Nessuna candidatura ancora ricevuta.</p>
+          ) : (
+            <div className="space-y-3">
+              {candidature.map(c => {
+                const f = c.formatore
+                if (!f) return null
+                const isSelected = c.stato === 'selezionato'
+                const isRejected = c.stato === 'non_selezionato'
+                return (
+                  <div key={c.id} className={`flex items-start justify-between gap-3 p-3 rounded-[9px] ${isSelected ? 'bg-green-50 border border-green-200' : isRejected ? 'bg-gray-50 border border-gray-200 opacity-60' : 'bg-gray-50 border border-gray-100'}`}>
+                    <div className="flex items-start gap-3 min-w-0">
+                      <Avatar nome={f.nome} id={f.id} initials={f.avatar_initials} size="sm" />
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-medium text-gray-900">{f.nome}</span>
+                          {isSelected && (
+                            <span className="text-xs font-medium text-green-700 bg-green-100 px-2 py-0.5 rounded-md">Selezionato</span>
+                          )}
+                          {isRejected && (
+                            <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md">Non selezionato</span>
+                          )}
+                        </div>
+                        <a href={`mailto:${f.email}`} className="text-xs text-blue-600 hover:underline">{f.email}</a>
+                        {c.note && <p className="text-xs text-gray-500 mt-1">{c.note}</p>}
+                        <p className="text-xs text-gray-400 mt-0.5">{new Date(c.created_at).toLocaleDateString('it-IT')}</p>
+                      </div>
+                    </div>
+                    {c.stato === 'in_attesa' && !corso.formatore_id && (
+                      <Button
+                        size="sm"
+                        loading={candidatureLoading === c.id}
+                        onClick={async () => {
+                          setCandidatureLoading(c.id)
+                          setCandidatureError(null)
+                          try {
+                            const res = await fetch(`/api/corsi/${corso.id}/candidature/seleziona`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ formatore_id: c.formatore_id }),
+                            })
+                            if (!res.ok) { const j = await res.json(); setCandidatureError(j.error || 'Errore'); return }
+                            router.refresh()
+                          } finally { setCandidatureLoading(null) }
+                        }}
+                      >
+                        Seleziona
+                      </Button>
+                    )}
+                  </div>
+                )
+              })}
+              {candidatureError && <p className="text-xs text-red-500">{candidatureError}</p>}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Tutor — shown for all PF courses */}
       {corso.tipo === 'PF' && (

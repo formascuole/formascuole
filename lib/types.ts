@@ -3,8 +3,9 @@ export type ProjectStatus = 'active' | 'pending' | 'completed'
 export type CorsoTipo = 'PF' | 'Lab'
 export type ModalitaCorso = 'presenza' | 'online' | 'ibrido'
 export type ModalitaSessione = 'presenza' | 'online'
-export type SollectipoTipo = 'assegnazione' | 'sollecito_1' | 'sollecito_2' | 'sollecito_3' | 'reminder_sessione' | 'reminder_accettazione'
+export type SollectipoTipo = 'assegnazione' | 'sollecito_1' | 'sollecito_2' | 'sollecito_3' | 'reminder_sessione' | 'reminder_accettazione' | 'reminder_questionario' | 'reminder_candidatura'
 export type StatoAssegnazione = 'non_assegnato' | 'in_attesa' | 'accettato' | 'rifiutato'
+export type StatoCandidatura = 'in_attesa' | 'selezionato' | 'non_selezionato'
 
 export interface Profile {
   id: string
@@ -89,6 +90,18 @@ export interface Corso {
   rifiuto_motivazione?: string | null
   descrizione?: string | null
   link_scheda?: string | null
+  candidature_aperte?: boolean
+  candidature_aperte_at?: string | null
+}
+
+export interface Candidatura {
+  id: string
+  corso_id: string
+  formatore_id: string
+  note: string | null
+  stato: StatoCandidatura
+  created_at: string
+  formatore?: Pick<Profile, 'id' | 'nome' | 'email' | 'avatar_initials'> | null
 }
 
 export interface CorsoConOre extends Corso {

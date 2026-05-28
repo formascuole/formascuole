@@ -67,6 +67,21 @@ interface ReminderQuestionarioEmailParams {
   questionario_url: string
 }
 
+interface CandidaturaDisponibileEmailParams {
+  formatore_nome: string
+  corso_title: string
+  tipo: string
+  school_name: string
+  ore_totali: number
+  corso_url: string
+}
+
+interface CandidaturaRingraziamentoEmailParams {
+  formatore_nome: string
+  corso_title: string
+  school_name: string
+}
+
 interface EmailAction {
   label: string
   url: string
@@ -147,6 +162,35 @@ ti ricordiamo che devi ancora rispondere all'assegnazione del corso "${p.corso_t
 
 Hai ${p.ore_rimanenti} ore rimaste per accettare o rifiutare l'incarico.
 In assenza di risposta il corso verrà riassegnato ad altro formatore.
+
+Grazie,
+Il team Formascuole`
+}
+
+function fallbackCandidaturaDisponibileEmail(p: CandidaturaDisponibileEmailParams): string {
+  return `Gentile ${p.formatore_nome},
+
+è disponibile un nuovo corso per cui puoi candidarti:
+
+Corso: ${p.corso_title}
+Tipo: ${p.tipo}
+Scuola: ${p.school_name}
+Ore: ${p.ore_totali}h
+
+Hai 24 ore per candidarti.
+Accedi alla piattaforma per candidarti: ${p.corso_url}
+
+Grazie,
+Il team Formascuole`
+}
+
+function fallbackCandidaturaRingraziamentoEmail(p: CandidaturaRingraziamentoEmailParams): string {
+  return `Gentile ${p.formatore_nome},
+
+ti ringraziamo per esserti candidato al corso "${p.corso_title}" presso ${p.school_name}.
+
+Purtroppo per questo corso è stato selezionato un altro formatore.
+Ti terremo in considerazione per le prossime opportunità.
 
 Grazie,
 Il team Formascuole`
@@ -409,6 +453,71 @@ Rispondi SOLO con il corpo dell'email in testo semplice (no HTML, no oggetto ema
   } catch (err) {
     console.error('[email] Anthropic API non disponibile, uso testo predefinito per risposta formatore:', err)
     return fallbackRispostaFormatoreEmail(params)
+  }
+}
+
+export async function generateCandidaturaDisponibileEmail(params: CandidaturaDisponibileEmailParams): Promise<string> {
+  try {
+    const message = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 400,
+      messages: [{
+        role: 'user',
+        content: `Genera un'email professionale e motivante in italiano per invitare un formatore a candidarsi per un nuovo corso disponibile.
+
+Dati:
+- Nome formatore: ${params.formatore_nome}
+- Titolo corso: ${params.corso_title}
+- Tipo corso: ${params.tipo}
+- Nome scuola: ${params.school_name}
+- Ore totali: ${params.ore_totali}h
+- Link candidatura: ${params.corso_url}
+
+L'email deve:
+1. Salutare il formatore per nome
+2. Comunicare che è disponibile un nuovo corso per cui può candidarsi
+3. Riportare i dettagli del corso (titolo, tipo, scuola, ore)
+4. Precisare che ha 24 ore per candidarsi
+5. Invitare ad accedere alla piattaforma tramite il link
+6. Essere breve e diretta, tono professionale
+
+Rispondi SOLO con il corpo dell'email in testo semplice (no HTML, no oggetto email).`,
+      }],
+    })
+    return (message.content[0] as { type: string; text: string }).text
+  } catch (err) {
+    console.error('[email] Anthropic API non disponibile, uso testo predefinito per candidatura disponibile:', err)
+    return fallbackCandidaturaDisponibileEmail(params)
+  }
+}
+
+export async function generateCandidaturaRingraziamentoEmail(params: CandidaturaRingraziamentoEmailParams): Promise<string> {
+  try {
+    const message = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 300,
+      messages: [{
+        role: 'user',
+        content: `Genera un'email breve e gentile in italiano per ringraziare un formatore che si è candidato per un corso ma non è stato selezionato.
+
+Dati:
+- Nome formatore: ${params.formatore_nome}
+- Titolo corso: ${params.corso_title}
+- Nome scuola: ${params.school_name}
+
+L'email deve:
+1. Ringraziare il formatore per la candidatura
+2. Comunicare con tatto che per questo corso è stato selezionato un altro formatore
+3. Assicurare che verrà considerato per future opportunità
+4. Essere breve (max 4 righe di corpo), tono cordiale e rispettoso
+
+Rispondi SOLO con il corpo dell'email in testo semplice (no HTML, no oggetto email).`,
+      }],
+    })
+    return (message.content[0] as { type: string; text: string }).text
+  } catch (err) {
+    console.error('[email] Anthropic API non disponibile, uso testo predefinito per candidatura ringraziamento:', err)
+    return fallbackCandidaturaRingraziamentoEmail(params)
   }
 }
 

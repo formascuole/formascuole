@@ -42,15 +42,26 @@ interface CorsoConProgetto extends Omit<CorsoConOre, 'referente'> {
   referente?: ReferenteInfo
 }
 
+type CorsoDisponibile = {
+  id: string
+  title: string
+  tipo: string
+  ore_totali: number
+  school_name: string
+  candidature_aperte_at: string | null
+  già_candidato: boolean
+}
+
 interface FormatoreClientProps {
   corsi: CorsoConProgetto[]
   profile: Profile
   finanziamenti: { id: string; nome: string }[]
   questionari?: QuestionarioRisultato[]
   mediaGlobale?: number | null
+  corsiDisponibili?: CorsoDisponibile[]
 }
 
-export function FormatoreClient({ corsi, profile, finanziamenti, questionari = [], mediaGlobale = null }: FormatoreClientProps) {
+export function FormatoreClient({ corsi, profile, finanziamenti, questionari = [], mediaGlobale = null, corsiDisponibili = [] }: FormatoreClientProps) {
   const router = useRouter()
 
   // Calendar modal
@@ -67,6 +78,12 @@ export function FormatoreClient({ corsi, profile, finanziamenti, questionari = [
   const [rifiutoMotivazione, setRifiutoMotivazione] = useState('')
   const [submittingRifiuto, setSubmittingRifiuto] = useState(false)
   const [accettazioneError, setAccettazioneError] = useState<string | null>(null)
+
+  // Candidatura state
+  const [noteMap, setNoteMap] = useState<Record<string, string>>({})
+  const [candidaturaLoading, setCandidaturaLoading] = useState<string | null>(null)
+  const [candidaturaInviata, setCandidaturaInviata] = useState<Set<string>>(new Set())
+  const [candidaturaError, setCandidaturaError] = useState<Record<string, string>>({})
 
   const totalOre = corsi.reduce((s, c) => s + Number(c.ore_totali), 0)
   const totalPianificate = corsi.reduce((s, c) => s + Number(c.ore_pianificate), 0)
@@ -187,6 +204,92 @@ export function FormatoreClient({ corsi, profile, finanziamenti, questionari = [
       {accettazioneError && (
         <div className="mb-4 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
           {accettazioneError}
+        </div>
+      )}
+
+      {/* Corsi disponibili */}
+      {corsiDisponibili.length > 0 && (
+        <div className="mb-6">
+          <h2 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+            Corsi disponibili — candidati entro 24h
+          </h2>
+          <div className="space-y-2">
+            {corsiDisponibili.map(corso => {
+              const giàCandidato = corso.già_candidato || candidaturaInviata.has(corso.id)
+              const scadenza = corso.candidature_aperte_at
+                ? new Date(new Date(corso.candidature_aperte_at).getTime() + 24 * 60 * 60 * 1000)
+                : null
+              const oreRimaste = scadenza
+                ? Math.max(0, Math.round((scadenza.getTime() - Date.now()) / (1000 * 60 * 60)))
+                : null
+              return (
+                <div key={corso.id} className="bg-white rounded-xl px-5 py-4" style={{ border: '0.5px solid #bfdbfe' }}>
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        <h3 className="font-medium text-gray-900 text-sm">{corso.title}</h3>
+                        <StatusBadge variant={corso.tipo as 'PF' | 'Lab'} size="sm" />
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-gray-400">
+                        <span>{corso.school_name}</span>
+                        <span>{corso.ore_totali}h</span>
+                        {oreRimaste !== null && (
+                          <span className={oreRimaste < 4 ? 'text-red-500 font-medium' : 'text-amber-600'}>
+                            Scade tra {oreRimaste}h
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {giàCandidato ? (
+                      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-green-700 bg-green-100 px-2.5 py-1.5 rounded-[7px] shrink-0">
+                        <svg width="11" height="11" fill="none" viewBox="0 0 24 24">
+                          <polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
+                        </svg>
+                        Candidatura inviata
+                      </span>
+                    ) : (
+                      <Button
+                        size="sm"
+                        loading={candidaturaLoading === corso.id}
+                        onClick={async () => {
+                          setCandidaturaLoading(corso.id)
+                          setCandidaturaError(prev => ({ ...prev, [corso.id]: '' }))
+                          try {
+                            const res = await fetch(`/api/corsi/${corso.id}/candidature/candidati`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ note: noteMap[corso.id] || '' }),
+                            })
+                            const j = await res.json()
+                            if (!res.ok) {
+                              setCandidaturaError(prev => ({ ...prev, [corso.id]: j.error || 'Errore' }))
+                              return
+                            }
+                            setCandidaturaInviata(prev => new Set([...prev, corso.id]))
+                          } finally { setCandidaturaLoading(null) }
+                        }}
+                      >
+                        Mi candido
+                      </Button>
+                    )}
+                  </div>
+                  {!giàCandidato && (
+                    <textarea
+                      value={noteMap[corso.id] || ''}
+                      onChange={e => setNoteMap(prev => ({ ...prev, [corso.id]: e.target.value }))}
+                      placeholder="Note opzionali (motivazione, disponibilità…)"
+                      rows={2}
+                      className="w-full text-xs border border-gray-200 rounded-[7px] px-3 py-2 focus:outline-none focus:border-[#d64b55] transition-colors resize-none text-gray-700 placeholder-gray-400"
+                    />
+                  )}
+                  {candidaturaError[corso.id] && (
+                    <p className="text-xs text-red-500 mt-1">{candidaturaError[corso.id]}</p>
+                  )}
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
 

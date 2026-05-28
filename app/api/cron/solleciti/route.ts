@@ -7,6 +7,7 @@ import {
   generateRispostaFormatoreEmail,
   generateReminderSessioneEmail,
   generateReminderQuestionarioEmail,
+  generateCandidaturaDisponibileEmail,
   sendEmail,
   sendQuestionarioReminderEmail,
 } from '@/lib/email'
@@ -458,6 +459,95 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // ── FASE 5: Gestione candidature scadute ──────────────────────────────────
+    const { data: corsiCandidatureAperte } = await supabase
+      .from('corsi')
+      .select('id, title, project_id, candidature_aperte_at')
+      .eq('candidature_aperte', true)
+      .not('candidature_aperte_at', 'is', null)
+
+    const candidatureResults: { corso_id: string; action: string }[] = []
+
+    for (const cc of corsiCandidatureAperte || []) {
+      const apertaAt = new Date(cc.candidature_aperte_at as string)
+      const hoursOpen = (now.getTime() - apertaAt.getTime()) / (1000 * 60 * 60)
+
+      const { count: nCandidature } = await supabase
+        .from('candidature_corsi')
+        .select('*', { count: 'exact', head: true })
+        .eq('corso_id', cc.id)
+
+      // 20h reminder to formatori who haven't applied (runs once per opening)
+      if (hoursOpen >= 20 && hoursOpen < 24 && (!nCandidature || nCandidature === 0)) {
+        const { data: alreadyReminded } = await supabase
+          .from('solleciti_log')
+          .select('id')
+          .eq('corso_id', cc.id)
+          .eq('tipo', 'reminder_candidatura')
+          .maybeSingle()
+
+        if (!alreadyReminded) {
+          const { data: formatori } = await supabase.from('profiles').select('nome, email').eq('role', 'formatore')
+          const { data: progetto } = await supabase.from('progetti').select('school_name').eq('id', cc.project_id).single()
+          const { data: corsoInfo } = await supabase.from('corsi').select('tipo, ore_totali').eq('id', cc.id).single()
+
+          for (const f of formatori || []) {
+            try {
+              const body = await generateCandidaturaDisponibileEmail({
+                formatore_nome: f.nome,
+                corso_title: cc.title,
+                tipo: corsoInfo?.tipo || '',
+                school_name: progetto?.school_name || '',
+                ore_totali: corsoInfo?.ore_totali || 0,
+                corso_url: `${APP_URL}/formatore`,
+              })
+              sendEmail({
+                to: f.email,
+                subject: `Ultimo giorno per candidarti — ${cc.title}`,
+                body,
+                actions: [{ label: 'Candidati ora', url: `${APP_URL}/formatore`, primary: true }],
+              }).catch(() => {})
+            } catch { /* ignore */ }
+          }
+
+          // Log with a sentinel (use the admin ID of the first admin, or skip if none)
+          const { data: firstAdmin } = await supabase
+            .from('profiles').select('id').in('role', ['admin', 'super_admin']).limit(1).single()
+          if (firstAdmin) {
+            supabase.from('solleciti_log').insert({
+              corso_id: cc.id,
+              formatore_id: firstAdmin.id,
+              tipo: 'reminder_candidatura',
+            })
+          }
+
+          candidatureResults.push({ corso_id: cc.id, action: 'sent_20h_reminder' })
+        } else {
+          candidatureResults.push({ corso_id: cc.id, action: '20h_reminder_already_sent' })
+        }
+      }
+
+      // 24h auto-close
+      if (hoursOpen >= 24) {
+        await supabase.from('corsi').update({ candidature_aperte: false }).eq('id', cc.id)
+
+        if (!nCandidature || nCandidature === 0) {
+          const { data: progetto } = await supabase.from('progetti').select('school_name').eq('id', cc.project_id).single()
+          const { data: admins } = await supabase.from('profiles').select('email').in('role', ['admin', 'super_admin'])
+          for (const a of admins || []) {
+            sendEmail({
+              to: a.email,
+              subject: `Nessuna candidatura ricevuta — ${cc.title}`,
+              body: `Nessun formatore si è candidato per il corso "${cc.title}" presso ${progetto?.school_name || '—'}.\n\nLe candidature sono state chiuse automaticamente dopo 24 ore.\n\nAccedi alla piattaforma per gestire il corso.\n\n${APP_URL}`,
+            }).catch(() => {})
+          }
+          candidatureResults.push({ corso_id: cc.id, action: 'auto_closed_no_candidature' })
+        } else {
+          candidatureResults.push({ corso_id: cc.id, action: 'auto_closed_with_candidature' })
+        }
+      }
+    }
+
     return NextResponse.json({
       success: true,
       accettazione_processed: (pendingCorsi || []).length,
@@ -468,6 +558,8 @@ export async function GET(request: NextRequest) {
       reminder_results: reminderResults,
       questionario_processed: corsoIdsOggi.length,
       questionario_results: questionarioResults,
+      candidature_processed: (corsiCandidatureAperte || []).length,
+      candidature_results: candidatureResults,
       timestamp: now.toISOString(),
     })
   } catch (error) {

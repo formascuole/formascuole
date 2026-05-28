@@ -72,6 +72,45 @@ export default async function FormatorePage() {
     .select('id,nome')
     .order('nome')
 
+  // Corsi disponibili (candidature aperte, nessun formatore assegnato)
+  const { data: corsiAperti } = await admin
+    .from('corsi')
+    .select('id, title, tipo, ore_totali, project_id, candidature_aperte_at')
+    .eq('candidature_aperte', true)
+    .is('formatore_id', null)
+
+  const corsiApertiIds = (corsiAperti || []).map(c => c.id)
+
+  // Fetch scuole per i corsi aperti
+  const progettiApertiIds = [...new Set((corsiAperti || []).map(c => c.project_id))]
+  let progettiApertiMap = new Map<string, string>()
+  if (progettiApertiIds.length > 0) {
+    const { data: progettiAperti } = await admin
+      .from('progetti').select('id, school_name').in('id', progettiApertiIds)
+    for (const p of progettiAperti || []) progettiApertiMap.set(p.id, p.school_name)
+  }
+
+  // Mie candidature esistenti per questi corsi
+  const mieCandidatureSet = new Set<string>()
+  if (corsiApertiIds.length > 0) {
+    const { data: mieCandidature } = await admin
+      .from('candidature_corsi')
+      .select('corso_id')
+      .eq('formatore_id', user.id)
+      .in('corso_id', corsiApertiIds)
+    for (const c of mieCandidature || []) mieCandidatureSet.add(c.corso_id)
+  }
+
+  const corsiDisponibili = (corsiAperti || []).map(c => ({
+    id: c.id,
+    title: c.title,
+    tipo: c.tipo as string,
+    ore_totali: c.ore_totali as number,
+    school_name: progettiApertiMap.get(c.project_id) || '',
+    candidature_aperte_at: c.candidature_aperte_at as string | null,
+    già_candidato: mieCandidatureSet.has(c.id),
+  }))
+
   // Questionari per questo formatore
   const corsiIds = (corsi || []).map(c => c.id)
   const [{ data: questionari }, { data: allQuestionari }] = await Promise.all([
@@ -97,6 +136,7 @@ export default async function FormatorePage() {
         finanziamenti={finanziamenti || []}
         questionari={questionari || []}
         mediaGlobale={mediaGlobale}
+        corsiDisponibili={corsiDisponibili}
       />
     </AppLayout>
   )

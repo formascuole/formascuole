@@ -119,8 +119,17 @@ export default async function CorsoDetailPage({
     ? await supabase.from('solleciti_log').select('*', { count: 'exact', head: true }).eq('tipo', 'sollecito_3')
     : { count: 0 }
 
-  // Questionari — use admin client to bypass RLS for formatori
+  // Candidature (admin only)
   const adminQ = createAdminClient()
+  const { data: candidature } = isAdmin
+    ? await adminQ
+        .from('candidature_corsi')
+        .select('id, formatore_id, note, stato, created_at, formatore:profiles!formatore_id(id, nome, email, avatar_initials)')
+        .eq('corso_id', corsoId)
+        .order('created_at')
+    : { data: [] }
+
+  // Questionari — use admin client to bypass RLS for formatori
   const { data: questionari } = await adminQ
     .from('questionari_risultati')
     .select('*')
@@ -152,6 +161,7 @@ export default async function CorsoDetailPage({
         referenti={referenti || []}
         note={note || []}
         questionari={questionari || []}
+        candidature={(candidature || []) as unknown as import('@/lib/types').Candidatura[]}
         progettoId={id}
         currentUserId={user.id}
         isAdmin={isAdmin}
