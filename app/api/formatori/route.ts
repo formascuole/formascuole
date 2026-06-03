@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { createAdminClient, checkIsSuperAdmin } from '@/lib/supabase/admin'
 import { sendEmail, generateBenvenutoEmail, generateAdminBenvenutoEmail } from '@/lib/email'
 import { UserRole } from '@/lib/types'
 
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Only super_admin can create admin accounts
-  if (requestedRoles.includes('admin') && callerRole !== 'super_admin') {
+  if (requestedRoles.includes('admin') && !await checkIsSuperAdmin(user.id)) {
     return NextResponse.json({ error: 'Solo il Super Admin può creare account Admin' }, { status: 403 })
   }
   // Nobody can create super_admin accounts via UI
