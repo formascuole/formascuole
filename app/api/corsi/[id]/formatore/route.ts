@@ -16,6 +16,18 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   const { formatore_id } = await request.json()
 
+  // Fetch formatore's default tariffa to pre-fill the corso
+  const adminClient = createAdminClient()
+  let tariffaFormatore: number | null = null
+  if (formatore_id) {
+    const { data: fp } = await adminClient
+      .from('profiles')
+      .select('tariffa_oraria_formatore')
+      .eq('id', formatore_id)
+      .single()
+    tariffaFormatore = fp?.tariffa_oraria_formatore != null ? Number(fp.tariffa_oraria_formatore) : null
+  }
+
   const updateData = formatore_id
     ? {
         formatore_id,
@@ -23,6 +35,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         accettazione_richiesta_at: new Date().toISOString(),
         accettazione_risposta_at: null,
         rifiuto_motivazione: null,
+        ...(tariffaFormatore != null ? { tariffa_oraria: tariffaFormatore } : {}),
       }
     : {
         formatore_id: null,
@@ -31,9 +44,6 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         accettazione_risposta_at: null,
         rifiuto_motivazione: null,
       }
-
-  // Use admin client to bypass RLS — the auth check above already verified the caller is admin
-  const adminClient = createAdminClient()
   const { data, error } = await adminClient
     .from('corsi')
     .update(updateData)

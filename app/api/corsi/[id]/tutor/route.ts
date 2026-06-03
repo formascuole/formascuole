@@ -23,9 +23,24 @@ export async function PATCH(
 
   // Use admin client to bypass RLS — auth check above already verified the caller is admin
   const adminClient = createAdminClient()
+
+  // Fetch tutor's default tariffa to pre-fill the corso
+  let tariffaTutor: number | null = null
+  if (tutor_id) {
+    const { data: tp } = await adminClient
+      .from('profiles')
+      .select('tariffa_oraria_tutor')
+      .eq('id', tutor_id)
+      .single()
+    tariffaTutor = tp?.tariffa_oraria_tutor != null ? Number(tp.tariffa_oraria_tutor) : null
+  }
+
   const { data, error } = await adminClient
     .from('corsi')
-    .update({ tutor_id: tutor_id || null })
+    .update({
+      tutor_id: tutor_id || null,
+      ...(tutor_id && tariffaTutor != null ? { tariffa_oraria_tutor: tariffaTutor } : {}),
+    })
     .eq('id', id)
     .select('*, tutor:profiles!tutor_id(id,nome,email,avatar_initials)')
     .single()

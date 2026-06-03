@@ -29,6 +29,8 @@ export interface Profile {
   intestatario_conto?: string | null
   profilo_completo?: boolean | null
   password_cambiata?: boolean | null
+  tariffa_oraria_formatore?: number | null
+  tariffa_oraria_tutor?: number | null
 }
 
 export interface Finanziamento {
@@ -115,6 +117,7 @@ export interface Corso {
   corso_completato?: boolean
   corso_completato_at?: string | null
   tariffa_oraria?: number | null
+  tariffa_oraria_tutor?: number | null
 }
 
 export interface Candidatura {

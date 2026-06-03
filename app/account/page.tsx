@@ -51,6 +51,8 @@ export default async function AccountPage() {
         iban={profile.iban ?? null}
         banca={profile.banca ?? null}
         intestatario_conto={profile.intestatario_conto ?? null}
+        tariffa_oraria_formatore={profile.tariffa_oraria_formatore ?? null}
+        tariffa_oraria_tutor={profile.tariffa_oraria_tutor ?? null}
       />
     </AppLayout>
   )

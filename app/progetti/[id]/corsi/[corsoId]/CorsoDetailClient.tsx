@@ -150,6 +150,11 @@ export function CorsoDetailClient({
   const [tariffaForm, setTariffaForm] = useState(corso.tariffa_oraria != null ? String(corso.tariffa_oraria) : '')
   const [savingTariffa, setSavingTariffa] = useState(false)
 
+  // Tariffa tutor (admin edit)
+  const [tariffaTutorModalOpen, setTariffaTutorModalOpen] = useState(false)
+  const [tariffaTutorForm, setTariffaTutorForm] = useState(corso.tariffa_oraria_tutor != null ? String(corso.tariffa_oraria_tutor) : '')
+  const [savingTariffaTutor, setSavingTariffaTutor] = useState(false)
+
   // Time-to-ore helper (round to nearest 0.5h)
   const calcOreFromTime = (start: string, end: string): number => {
     const [sh, sm] = start.split(':').map(Number)
@@ -518,6 +523,23 @@ export function CorsoDetailClient({
     }
   }
 
+  const handleSaveTariffaTutor = async () => {
+    setSavingTariffaTutor(true)
+    try {
+      const res = await fetch(`/api/corsi/${corso.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tariffa_oraria_tutor: tariffaTutorForm.trim() ? Number(tariffaTutorForm) : null }),
+      })
+      if (res.ok) {
+        setTariffaTutorModalOpen(false)
+        router.refresh()
+      }
+    } finally {
+      setSavingTariffaTutor(false)
+    }
+  }
+
   // Sessions stats for the counter
   const today = new Date().toISOString().split('T')[0]
   const sessioniCompletate = sessioni.filter(s => s.completata).length
@@ -855,6 +877,32 @@ export function CorsoDetailClient({
             </div>
           </div>
           <p className="text-xs text-gray-400 mt-3">Ore proporzionali al completamento delle sessioni di formazione.</p>
+          {isAdmin && corso.tariffa_oraria_tutor != null && (
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              {(() => {
+                const tariffa = Number(corso.tariffa_oraria_tutor)
+                const imponibile = oreTutorErogate * tariffa
+                const ritenuta = imponibile * 0.20
+                const netto = imponibile - ritenuta
+                return (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-500">Imponibile ({oreTutorErogate}h × € {tariffa.toFixed(2)})</span>
+                      <span className="font-medium text-gray-800">€ {imponibile.toFixed(2)}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-500">Ritenuta 20%</span>
+                      <span className="text-red-500">− € {ritenuta.toFixed(2)}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm pt-1.5 border-t border-gray-100">
+                      <span className="font-medium text-gray-700">Netto al tutor</span>
+                      <span className="font-semibold text-gray-900">€ {netto.toFixed(2)}</span>
+                    </div>
+                  </div>
+                )
+              })()}
+            </div>
+          )}
         </div>
       )}
 
@@ -1030,26 +1078,56 @@ export function CorsoDetailClient({
         </div>
       )}
 
-      {/* Tariffa oraria */}
-      {(isAdmin || (corso.tariffa_oraria != null && !isAdmin)) && (
+      {/* Tariffe incarico */}
+      {(isAdmin || corso.tariffa_oraria != null || corso.tariffa_oraria_tutor != null) && (
         <div className="bg-white rounded-xl p-6 mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="font-semibold text-gray-900">Tariffa oraria</h2>
-              <p className="text-sm text-gray-600 mt-1">
-                {corso.tariffa_oraria != null
-                  ? `€ ${Number(corso.tariffa_oraria).toFixed(2)}/h`
-                  : <span className="text-gray-400">Non definita</span>
-                }
-              </p>
-            </div>
-            {isAdmin && (
-              <Button variant="secondary" size="sm" onClick={() => {
-                setTariffaForm(corso.tariffa_oraria != null ? String(corso.tariffa_oraria) : '')
-                setTariffaModalOpen(true)
-              }}>
-                {corso.tariffa_oraria != null ? 'Modifica' : 'Imposta'}
-              </Button>
+          <h2 className="font-semibold text-gray-900 mb-4">Tariffe incarico</h2>
+          <div className="space-y-3">
+            {/* Tariffa formatore */}
+            {(isAdmin || corso.tariffa_oraria != null) && (
+              <div className="flex items-center justify-between py-2 border-b border-gray-50">
+                <div>
+                  <div className="text-sm font-medium text-gray-700">
+                    {corso.tipo === 'PF' && corso.tutor ? 'Tariffa formatore' : 'Tariffa oraria'}
+                  </div>
+                  <div className="text-sm text-gray-600 mt-0.5">
+                    {corso.tariffa_oraria != null
+                      ? `€ ${Number(corso.tariffa_oraria).toFixed(2)}/h`
+                      : <span className="text-gray-400">Non definita</span>
+                    }
+                  </div>
+                </div>
+                {isAdmin && (
+                  <Button variant="secondary" size="sm" onClick={() => {
+                    setTariffaForm(corso.tariffa_oraria != null ? String(corso.tariffa_oraria) : '')
+                    setTariffaModalOpen(true)
+                  }}>
+                    {corso.tariffa_oraria != null ? 'Modifica' : 'Imposta'}
+                  </Button>
+                )}
+              </div>
+            )}
+            {/* Tariffa tutor — solo per corsi PF con tutor */}
+            {corso.tipo === 'PF' && (corso.tutor || isAdmin) && (isAdmin || corso.tariffa_oraria_tutor != null) && (
+              <div className="flex items-center justify-between py-2">
+                <div>
+                  <div className="text-sm font-medium text-gray-700">Tariffa tutor</div>
+                  <div className="text-sm text-gray-600 mt-0.5">
+                    {corso.tariffa_oraria_tutor != null
+                      ? `€ ${Number(corso.tariffa_oraria_tutor).toFixed(2)}/h`
+                      : <span className="text-gray-400">Non definita</span>
+                    }
+                  </div>
+                </div>
+                {isAdmin && (
+                  <Button variant="secondary" size="sm" onClick={() => {
+                    setTariffaTutorForm(corso.tariffa_oraria_tutor != null ? String(corso.tariffa_oraria_tutor) : '')
+                    setTariffaTutorModalOpen(true)
+                  }}>
+                    {corso.tariffa_oraria_tutor != null ? 'Modifica' : 'Imposta'}
+                  </Button>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -1884,6 +1962,31 @@ export function CorsoDetailClient({
           value={tariffaForm}
           onChange={e => setTariffaForm(e.target.value)}
           placeholder="Es. 45.00"
+          hint="Lascia vuoto per rimuovere la tariffa"
+        />
+      </Modal>
+
+      {/* Modal tariffa tutor (admin only) */}
+      <Modal
+        open={tariffaTutorModalOpen}
+        onClose={() => setTariffaTutorModalOpen(false)}
+        title="Tariffa oraria tutor"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setTariffaTutorModalOpen(false)}>Annulla</Button>
+            <Button onClick={handleSaveTariffaTutor} loading={savingTariffaTutor}>Salva</Button>
+          </>
+        }
+      >
+        <Input
+          label="Tariffa oraria tutor (€)"
+          type="number"
+          min={0}
+          step={0.01}
+          value={tariffaTutorForm}
+          onChange={e => setTariffaTutorForm(e.target.value)}
+          placeholder="Es. 25.00"
           hint="Lascia vuoto per rimuovere la tariffa"
         />
       </Modal>

@@ -923,13 +923,31 @@ interface CompletamentoFormatoreParams {
   ore_erogate: number
   tariffa_oraria?: number | null
   finanziamento?: string | null
+  // tutor section (optional)
+  tutor_nome?: string | null
+  ore_tutoraggio_erogate?: number | null
+  tariffa_oraria_tutor?: number | null
+}
+
+function buildEconomicBlock(ore: number, tariffa: number): string {
+  const imponibile = +(ore * tariffa).toFixed(2)
+  const ritenuta = +(imponibile * 0.2).toFixed(2)
+  const netto = +(imponibile - ritenuta).toFixed(2)
+  return `- Tariffa oraria: € ${tariffa.toFixed(2)}/h
+- Imponibile: € ${imponibile.toFixed(2)}
+- Ritenuta d'acconto 20%: € ${ritenuta.toFixed(2)}
+- Netto a pagare: € ${netto.toFixed(2)}`
 }
 
 function fallbackCompletamentoFormatoreEmail(p: CompletamentoFormatoreParams): string {
   const hasRates = p.tariffa_oraria && p.tariffa_oraria > 0
-  const imponibile = hasRates ? +(p.ore_erogate * p.tariffa_oraria!).toFixed(2) : 0
-  const ritenuta = hasRates ? +(imponibile * 0.2).toFixed(2) : 0
-  const netto = hasRates ? +(imponibile - ritenuta).toFixed(2) : 0
+  const hasTutorRates = p.tutor_nome && p.ore_tutoraggio_erogate && p.tariffa_oraria_tutor && p.tariffa_oraria_tutor > 0
+
+  const tutorBlock = hasTutorRates ? `
+
+RIEPILOGO TUTORAGGIO (${p.tutor_nome}):
+- Ore tutoraggio erogate: ${p.ore_tutoraggio_erogate}h
+${buildEconomicBlock(p.ore_tutoraggio_erogate!, p.tariffa_oraria_tutor!)}` : ''
 
   return `Gentile ${p.formatore_nome},
 
@@ -940,12 +958,8 @@ RIEPILOGO INCARICO:
 - Scuola: ${p.school_name}
 - Periodo: ${p.data_prima_sessione} — ${p.data_ultima_sessione}
 - Ore erogate: ${p.ore_erogate}h${p.finanziamento ? `\n- Linea di finanziamento: ${p.finanziamento}` : ''}${
-  hasRates ? `
-- Tariffa oraria: € ${p.tariffa_oraria!.toFixed(2)}/h
-- Imponibile: € ${imponibile.toFixed(2)}
-- Ritenuta d'acconto 20%: € ${ritenuta.toFixed(2)}
-- Netto a pagare: € ${netto.toFixed(2)}` : ''
-}
+  hasRates ? `\n${buildEconomicBlock(p.ore_erogate, p.tariffa_oraria!)}` : ''
+}${tutorBlock}
 
 ${hasRates ? `Per procedere con il pagamento invia la tua pro forma (notula senza marca da bollo) a:
 amministrazione@formascuole.it
@@ -964,9 +978,7 @@ Il team Formascuole`
 export async function generateCompletamentoFormatoreEmail(p: CompletamentoFormatoreParams): Promise<{ subject: string; body: string }> {
   const subject = `Riepilogo corso completato — ${p.corso_title} — ${p.school_name}`
   const hasRates = p.tariffa_oraria && p.tariffa_oraria > 0
-  const imponibile = hasRates ? +(p.ore_erogate * p.tariffa_oraria!).toFixed(2) : 0
-  const ritenuta = hasRates ? +(imponibile * 0.2).toFixed(2) : 0
-  const netto = hasRates ? +(imponibile - ritenuta).toFixed(2) : 0
+  const hasTutorRates = p.tutor_nome && p.ore_tutoraggio_erogate && p.tariffa_oraria_tutor && p.tariffa_oraria_tutor > 0
 
   try {
     const message = await anthropic.messages.create({
@@ -982,21 +994,24 @@ Dati:
 - Scuola: ${p.school_name}
 - Periodo: ${p.data_prima_sessione} — ${p.data_ultima_sessione}
 - Ore erogate: ${p.ore_erogate}h${p.finanziamento ? `\n- Linea di finanziamento: ${p.finanziamento}` : ''}${
-  hasRates ? `
-- Tariffa oraria: € ${p.tariffa_oraria!.toFixed(2)}/h
-- Imponibile: € ${imponibile.toFixed(2)}
-- Ritenuta d'acconto 20%: € ${ritenuta.toFixed(2)}
-- Netto a pagare: € ${netto.toFixed(2)}` : ''
-}
+  hasRates ? `\n${buildEconomicBlock(p.ore_erogate, p.tariffa_oraria!)}` : ''
+}${hasTutorRates ? `
 
-Struttura richiesta:
+Tutor: ${p.tutor_nome}
+Ore tutoraggio erogate: ${p.ore_tutoraggio_erogate}h
+${buildEconomicBlock(p.ore_tutoraggio_erogate!, p.tariffa_oraria_tutor!)}` : ''}
+
+Struttura richiesta (segui esattamente):
 "Gentile ${p.formatore_nome},
 
 il corso ${p.corso_title} presso ${p.school_name} si è concluso regolarmente.
 
-RIEPILOGO INCARICO:
-[elenco dati sopra]
-
+RIEPILOGO INCARICO FORMATORE:
+[elenco dati formatore]
+${hasTutorRates ? `
+RIEPILOGO TUTORAGGIO (${p.tutor_nome}):
+[elenco dati tutor]
+` : ''}
 ${hasRates ? `Per procedere con il pagamento invia la tua pro forma (notula senza marca da bollo) a:
 amministrazione@formascuole.it
 

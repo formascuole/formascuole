@@ -17,7 +17,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   // Fetch course with project and finanziamento
   const { data: corso } = await admin
     .from('corsi')
-    .select('id, title, project_id, formatore_id, ore_totali, tariffa_oraria, corso_completato')
+    .select('id, title, project_id, formatore_id, tutor_id, ore_totali, ore_tutoraggio, tariffa_oraria, tariffa_oraria_tutor, corso_completato')
     .eq('id', id)
     .single()
 
@@ -74,6 +74,24 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
   if (!formatoreProfile) return NextResponse.json({ error: 'Profilo non trovato' }, { status: 404 })
 
+  // Fetch tutor profile if present
+  let tutorNome: string | null = null
+  if (corso.tutor_id) {
+    const { data: tutorProfile } = await admin
+      .from('profiles')
+      .select('nome')
+      .eq('id', corso.tutor_id as string)
+      .single()
+    tutorNome = (tutorProfile?.nome as string) ?? null
+  }
+
+  // Compute ore tutoraggio erogate (proportional to formazione erogate)
+  const oreTutoraggio = Number(corso.ore_tutoraggio || 0)
+  const oreTotaliNum = Number(corso.ore_totali)
+  const oreTutorErogate = oreTotaliNum > 0 && oreTutoraggio > 0
+    ? Math.round(oreTutoraggio * (oreErogate / oreTotaliNum))
+    : 0
+
   // Compute first and last session dates
   const completedSessions = (sessioni || [])
     .filter(s => s.completata)
@@ -107,6 +125,9 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     ore_erogate: oreErogate,
     tariffa_oraria: corso.tariffa_oraria ? Number(corso.tariffa_oraria) : null,
     finanziamento,
+    tutor_nome: tutorNome,
+    ore_tutoraggio_erogate: oreTutorErogate > 0 ? oreTutorErogate : null,
+    tariffa_oraria_tutor: corso.tariffa_oraria_tutor ? Number(corso.tariffa_oraria_tutor) : null,
   }
 
   const { subject: subjFormatore, body: bodyFormatore } = await generateCompletamentoFormatoreEmail(emailParams)

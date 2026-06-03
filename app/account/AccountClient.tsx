@@ -23,6 +23,8 @@ interface AccountClientProps {
   iban: string | null
   banca: string | null
   intestatario_conto: string | null
+  tariffa_oraria_formatore: number | null
+  tariffa_oraria_tutor: number | null
 }
 
 const ROLE_BADGES: Record<UserRole, { label: string; cls: string }> = {
@@ -40,6 +42,7 @@ export function AccountClient({
   luogo_nascita, data_nascita, codice_fiscale,
   indirizzo_via, indirizzo_cap, indirizzo_citta, indirizzo_provincia,
   iban, banca, intestatario_conto,
+  tariffa_oraria_formatore, tariffa_oraria_tutor,
 }: AccountClientProps) {
   // Password change state
   const [pwdModalOpen, setPwdModalOpen] = useState(false)
@@ -253,6 +256,22 @@ export function AccountClient({
         </div>
       )}
 
+      {/* Le mie tariffe — solo per formatori/tutori */}
+      {isFiscalRole && (tariffa_oraria_formatore != null || tariffa_oraria_tutor != null || role === 'formatore' || role === 'tutor') && (
+        <div className="bg-white rounded-xl p-6 mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
+          <h2 className="font-semibold text-gray-900 mb-1">Le mie tariffe</h2>
+          <p className="text-xs text-gray-400 mb-4">Per modifiche contatta l&apos;amministrazione</p>
+          <div className="space-y-3">
+            {(role === 'formatore' || tariffa_oraria_formatore != null) && (
+              <TariffaRow label="Tariffa come formatore" value={tariffa_oraria_formatore} />
+            )}
+            {(role === 'tutor' || tariffa_oraria_tutor != null) && (
+              <TariffaRow label="Tariffa come tutor" value={tariffa_oraria_tutor} />
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Password modal */}
       <Modal
         open={pwdModalOpen}
@@ -438,6 +457,17 @@ function FiscalRow({ label, value, mono }: { label: string; value: string | null
       <span className="text-sm text-gray-500">{label}</span>
       <span className={`text-sm font-medium text-gray-900 ${mono ? 'font-mono' : ''}`}>
         {value || <span className="text-gray-300">—</span>}
+      </span>
+    </div>
+  )
+}
+
+function TariffaRow({ label, value }: { label: string; value: number | null | undefined }) {
+  return (
+    <div className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+      <span className="text-sm text-gray-500">{label}</span>
+      <span className="text-sm font-medium text-gray-900 font-mono">
+        {value != null ? `€ ${Number(value).toFixed(2)}/h` : <span className="text-gray-300 font-sans">Non definita</span>}
       </span>
     </div>
   )

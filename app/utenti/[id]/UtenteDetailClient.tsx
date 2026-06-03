@@ -9,6 +9,9 @@ import { StatusBadge } from '@/components/ui/StatusBadge'
 import { StatCard } from '@/components/ui/StatCard'
 import { DualProgressBar } from '@/components/ui/DualProgressBar'
 import { DeleteConfirmModal } from '@/components/ui/DeleteConfirmModal'
+import { Button } from '@/components/ui/Button'
+import { Modal } from '@/components/ui/Modal'
+import { Input } from '@/components/ui/Input'
 import { ROLE_LABELS, ROLE_COLORS } from '@/lib/auth'
 import { formatDate } from '@/lib/utils'
 
@@ -116,11 +119,46 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
   const router = useRouter()
   const [deleteOpen, setDeleteOpen] = useState(false)
 
+  const [tariffaForm, setTariffaForm] = useState({
+    tariffa_oraria_formatore: profile.tariffa_oraria_formatore != null ? String(profile.tariffa_oraria_formatore) : '',
+    tariffa_oraria_tutor: profile.tariffa_oraria_tutor != null ? String(profile.tariffa_oraria_tutor) : '',
+  })
+  const [tariffaSaving, setTariffaSaving] = useState(false)
+  const [tariffaModalOpen, setTariffaModalOpen] = useState(false)
+  const [savedTariffe, setSavedTariffe] = useState({
+    tariffa_oraria_formatore: profile.tariffa_oraria_formatore ?? null,
+    tariffa_oraria_tutor: profile.tariffa_oraria_tutor ?? null,
+  })
+
   const isFormatore = profile.roles.includes('formatore')
   const isTutor = profile.roles.includes('tutor')
   const isSelf = profile.id === currentUserId
   const isTargetSuperAdmin = profile.roles.includes('super_admin')
   const canDelete = isSuperAdmin && !isSelf && !isTargetSuperAdmin
+
+  const handleSaveTariffe = async () => {
+    setTariffaSaving(true)
+    try {
+      const body: Record<string, unknown> = {}
+      if (isFormatore) body.tariffa_oraria_formatore = tariffaForm.tariffa_oraria_formatore.trim() ? Number(tariffaForm.tariffa_oraria_formatore) : null
+      if (isTutor) body.tariffa_oraria_tutor = tariffaForm.tariffa_oraria_tutor.trim() ? Number(tariffaForm.tariffa_oraria_tutor) : null
+      const res = await fetch(`/api/utenti/${profile.id}/tariffa`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setSavedTariffe({
+          tariffa_oraria_formatore: data.tariffa_oraria_formatore ?? null,
+          tariffa_oraria_tutor: data.tariffa_oraria_tutor ?? null,
+        })
+        setTariffaModalOpen(false)
+      }
+    } finally {
+      setTariffaSaving(false)
+    }
+  }
 
   // Stats
   const oreTotaliFormatore = corsiFormatore.reduce((s, c) => s + Number(c.ore_totali), 0)
@@ -281,6 +319,38 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
         </div>
       )}
 
+      {/* Tariffe orarie — visibile solo ad admin */}
+      {isAdmin && (profile.roles.includes('formatore') || profile.roles.includes('tutor')) && (
+        <div className="bg-white rounded-xl p-6 mt-6" style={{ border: '0.5px solid #e5e5e5' }}>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-semibold text-gray-900">Tariffe orarie</h2>
+            <Button variant="secondary" size="sm" onClick={() => {
+              setTariffaForm({
+                tariffa_oraria_formatore: savedTariffe.tariffa_oraria_formatore != null ? String(savedTariffe.tariffa_oraria_formatore) : '',
+                tariffa_oraria_tutor: savedTariffe.tariffa_oraria_tutor != null ? String(savedTariffe.tariffa_oraria_tutor) : '',
+              })
+              setTariffaModalOpen(true)
+            }}>
+              Modifica
+            </Button>
+          </div>
+          <div className="space-y-3">
+            {isFormatore && (
+              <TariffaAdminRow
+                label={isTutor ? 'Tariffa come formatore' : 'Tariffa oraria'}
+                value={savedTariffe.tariffa_oraria_formatore}
+              />
+            )}
+            {isTutor && (
+              <TariffaAdminRow
+                label={isFormatore ? 'Tariffa come tutor' : 'Tariffa oraria tutor'}
+                value={savedTariffe.tariffa_oraria_tutor}
+              />
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Dati fiscali e bancari — visibile solo ad admin */}
       {isAdmin && (profile.roles.includes('formatore') || profile.roles.includes('tutor')) && (
         <div className="bg-white rounded-xl p-6 mt-6" style={{ border: '0.5px solid #e5e5e5' }}>
@@ -299,6 +369,47 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
           </div>
         </div>
       )}
+
+      {/* Modal modifica tariffe */}
+      <Modal
+        open={tariffaModalOpen}
+        onClose={() => setTariffaModalOpen(false)}
+        title="Modifica tariffe orarie"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setTariffaModalOpen(false)}>Annulla</Button>
+            <Button onClick={handleSaveTariffe} loading={tariffaSaving}>Salva</Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          {isFormatore && (
+            <Input
+              label={isTutor ? 'Tariffa come formatore (€/h)' : 'Tariffa oraria (€/h)'}
+              type="number"
+              min={0}
+              step={0.01}
+              value={tariffaForm.tariffa_oraria_formatore}
+              onChange={e => setTariffaForm(f => ({ ...f, tariffa_oraria_formatore: e.target.value }))}
+              placeholder="Es. 45.00"
+              hint="Lascia vuoto per rimuovere"
+            />
+          )}
+          {isTutor && (
+            <Input
+              label={isFormatore ? 'Tariffa come tutor (€/h)' : 'Tariffa oraria tutor (€/h)'}
+              type="number"
+              min={0}
+              step={0.01}
+              value={tariffaForm.tariffa_oraria_tutor}
+              onChange={e => setTariffaForm(f => ({ ...f, tariffa_oraria_tutor: e.target.value }))}
+              placeholder="Es. 25.00"
+              hint="Lascia vuoto per rimuovere"
+            />
+          )}
+        </div>
+      </Modal>
 
       <DeleteConfirmModal
         open={deleteOpen}
@@ -325,6 +436,17 @@ function FiscalAdminRow({ label, value, mono }: { label: string; value: string |
       <span className="text-sm text-gray-500">{label}</span>
       <span className={`text-sm font-medium text-gray-900 ${mono ? 'font-mono' : ''}`}>
         {value || <span className="text-gray-300">—</span>}
+      </span>
+    </div>
+  )
+}
+
+function TariffaAdminRow({ label, value }: { label: string; value: number | null | undefined }) {
+  return (
+    <div className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+      <span className="text-sm text-gray-500">{label}</span>
+      <span className="text-sm font-medium font-mono text-gray-900">
+        {value != null ? `€ ${Number(value).toFixed(2)}/h` : <span className="text-gray-300 font-sans">Non definita</span>}
       </span>
     </div>
   )
