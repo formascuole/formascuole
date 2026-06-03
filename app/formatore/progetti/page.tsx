@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { ProgressBar } from '@/components/ui/ProgressBar'
+import { telHref } from '@/lib/utils'
 
 const BADGE_PALETTE = [
   { bg: '#dbeafe', text: '#1e40af' },
@@ -133,7 +134,7 @@ export default async function FormatoreProgettiPage() {
                       <span className="text-gray-400 mx-1">·</span>
                       <span className="text-blue-600">{progetto.ref_email}</span>
                       {progetto.ref_tel && (
-                        <><span className="text-gray-400 mx-1">·</span><span className="text-gray-500">{progetto.ref_tel}</span></>
+                        <><span className="text-gray-400 mx-1">·</span><a href={`tel:${telHref(progetto.ref_tel)}`} className="text-blue-600 hover:underline">{progetto.ref_tel}</a></>
                       )}
                     </div>
                   </div>

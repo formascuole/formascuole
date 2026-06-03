@@ -11,7 +11,7 @@ import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
 import { StatCard } from '@/components/ui/StatCard'
 import { Avatar } from '@/components/ui/Avatar'
-import { formatDate } from '@/lib/utils'
+import { formatDate, telHref } from '@/lib/utils'
 
 const BADGE_PALETTE = [
   { bg: '#dbeafe', text: '#1e40af' },
@@ -391,7 +391,7 @@ export function FormatoreClient({ corsi, profile, finanziamenti, questionari = [
                           <span className="font-medium text-gray-700">{nome}</span>
                           <span className="text-gray-400 mx-1">·</span>
                           <a href={`mailto:${email}`} className="text-blue-600 hover:underline">{email}</a>
-                          {tel && <><span className="text-gray-400 mx-1">·</span><span className="text-gray-500">{tel}</span></>}
+                          {tel && <><span className="text-gray-400 mx-1">·</span><a href={`tel:${telHref(tel)}`} className="text-blue-600 hover:underline">{tel}</a></>}
                         </div>
                       </div>
                     )

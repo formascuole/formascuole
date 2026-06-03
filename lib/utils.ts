@@ -61,3 +61,11 @@ export function generateAvatarColor(id: string): string {
   const idx = id.charCodeAt(0) % colors.length
   return colors[idx]
 }
+
+/** Returns a normalized tel: href with +39 prefix if no international prefix present. */
+export function telHref(tel: string): string {
+  const t = tel.trim()
+  if (t.startsWith('+')) return t
+  if (t.startsWith('00')) return `+${t.slice(2)}`
+  return `+39${t.replace(/[\s\-().]/g, '')}`
+}

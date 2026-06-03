@@ -8,7 +8,7 @@ import { DualProgressBar } from '@/components/ui/DualProgressBar'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
-import { formatDate } from '@/lib/utils'
+import { formatDate, telHref } from '@/lib/utils'
 import { QuestionarioModal, buildQuestionarioUrl } from '@/components/ui/QuestionarioModal'
 
 type CorsoInAttesa = { id: string; title: string }
@@ -227,7 +227,7 @@ export function ProgettoFormatoreClient({ progetto, corsi, finanziamenti, format
             {refTel && (
               <>
                 <span className="text-gray-400 mx-2">·</span>
-                <a href={`tel:${refTel}`} className="text-gray-500 hover:text-gray-700">{refTel}</a>
+                <a href={`tel:${telHref(refTel)}`} className="text-blue-600 hover:underline">{refTel}</a>
               </>
             )}
           </div>

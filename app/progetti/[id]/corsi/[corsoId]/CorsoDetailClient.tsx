@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
 import { Avatar } from '@/components/ui/Avatar'
-import { formatDate } from '@/lib/utils'
+import { formatDate, telHref } from '@/lib/utils'
 import { DeleteConfirmModal } from '@/components/ui/DeleteConfirmModal'
 import { QuestionariBlock } from '@/components/ui/QuestionariBlock'
 import { QuestionarioModal, buildQuestionarioUrl } from '@/components/ui/QuestionarioModal'
@@ -944,7 +944,7 @@ export function CorsoDetailClient({
             <div>
               <div className="font-medium text-gray-900">{corso.referente.nome}</div>
               <a href={`mailto:${corso.referente.email}`} className="text-sm text-blue-600 hover:underline">{corso.referente.email}</a>
-              {corso.referente.tel && <div className="text-sm text-gray-400 mt-0.5">{corso.referente.tel}</div>}
+              {corso.referente.tel && <div className="text-sm text-gray-400 mt-0.5"><a href={`tel:${telHref(corso.referente.tel)}`} className="hover:text-blue-600">{corso.referente.tel}</a></div>}
             </div>
             {isAdmin && (
               <div className="flex gap-2">
@@ -987,7 +987,7 @@ export function CorsoDetailClient({
                   {progetto.ref_email && <a href={`mailto:${progetto.ref_email}`} className="text-sm text-blue-600 hover:underline">{progetto.ref_email}</a>}
                   {progetto.ref_tel && (
                     <div className="text-sm text-gray-400 mt-0.5">
-                      <a href={`tel:${progetto.ref_tel}`} className="hover:text-gray-600">{progetto.ref_tel}</a>
+                      <a href={`tel:${telHref(progetto.ref_tel)}`} className="text-blue-600 hover:underline">{progetto.ref_tel}</a>
                     </div>
                   )}
                 </div>
@@ -1007,7 +1007,7 @@ export function CorsoDetailClient({
                     )}
                     {corso.referente_corso_telefono && (
                       <div className="text-sm text-gray-400 mt-0.5">
-                        <a href={`tel:${corso.referente_corso_telefono}`} className="hover:text-gray-600">{corso.referente_corso_telefono}</a>
+                        <a href={`tel:${telHref(corso.referente_corso_telefono)}`} className="text-blue-600 hover:underline">{corso.referente_corso_telefono}</a>
                       </div>
                     )}
                   </div>
@@ -1061,7 +1061,7 @@ export function CorsoDetailClient({
               {corso.referente_corso_email && (
                 <a href={`mailto:${corso.referente_corso_email}`} className="text-sm text-blue-600 hover:underline">{corso.referente_corso_email}</a>
               )}
-              {corso.referente_corso_telefono && <div className="text-sm text-gray-400 mt-0.5">{corso.referente_corso_telefono}</div>}
+              {corso.referente_corso_telefono && <div className="text-sm text-gray-400 mt-0.5"><a href={`tel:${telHref(corso.referente_corso_telefono)}`} className="hover:text-blue-600">{corso.referente_corso_telefono}</a></div>}
             </div>
           ) : (
             <p className="text-sm text-gray-400">Nessun referente corso specifico impostato.</p>
@@ -1864,7 +1864,7 @@ export function CorsoDetailClient({
               <div className="flex-1 min-w-0">
                 <div className="font-medium text-sm text-gray-900">{r.nome}</div>
                 <div className="text-xs text-gray-400">{r.email}</div>
-                {r.tel && <div className="text-xs text-gray-400">{r.tel}</div>}
+                {r.tel && <div className="text-xs text-gray-400"><a href={`tel:${telHref(r.tel)}`} className="hover:text-blue-600">{r.tel}</a></div>}
               </div>
               {r.id === corso.referente_id && <span className="text-xs text-[#d64b55] font-medium">Corrente</span>}
               {assigningReferente && r.id !== corso.referente_id && (

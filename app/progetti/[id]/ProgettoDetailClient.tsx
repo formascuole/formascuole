@@ -13,7 +13,7 @@ import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Avatar } from '@/components/ui/Avatar'
-import { formatDate } from '@/lib/utils'
+import { formatDate, telHref } from '@/lib/utils'
 import { DeleteConfirmModal } from '@/components/ui/DeleteConfirmModal'
 
 interface ProgettoDetailClientProps {
@@ -343,7 +343,10 @@ export function ProgettoDetailClient({
           </div>
           <div className="text-center">
             <div className="font-semibold text-gray-400 text-xs mb-1">TELEFONO</div>
-            <div className="text-sm text-gray-800">{progetto.ref_tel || '—'}</div>
+            {progetto.ref_tel
+              ? <a href={`tel:${telHref(progetto.ref_tel)}`} className="text-sm text-blue-600 hover:underline">{progetto.ref_tel}</a>
+              : <div className="text-sm text-gray-800">—</div>
+            }
           </div>
         </div>
 
@@ -411,7 +414,7 @@ export function ProgettoDetailClient({
               </div>
               <div className="flex items-center gap-3 text-xs text-gray-400 mt-0.5">
                 <a href={`mailto:${progetto.ref_email}`} className="hover:text-blue-600">{progetto.ref_email}</a>
-                {progetto.ref_tel && <span>{progetto.ref_tel}</span>}
+                {progetto.ref_tel && <a href={`tel:${telHref(progetto.ref_tel)}`} className="hover:text-blue-600">{progetto.ref_tel}</a>}
               </div>
             </div>
           </div>
@@ -428,7 +431,7 @@ export function ProgettoDetailClient({
                 <div className="text-sm font-medium text-gray-900">{r.nome}</div>
                 <div className="flex items-center gap-3 text-xs text-gray-400 mt-0.5">
                   <a href={`mailto:${r.email}`} className="hover:text-blue-600">{r.email}</a>
-                  {r.tel && <span>{r.tel}</span>}
+                  {r.tel && <a href={`tel:${telHref(r.tel)}`} className="hover:text-blue-600">{r.tel}</a>}
                 </div>
               </div>
               <div className="flex items-center gap-1 shrink-0">
