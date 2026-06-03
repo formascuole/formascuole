@@ -1,4 +1,5 @@
 'use client'
+import { useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -182,14 +183,22 @@ interface SidebarProps {
   avatarInitials: string
   notificheBadge?: number
   isSuperAdmin?: boolean
+  isMobileOpen?: boolean
+  onMobileClose?: () => void
 }
 
-export function Sidebar({ role, nome, email, avatarInitials, notificheBadge, isSuperAdmin }: SidebarProps) {
+export function Sidebar({ role, nome, email, avatarInitials, notificheBadge, isSuperAdmin, isMobileOpen = false, onMobileClose }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const isSA = isSuperAdmin ?? role === 'super_admin'
   const baseNav = role === 'admin' || role === 'super_admin' ? adminNav : role === 'tutor' ? tutorNav : formatoreNav
   const nav = isSA ? [...baseNav, finanziamentiNavItem] : baseNav
+
+  // Close sidebar on route change (mobile)
+  useEffect(() => {
+    onMobileClose?.()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname])
 
   const handleLogout = async () => {
     const supabase = createClient()
@@ -199,28 +208,48 @@ export function Sidebar({ role, nome, email, avatarInitials, notificheBadge, isS
 
   return (
     <aside
-      className="w-60 shrink-0 bg-white flex flex-col h-screen sticky top-0"
+      className={[
+        // Mobile: fixed overlay that slides in from the left
+        'fixed top-0 bottom-0 left-0 z-50',
+        'w-[280px] flex flex-col bg-white',
+        'transition-transform duration-200 ease-in-out',
+        isMobileOpen ? 'translate-x-0' : '-translate-x-full',
+        // Desktop (md+): back in normal flow, always visible
+        'md:static md:translate-x-0 md:w-60 md:shrink-0 md:h-screen',
+      ].join(' ')}
       style={{ borderRight: '0.5px solid #e5e5e5' }}
     >
-      {/* Logo */}
-      <div className="px-5 py-4 border-b border-gray-100">
-        <img
-          src="https://www.formascuole.it/wp-content/uploads/2024/01/logo-formascuole-black-red-flag-2048x361.png"
-          alt="Formascuole"
-          style={{ height: '40px', width: 'auto', maxWidth: '172px', objectFit: 'contain' }}
-          onError={(e) => {
-            const img = e.currentTarget
-            img.style.display = 'none'
-            const fallback = img.nextElementSibling as HTMLElement | null
-            if (fallback) fallback.style.display = 'block'
-          }}
-        />
-        <span
-          className="font-bold text-gray-900 text-base"
-          style={{ display: 'none' }}
+      {/* Logo + mobile close button */}
+      <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+        <div>
+          <img
+            src="https://www.formascuole.it/wp-content/uploads/2024/01/logo-formascuole-black-red-flag-2048x361.png"
+            alt="Formascuole"
+            style={{ height: '40px', width: 'auto', maxWidth: '172px', objectFit: 'contain' }}
+            onError={(e) => {
+              const img = e.currentTarget
+              img.style.display = 'none'
+              const fallback = img.nextElementSibling as HTMLElement | null
+              if (fallback) fallback.style.display = 'block'
+            }}
+          />
+          <span
+            className="font-bold text-gray-900 text-base"
+            style={{ display: 'none' }}
+          >
+            Formascuole
+          </span>
+        </div>
+        {/* Close button — mobile only */}
+        <button
+          onClick={onMobileClose}
+          className="md:hidden flex items-center justify-center w-9 h-9 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+          aria-label="Chiudi menu"
         >
-          Formascuole
-        </span>
+          <svg width="18" height="18" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+          </svg>
+        </button>
       </div>
 
       {/* Nav */}

@@ -36,6 +36,27 @@ body {
   background: #bbb;
 }
 
+/* Mobile: tables scroll horizontally instead of overflowing */
+@media (max-width: 767px) {
+  table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Ensure minimum 44px touch targets on all interactive elements */
+  button,
+  [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Minimum readable body font */
+  body {
+    font-size: 14px;
+  }
+}
+
 @media print {
   aside,
   nav,
