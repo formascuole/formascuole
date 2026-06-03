@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { AppLayout } from '@/components/layout/AppLayout'
-import { ProgressBar } from '@/components/ui/ProgressBar'
+import { DualProgressBar } from '@/components/ui/DualProgressBar'
 import { telHref } from '@/lib/utils'
 
 const BADGE_PALETTE = [
@@ -37,7 +37,7 @@ export default async function FormatoreProgettiPage() {
   // Step 1: fetch corsi (with computed hours) for this formatore
   const { data: corsi } = await admin
     .from('corsi_con_ore')
-    .select('id, project_id, ore_totali, ore_pianificate, calendario_completo')
+    .select('id, project_id, ore_totali, ore_pianificate, ore_erogate, calendario_completo')
     .eq('formatore_id', user.id)
 
   // Step 2: fetch project details separately (avoids unreliable view→table join)
@@ -59,16 +59,17 @@ export default async function FormatoreProgettiPage() {
   const progettiMap = new Map(progettiRows.map(p => [p.id, p]))
 
   // Step 3: aggregate per-project stats
-  const byProgetto = new Map<string, { progetto: ProgettoRow; oreT: number; oreP: number; count: number }>()
+  const byProgetto = new Map<string, { progetto: ProgettoRow; oreT: number; oreP: number; oreE: number; count: number }>()
   for (const c of corsi || []) {
     const progetto = progettiMap.get(c.project_id)
     if (!progetto) continue
     if (!byProgetto.has(c.project_id)) {
-      byProgetto.set(c.project_id, { progetto, oreT: 0, oreP: 0, count: 0 })
+      byProgetto.set(c.project_id, { progetto, oreT: 0, oreP: 0, oreE: 0, count: 0 })
     }
     const entry = byProgetto.get(c.project_id)!
     entry.oreT += Number(c.ore_totali)
     entry.oreP += Number(c.ore_pianificate)
+    entry.oreE += Number(c.ore_erogate)
     entry.count++
   }
   const progetti = [...byProgetto.values()]
@@ -88,8 +89,7 @@ export default async function FormatoreProgettiPage() {
           </div>
         ) : (
           <div className="grid gap-4">
-            {progetti.map(({ progetto, oreT, oreP, count }) => {
-              const pct = oreT > 0 ? Math.min(Math.round((oreP / oreT) * 100), 100) : 0
+            {progetti.map(({ progetto, oreT, oreP, oreE, count }) => {
               const finNome = progetto.finanziamento_id ? finMap.get(progetto.finanziamento_id) : null
               const color = finNome ? badgeColor(finNome) : null
 
@@ -118,7 +118,6 @@ export default async function FormatoreProgettiPage() {
                       )}
                     </div>
                     <div className="text-right shrink-0">
-                      <div className="text-sm font-semibold text-gray-900">{pct}%</div>
                       <div className="text-xs text-gray-400">{count} cors{count === 1 ? 'o' : 'i'}</div>
                     </div>
                   </div>
@@ -139,11 +138,8 @@ export default async function FormatoreProgettiPage() {
                     </div>
                   </div>
 
-                  {/* Progress bar */}
-                  <div className="space-y-1">
-                    <div className="text-xs text-gray-400">{oreP}h pianificate su {oreT}h totali</div>
-                    <ProgressBar value={pct} size="sm" />
-                  </div>
+                  {/* Progress bars */}
+                  <DualProgressBar oreTotali={oreT} orePianificate={oreP} oreErogate={oreE} size="sm" />
                 </Link>
               )
             })}
