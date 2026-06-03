@@ -331,7 +331,7 @@ export function FormatoreClient({ corsi, profile, finanziamenti, questionari = [
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-4 mb-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
         <StatCard label="Corsi assegnati" value={corsi.length} />
         <StatCard label="Ore totali" value={`${totalOre}h`} subtitle={`${totalPianificate}h pianificate`} />
         <StatCard label="Ore erogate" value={`${oreErogate}h`} subtitle="sessioni confermate" />
@@ -443,7 +443,7 @@ export function FormatoreClient({ corsi, profile, finanziamenti, questionari = [
                           </div>
                         )}
 
-                        <div className="flex items-start justify-between gap-3 mb-3">
+                        <div className="flex flex-col gap-2 mb-3 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap mb-1">
                               <h3 className="font-medium text-gray-900 text-sm">{corso.title}</h3>
@@ -458,7 +458,7 @@ export function FormatoreClient({ corsi, profile, finanziamenti, questionari = [
                             </div>
                           </div>
                           {!inAttesa && (
-                            <div className="flex items-center gap-2 shrink-0">
+                            <div className="flex items-center gap-2 flex-wrap sm:shrink-0">
                               <Button size="sm" variant={statoCalendario.label === 'Completato' ? 'secondary' : 'primary'}
                                 onClick={() => openModal(corso)}>
                                 {statoCalendario.label === 'Completato' ? 'Vedi calendario' : 'Pianifica'}

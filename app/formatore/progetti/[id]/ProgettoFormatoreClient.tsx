@@ -281,7 +281,7 @@ export function ProgettoFormatoreClient({ progetto, corsi, finanziamenti, format
                 </div>
               )}
 
-              <div className="flex items-start justify-between gap-3 mb-3">
+              <div className="flex flex-col gap-2 mb-3 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap mb-1.5">
                     <h3 className="font-semibold text-gray-900">{corso.title}</h3>
@@ -303,7 +303,7 @@ export function ProgettoFormatoreClient({ progetto, corsi, finanziamenti, format
                   </div>
                 </div>
                 {!inAttesa && (
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-2 flex-wrap sm:shrink-0">
                     <Button
                       size="sm"
                       variant={corso.calendario_completo ? 'secondary' : 'primary'}
