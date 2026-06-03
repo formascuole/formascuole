@@ -65,6 +65,30 @@ export default async function DashboardPage() {
     .select('*', { count: 'exact', head: true })
     .eq('tipo', 'sollecito_3')
 
+  // Calendario stats
+  const { count: corsiDaPianificare } = await supabase
+    .from('corsi_con_ore')
+    .select('*', { count: 'exact', head: true })
+    .eq('calendario_completo', false)
+    .not('formatore_id', 'is', null)
+
+  const { count: corsiDaInviare } = await supabase
+    .from('corsi_con_ore')
+    .select('*', { count: 'exact', head: true })
+    .eq('calendario_completo', true)
+    .is('calendario_inviato_at', null)
+
+  const { count: corsiInAttesaConferma } = await supabase
+    .from('corsi')
+    .select('*', { count: 'exact', head: true })
+    .not('calendario_inviato_at', 'is', null)
+    .eq('calendario_confermato', false)
+
+  const { count: corsiCalendarioConfermati } = await supabase
+    .from('corsi')
+    .select('*', { count: 'exact', head: true })
+    .eq('calendario_confermato', true)
+
   // Accettazione stats
   const { count: corsiInAttesa } = await supabase
     .from('corsi')
@@ -178,6 +202,34 @@ export default async function DashboardPage() {
           </div>
         )}
         {(corsiInAttesa ?? 0) === 0 && (corsiRifiutatiMese ?? 0) === 0 && <div className="mb-4" />}
+
+        {/* Calendario stats */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <StatCard
+            label="Da pianificare"
+            value={corsiDaPianificare ?? 0}
+            subtitle="formatore assegnato, calendario incompleto"
+            icon={<svg width="20" height="20" fill="none" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.5"/><path d="M3 9h18M8 2v4M16 2v4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>}
+          />
+          <StatCard
+            label="Da inviare"
+            value={corsiDaInviare ?? 0}
+            subtitle="calendario completo, non inviato"
+            icon={<svg width="20" height="20" fill="none" viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+          />
+          <StatCard
+            label="In attesa conferma"
+            value={corsiInAttesaConferma ?? 0}
+            subtitle="inviato, attesa risposta scuola"
+            icon={<svg width="20" height="20" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5"/><path d="M12 7v5l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>}
+          />
+          <StatCard
+            label="Confermati"
+            value={corsiCalendarioConfermati ?? 0}
+            subtitle="calendario approvato dalla scuola"
+            icon={<svg width="20" height="20" fill="none" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+          />
+        </div>
 
         {/* Tabella progetti */}
         <div className="bg-white rounded-xl" style={{ border: '0.5px solid #e5e5e5' }}>

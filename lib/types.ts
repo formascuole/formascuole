@@ -4,7 +4,7 @@ export type ProjectStatus = 'active' | 'pending' | 'completed'
 export type CorsoTipo = 'PF' | 'Lab'
 export type ModalitaCorso = 'presenza' | 'online' | 'ibrido'
 export type ModalitaSessione = 'presenza' | 'online'
-export type SollectipoTipo = 'assegnazione' | 'sollecito_1' | 'sollecito_2' | 'sollecito_3' | 'reminder_sessione' | 'reminder_accettazione' | 'reminder_questionario' | 'reminder_candidatura' | 'notifica_calendario_completo' | 'notifica_corso_concluso'
+export type SollectipoTipo = 'assegnazione' | 'sollecito_1' | 'sollecito_2' | 'sollecito_3' | 'reminder_sessione' | 'reminder_accettazione' | 'reminder_questionario' | 'reminder_candidatura' | 'notifica_calendario_completo' | 'notifica_corso_concluso' | 'calendario_inviato_scuola'
 export type StatoAssegnazione = 'non_assegnato' | 'in_attesa' | 'accettato' | 'rifiutato'
 export type StatoCandidatura = 'in_attesa' | 'selezionato' | 'non_selezionato'
 
@@ -93,6 +93,12 @@ export interface Corso {
   link_scheda?: string | null
   candidature_aperte?: boolean
   candidature_aperte_at?: string | null
+  referente_corso_nome?: string | null
+  referente_corso_email?: string | null
+  referente_corso_telefono?: string | null
+  calendario_inviato_at?: string | null
+  calendario_confermato?: boolean
+  calendario_confermato_at?: string | null
 }
 
 export interface Candidatura {
@@ -119,6 +125,8 @@ export interface Sessione {
   corso_id: string
   data: string
   ore: number
+  ora_inizio?: string | null
+  ora_fine?: string | null
   modalita_sessione?: ModalitaSessione
   completata: boolean
   completata_at?: string | null

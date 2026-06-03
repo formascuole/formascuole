@@ -817,6 +817,100 @@ Rispondi SOLO con il corpo dell'email in testo semplice. Tono professionale.`,
   }
 }
 
+// ─── Invio Calendario ─────────────────────────────────────────────────────────
+
+interface InvioCalendarioParams {
+  corso_title: string
+  school_name: string
+  referente_nome: string
+  formatore_nome?: string | null
+  sessioni: Array<{ data: string; ora_inizio?: string | null; ora_fine?: string | null; ore: number }>
+}
+
+export function generateInvioCalendarioEmail(p: InvioCalendarioParams): { subject: string; body: string } {
+  const subject = `Calendario corso "${p.corso_title}" — ${p.school_name}`
+  const sessioniList = p.sessioni
+    .sort((a, b) => a.data.localeCompare(b.data))
+    .map(s => {
+      const [y, m, d] = s.data.split('-')
+      const dateStr = `${d}/${m}/${y}`
+      const timeStr = s.ora_inizio && s.ora_fine
+        ? ` — ore ${s.ora_inizio.substring(0, 5)}–${s.ora_fine.substring(0, 5)}`
+        : ` — ${s.ore}h`
+      return `  • ${dateStr}${timeStr}`
+    })
+    .join('\n')
+
+  const body = `Gentile ${p.referente_nome},
+
+in riferimento al corso "${p.corso_title}" in programma presso la vostra scuola, le trasmettiamo il calendario delle sessioni concordato${p.formatore_nome ? ` con il formatore ${p.formatore_nome}` : ''}:
+
+${sessioniList}
+
+La preghiamo di confermare la ricezione e l'approvazione del calendario rispondendo a questa email o contattando il nostro ufficio.
+
+In caso di necessità di modifiche, siamo a disposizione per concordare le variazioni necessarie.
+
+Cordiali saluti,
+Il team Formascuole`
+
+  return { subject, body }
+}
+
+interface CalendarioConfermatoAdminParams {
+  corso_title: string
+  school_name: string
+  formatore_nome?: string | null
+  corso_url: string
+}
+
+export function generateCalendarioConfermatoAdminEmail(p: CalendarioConfermatoAdminParams): { subject: string; body: string } {
+  const subject = `Calendario confermato — ${p.corso_title} — ${p.school_name}`
+  const body = `Il calendario del corso "${p.corso_title}" presso ${p.school_name} è stato confermato dalla scuola.${p.formatore_nome ? `\n\nFormatore assegnato: ${p.formatore_nome}` : ''}
+
+Scheda corso: ${p.corso_url}
+
+Il team Formascuole`
+  return { subject, body }
+}
+
+interface CalendarioConfermatoScuolaParams {
+  corso_title: string
+  school_name: string
+  referente_nome: string
+  sessioni: Array<{ data: string; ora_inizio?: string | null; ora_fine?: string | null; ore: number }>
+}
+
+export function generateCalendarioConfermatoScuolaEmail(p: CalendarioConfermatoScuolaParams): { subject: string; body: string } {
+  const subject = `Conferma calendario corso "${p.corso_title}" — ${p.school_name}`
+  const sessioniList = p.sessioni
+    .sort((a, b) => a.data.localeCompare(b.data))
+    .map(s => {
+      const [y, m, d] = s.data.split('-')
+      const dateStr = `${d}/${m}/${y}`
+      const timeStr = s.ora_inizio && s.ora_fine
+        ? ` — ore ${s.ora_inizio.substring(0, 5)}–${s.ora_fine.substring(0, 5)}`
+        : ` — ${s.ore}h`
+      return `  • ${dateStr}${timeStr}`
+    })
+    .join('\n')
+
+  const body = `Gentile ${p.referente_nome},
+
+confermiamo la ricezione dell'approvazione del calendario per il corso "${p.corso_title}".
+
+Riepilogo sessioni confermate:
+
+${sessioniList}
+
+Conservi questa email come ricevuta di conferma.
+
+Cordiali saluti,
+Il team Formascuole`
+
+  return { subject, body }
+}
+
 // ─── Sender ───────────────────────────────────────────────────────────────────
 
 export async function sendEmail({

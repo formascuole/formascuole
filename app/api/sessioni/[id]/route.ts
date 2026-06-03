@@ -98,7 +98,16 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 
   const body = await req.json()
-  const { data: newData, ore: newOre, motivazione_categoria, motivazione_dettaglio, modalita_sessione } = body
+  const { data: newData, ore: newOreBody, ora_inizio: newOraInizio, ora_fine: newOraFine, motivazione_categoria, motivazione_dettaglio, modalita_sessione } = body
+
+  // Derive ore from times if provided
+  let newOre = newOreBody
+  if (!newOre && newOraInizio && newOraFine) {
+    const [sh, sm] = (newOraInizio as string).split(':').map(Number)
+    const [eh, em] = (newOraFine as string).split(':').map(Number)
+    const diffMin = (eh * 60 + em) - (sh * 60 + sm)
+    if (diffMin > 0) newOre = Math.round((diffMin / 60) * 2) / 2
+  }
 
   if (!motivazione_categoria) return NextResponse.json({ error: 'Motivazione categoria obbligatoria' }, { status: 400 })
   if (motivazione_categoria === 'altro' && !motivazione_dettaglio?.trim()) {
@@ -107,8 +116,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const dateChanged = newData && newData !== sessione.data
   const oreChanged = newOre !== undefined && Number(newOre) !== Number(sessione.ore)
+  const oraInizioChanged = newOraInizio !== undefined
+  const oraFineChanged = newOraFine !== undefined
 
-  if (!dateChanged && !oreChanged && !modalita_sessione) {
+  if (!dateChanged && !oreChanged && !modalita_sessione && !oraInizioChanged && !oraFineChanged) {
     return NextResponse.json({ error: 'Nessuna modifica da salvare' }, { status: 400 })
   }
 
@@ -123,6 +134,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (dateChanged) updates.data = newData
   if (oreChanged) updates.ore = Number(newOre)
   if (modalita_sessione) updates.modalita_sessione = modalita_sessione
+  if (oraInizioChanged) updates.ora_inizio = newOraInizio || null
+  if (oraFineChanged) updates.ora_fine = newOraFine || null
 
   const { data: updated, error: updateError } = await supabase
     .from('sessioni').update(updates).eq('id', id).select().single()

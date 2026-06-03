@@ -28,10 +28,23 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
-  const { corso_id, data: sessioneData, ore, modalita_sessione } = body
+  const { corso_id, data: sessioneData, ore: oreBody, ora_inizio, ora_fine, modalita_sessione } = body
 
-  if (!corso_id || !sessioneData || !ore) {
+  if (!corso_id || !sessioneData) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+  }
+
+  // ore can be derived from ora_inizio/ora_fine
+  let ore = oreBody
+  if (!ore && ora_inizio && ora_fine) {
+    const [sh, sm] = (ora_inizio as string).split(':').map(Number)
+    const [eh, em] = (ora_fine as string).split(':').map(Number)
+    const diffMin = (eh * 60 + em) - (sh * 60 + sm)
+    if (diffMin > 0) ore = Math.round((diffMin / 60) * 2) / 2
+  }
+
+  if (!ore || Number(ore) <= 0) {
+    return NextResponse.json({ error: 'Ore obbligatorie o non valide' }, { status: 400 })
   }
 
   // Validate ore residue
@@ -69,6 +82,8 @@ export async function POST(request: NextRequest) {
 
   const insertData: Record<string, unknown> = { corso_id, data: sessioneData, ore: Number(ore) }
   if (modalita_sessione) insertData.modalita_sessione = modalita_sessione
+  if (ora_inizio) insertData.ora_inizio = ora_inizio
+  if (ora_fine) insertData.ora_fine = ora_fine
 
   const { data, error } = await supabase
     .from('sessioni')

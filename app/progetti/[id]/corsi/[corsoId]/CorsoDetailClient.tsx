@@ -16,7 +16,7 @@ import { QuestionarioModal, buildQuestionarioUrl } from '@/components/ui/Questio
 
 interface CorsoDetailClientProps {
   corso: CorsoConOre & { formatore?: Profile; tutor?: Profile; referente?: Referente }
-  progetto: Pick<Progetto, 'school_name' | 'anno_scolastico' | 'ref_name' | 'ref_email' | 'finanziamento_id'> | null
+  progetto: Pick<Progetto, 'school_name' | 'anno_scolastico' | 'ref_name' | 'ref_email' | 'ref_tel' | 'finanziamento_id'> | null
   finanziamentoNome?: string | null
   sessioni: Sessione[]
   formatori: Profile[]
@@ -114,13 +114,49 @@ export function CorsoDetailClient({
   const [schedaForm, setSchedaForm] = useState({ link_scheda: corso.link_scheda || '', descrizione: corso.descrizione || '' })
   const [savingScheda, setSavingScheda] = useState(false)
 
+  // Session time pickers (add form)
+  const [newOraInizio, setNewOraInizio] = useState('')
+  const [newOraFine, setNewOraFine] = useState('')
+
+  // Session time pickers (edit form)
+  const [editOraInizio, setEditOraInizio] = useState('')
+  const [editOraFine, setEditOraFine] = useState('')
+
+  // Referente corso edit state
+  const [referenteCorsoEditOpen, setReferenteCorsoEditOpen] = useState(false)
+  const [referenteCorsoForm, setReferenteCorsoForm] = useState({
+    referente_corso_nome: corso.referente_corso_nome || '',
+    referente_corso_email: corso.referente_corso_email || '',
+    referente_corso_telefono: corso.referente_corso_telefono || '',
+  })
+  const [savingReferenteCorso, setSavingReferenteCorso] = useState(false)
+
+  // Calendario state
+  const [invioLoading, setInvioLoading] = useState(false)
+  const [invioError, setInvioError] = useState<string | null>(null)
+  const [confermaLoading, setConfermaLoading] = useState(false)
+  const [calendarioConfermatoLocal, setCalendarioConfermatoLocal] = useState(corso.calendario_confermato ?? false)
+  const [calendarioInviatoAt, setCalendarioInviatoAt] = useState(corso.calendario_inviato_at ?? null)
+
+  // Time-to-ore helper (round to nearest 0.5h)
+  const calcOreFromTime = (start: string, end: string): number => {
+    const [sh, sm] = start.split(':').map(Number)
+    const [eh, em] = end.split(':').map(Number)
+    const diffMin = (eh * 60 + em) - (sh * 60 + sm)
+    if (diffMin <= 0) return 0
+    return Math.round((diffMin / 60) * 2) / 2
+  }
+
   const isIbrido = corso.tipo === 'PF' && corso.modalita === 'ibrido'
 
   const orePianificate = Number(corso.ore_pianificate)
   const oreResidue = Math.max(Number(corso.ore_totali) - orePianificate, 0)
-  const newOreNum = Number(newOre)
-  const oreError = newOre && newOreNum > oreResidue ? `Max ${oreResidue}h residue` : ''
-  const canSubmitSession = newData && newOre && !oreError && newOreNum > 0 && oreResidue > 0 &&
+  // Derive ore from time pickers if both set, otherwise use manual field
+  const oreFromTimes = newOraInizio && newOraFine ? calcOreFromTime(newOraInizio, newOraFine) : 0
+  const effectiveNewOre = newOraInizio && newOraFine ? String(oreFromTimes) : newOre
+  const newOreNum = Number(effectiveNewOre)
+  const oreError = effectiveNewOre && newOreNum > oreResidue ? `Max ${oreResidue}h residue` : (effectiveNewOre && newOreNum <= 0 ? 'Orario non valido' : '')
+  const canSubmitSession = newData && newOreNum > 0 && !oreError && oreResidue > 0 &&
     (!isIbrido || !!newModalitaSessione)
 
   const handleAddSession = async () => {
@@ -133,6 +169,8 @@ export function CorsoDetailClient({
           corso_id: corso.id,
           data: newData,
           ore: newOreNum,
+          ...(newOraInizio && { ora_inizio: newOraInizio }),
+          ...(newOraFine && { ora_fine: newOraFine }),
           ...(isIbrido && { modalita_sessione: newModalitaSessione }),
         }),
       })
@@ -142,6 +180,8 @@ export function CorsoDetailClient({
         setCalendarOpen(false)
         setNewData('')
         setNewOre('')
+        setNewOraInizio('')
+        setNewOraFine('')
         setNewModalitaSessione('presenza')
         router.refresh()
       }
@@ -304,6 +344,8 @@ export function CorsoDetailClient({
     setEditingSession(s)
     setEditData(s.data)
     setEditOre(String(s.ore))
+    setEditOraInizio(s.ora_inizio ? s.ora_inizio.substring(0, 5) : '')
+    setEditOraFine(s.ora_fine ? s.ora_fine.substring(0, 5) : '')
     setEditMotivazioneCategoria('')
     setEditMotivazioneDettaglio('')
     setEditError(null)
@@ -314,13 +356,18 @@ export function CorsoDetailClient({
     if (!editingSession || !editMotivazioneCategoria) return
     setSavingEdit(true)
     setEditError(null)
+    // Derive ore from times if both set
+    const oreFromEditTimes = editOraInizio && editOraFine ? calcOreFromTime(editOraInizio, editOraFine) : 0
+    const finalEditOre = editOraInizio && editOraFine ? oreFromEditTimes : Number(editOre)
     try {
       const res = await fetch(`/api/sessioni/${editingSession.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           data: editData,
-          ore: Number(editOre),
+          ore: finalEditOre,
+          ...(editOraInizio ? { ora_inizio: editOraInizio } : {}),
+          ...(editOraFine ? { ora_fine: editOraFine } : {}),
           motivazione_categoria: editMotivazioneCategoria,
           motivazione_dettaglio: editMotivazioneDettaglio.trim() || undefined,
         }),
@@ -372,6 +419,57 @@ export function CorsoDetailClient({
     }
   }
 
+  const handleSaveReferenteCorso = async () => {
+    setSavingReferenteCorso(true)
+    try {
+      const res = await fetch(`/api/corsi/${corso.id}/referente-corso`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(referenteCorsoForm),
+      })
+      if (res.ok) {
+        setReferenteCorsoEditOpen(false)
+        router.refresh()
+      }
+    } finally {
+      setSavingReferenteCorso(false)
+    }
+  }
+
+  const handleInvioCalendario = async () => {
+    setInvioLoading(true)
+    setInvioError(null)
+    try {
+      const res = await fetch(`/api/corsi/${corso.id}/invio-calendario`, { method: 'POST' })
+      if (res.ok) {
+        setCalendarioInviatoAt(new Date().toISOString())
+        router.refresh()
+      } else {
+        const j = await res.json().catch(() => ({}))
+        setInvioError(j.error || 'Errore durante l\'invio')
+      }
+    } finally {
+      setInvioLoading(false)
+    }
+  }
+
+  const handleConfermaCalendario = async (confermato: boolean) => {
+    setConfermaLoading(true)
+    try {
+      const res = await fetch(`/api/corsi/${corso.id}/conferma-calendario`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confermato }),
+      })
+      if (res.ok) {
+        setCalendarioConfermatoLocal(confermato)
+        router.refresh()
+      }
+    } finally {
+      setConfermaLoading(false)
+    }
+  }
+
   // Sessions stats for the counter
   const today = new Date().toISOString().split('T')[0]
   const sessioniCompletate = sessioni.filter(s => s.completata).length
@@ -414,6 +512,18 @@ export function CorsoDetailClient({
                 Calendario completo
               </span>
             )}
+            {calendarioConfermatoLocal ? (
+              <span className="inline-flex items-center gap-1 text-xs text-blue-700 bg-blue-100 px-2.5 py-1 rounded-md font-medium">
+                <svg width="10" height="10" fill="none" viewBox="0 0 24 24">
+                  <polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
+                </svg>
+                Confermato scuola
+              </span>
+            ) : calendarioInviatoAt ? (
+              <span className="inline-flex items-center gap-1 text-xs text-amber-700 bg-amber-100 px-2.5 py-1 rounded-md font-medium">
+                In attesa conferma
+              </span>
+            ) : null}
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <button
@@ -720,6 +830,107 @@ export function CorsoDetailClient({
         )}
       </div>
 
+      {/* Referente corso (specifico per questo corso, diverso dal referente progetto) */}
+      {isAdmin && (
+        <div className="bg-white rounded-xl p-6 mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="font-semibold text-gray-900">Referente corso</h2>
+              <p className="text-xs text-gray-400 mt-0.5">Contatto specifico per questo corso</p>
+            </div>
+            <button
+              onClick={() => {
+                setReferenteCorsoForm({
+                  referente_corso_nome: corso.referente_corso_nome || '',
+                  referente_corso_email: corso.referente_corso_email || '',
+                  referente_corso_telefono: corso.referente_corso_telefono || '',
+                })
+                setReferenteCorsoEditOpen(true)
+              }}
+              className="text-xs text-gray-400 hover:text-gray-700 border border-gray-200 hover:bg-gray-50 px-2.5 py-1.5 rounded-[7px] transition-colors"
+            >
+              {corso.referente_corso_nome ? 'Modifica' : 'Aggiungi'}
+            </button>
+          </div>
+          {corso.referente_corso_nome || corso.referente_corso_email ? (
+            <div>
+              {corso.referente_corso_nome && <div className="font-medium text-gray-900">{corso.referente_corso_nome}</div>}
+              {corso.referente_corso_email && (
+                <a href={`mailto:${corso.referente_corso_email}`} className="text-sm text-blue-600 hover:underline">{corso.referente_corso_email}</a>
+              )}
+              {corso.referente_corso_telefono && <div className="text-sm text-gray-400 mt-0.5">{corso.referente_corso_telefono}</div>}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-400">Nessun referente corso specifico impostato.</p>
+          )}
+        </div>
+      )}
+
+      {/* Stato calendario */}
+      {isAdmin && corso.calendario_completo && (
+        <div className="bg-white rounded-xl p-6 mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
+          <h2 className="font-semibold text-gray-900 mb-4">Stato calendario</h2>
+          <div className="space-y-4">
+            {/* Invio */}
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-medium text-gray-700">Calendario inviato alla scuola</div>
+                {calendarioInviatoAt ? (
+                  <div className="text-xs text-gray-400 mt-0.5">
+                    Inviato il {new Date(calendarioInviatoAt).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' })}
+                  </div>
+                ) : (
+                  <div className="text-xs text-gray-400 mt-0.5">Non ancora inviato</div>
+                )}
+              </div>
+              {!calendarioInviatoAt ? (
+                <div className="flex flex-col items-end gap-1">
+                  <Button
+                    size="sm"
+                    loading={invioLoading}
+                    onClick={handleInvioCalendario}
+                  >
+                    <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
+                      <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    Invia calendario alla scuola
+                  </Button>
+                  {invioError && <p className="text-xs text-red-500">{invioError}</p>}
+                </div>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-xs text-green-700 bg-green-100 px-2.5 py-1 rounded-md font-medium">
+                  <svg width="10" height="10" fill="none" viewBox="0 0 24 24">
+                    <polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
+                  </svg>
+                  Inviato
+                </span>
+              )}
+            </div>
+
+            {/* Conferma */}
+            {calendarioInviatoAt && (
+              <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                <div>
+                  <div className="text-sm font-medium text-gray-700">Calendario confermato dalla scuola</div>
+                  {calendarioConfermatoLocal && corso.calendario_confermato_at && (
+                    <div className="text-xs text-gray-400 mt-0.5">
+                      Confermato il {new Date(corso.calendario_confermato_at).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={() => handleConfermaCalendario(!calendarioConfermatoLocal)}
+                  disabled={confermaLoading}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none disabled:opacity-50 ${calendarioConfermatoLocal ? 'bg-[#d64b55]' : 'bg-gray-200'}`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${calendarioConfermatoLocal ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Scheda corso */}
       {(corso.link_scheda || corso.descrizione || isAdmin) && (
         <div className="bg-white rounded-xl p-6 mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
@@ -789,6 +1000,7 @@ export function CorsoDetailClient({
             <thead>
               <tr className="border-b border-gray-100">
                 <th className="text-left text-xs font-medium text-gray-400 px-6 py-3">DATA</th>
+                <th className="text-left text-xs font-medium text-gray-400 px-6 py-3">ORARIO</th>
                 <th className="text-left text-xs font-medium text-gray-400 px-6 py-3">ORE</th>
                 {isIbrido && <th className="text-left text-xs font-medium text-gray-400 px-6 py-3">MODALITÀ</th>}
                 <th className="text-left text-xs font-medium text-gray-400 px-6 py-3">STATO</th>
@@ -803,6 +1015,11 @@ export function CorsoDetailClient({
                 return (
                   <tr key={s.id} className={`hover:bg-gray-50 ${s.completata ? 'bg-green-50/30' : ''}`}>
                     <td className="px-6 py-3 text-sm text-gray-800 font-medium">{formatDate(s.data)}</td>
+                    <td className="px-6 py-3 text-sm text-gray-500">
+                      {s.ora_inizio && s.ora_fine
+                        ? `${s.ora_inizio.substring(0,5)}–${s.ora_fine.substring(0,5)}`
+                        : <span className="text-gray-300">—</span>}
+                    </td>
                     <td className="px-6 py-3 text-sm font-medium text-gray-800">{s.ore}h</td>
                     {isIbrido && (
                       <td className="px-6 py-3">
@@ -1079,12 +1296,14 @@ export function CorsoDetailClient({
       {/* Edit Session Modal */}
       {(() => {
         const editOreMax = oreResidue + (editingSession ? Number(editingSession.ore) : 0)
-        const editOreNum = Number(editOre)
-        const editOreError = editOre && (editOreNum < 1 ? 'Min 1h' : editOreNum > editOreMax ? `Max ${editOreMax}h` : '')
+        const editOreFromTimes = editOraInizio && editOraFine ? calcOreFromTime(editOraInizio, editOraFine) : 0
+        const useTimePickers = !!(editOraInizio && editOraFine)
+        const editOreNum = useTimePickers ? editOreFromTimes : Number(editOre)
+        const editOreError = !useTimePickers && editOre && (editOreNum < 0.5 ? 'Min 0.5h' : editOreNum > editOreMax ? `Max ${editOreMax}h` : '')
         const needsDettaglio = editMotivazioneCategoria === 'altro'
         const canSubmitEdit = !!editMotivazioneCategoria &&
           (!needsDettaglio || editMotivazioneDettaglio.trim() !== '') &&
-          !!editData && !!editOre && !editOreError && editOreNum > 0
+          !!editData && editOreNum > 0 && !editOreError
 
         const MOTIV_OPTIONS = [
           { value: 'richiesta_scuola', label: 'Richiesta della scuola' },
@@ -1118,16 +1337,43 @@ export function CorsoDetailClient({
                 value={editData}
                 onChange={e => setEditData(e.target.value)}
               />
-              <Input
-                label="Ore *"
-                type="number"
-                min={1}
-                max={editOreMax}
-                value={editOre}
-                onChange={e => setEditOre(e.target.value)}
-                hint={`Max ${editOreMax}h`}
-                error={editOreError || undefined}
-              />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Ora inizio</label>
+                  <input
+                    type="time"
+                    value={editOraInizio}
+                    onChange={e => setEditOraInizio(e.target.value)}
+                    className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 focus:outline-none focus:border-[#d64b55] transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Ora fine</label>
+                  <input
+                    type="time"
+                    value={editOraFine}
+                    onChange={e => setEditOraFine(e.target.value)}
+                    className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 focus:outline-none focus:border-[#d64b55] transition-colors"
+                  />
+                </div>
+              </div>
+              {useTimePickers ? (
+                <div className="text-xs text-blue-600 bg-blue-50 border border-blue-200 rounded-[7px] px-3 py-2">
+                  Durata calcolata: <span className="font-semibold">{editOreFromTimes}h</span>
+                </div>
+              ) : (
+                <Input
+                  label="Ore *"
+                  type="number"
+                  min={0.5}
+                  step={0.5}
+                  max={editOreMax}
+                  value={editOre}
+                  onChange={e => setEditOre(e.target.value)}
+                  hint={`Max ${editOreMax}h`}
+                  error={editOreError || undefined}
+                />
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   Motivazione <span className="text-red-500">*</span>
@@ -1165,11 +1411,11 @@ export function CorsoDetailClient({
       {/* Calendar Modal */}
       <Modal
         open={calendarOpen}
-        onClose={() => { setCalendarOpen(false); setNewData(''); setNewOre(''); setNewModalitaSessione('presenza') }}
+        onClose={() => { setCalendarOpen(false); setNewData(''); setNewOre(''); setNewOraInizio(''); setNewOraFine(''); setNewModalitaSessione('presenza') }}
         title="Aggiungi Sessione"
         footer={
           <>
-            <Button variant="secondary" onClick={() => { setCalendarOpen(false); setNewData(''); setNewOre(''); setNewModalitaSessione('presenza') }}>Annulla</Button>
+            <Button variant="secondary" onClick={() => { setCalendarOpen(false); setNewData(''); setNewOre(''); setNewOraInizio(''); setNewOraFine(''); setNewModalitaSessione('presenza') }}>Annulla</Button>
             <Button onClick={handleAddSession} loading={saving} disabled={!canSubmitSession}>
               Aggiungi Sessione
             </Button>
@@ -1184,17 +1430,45 @@ export function CorsoDetailClient({
             value={newData}
             onChange={e => setNewData(e.target.value)}
           />
-          <Input
-            label="Ore *"
-            type="number"
-            min={1}
-            max={oreResidue}
-            value={newOre}
-            onChange={e => setNewOre(e.target.value)}
-            hint={oreResidue > 0 ? `Max ${oreResidue}h residue` : 'Ore residue esaurite'}
-            error={oreError}
-            placeholder={`Es. ${Math.min(oreResidue, 4)}`}
-          />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Ora inizio</label>
+              <input
+                type="time"
+                value={newOraInizio}
+                onChange={e => setNewOraInizio(e.target.value)}
+                className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 focus:outline-none focus:border-[#d64b55] transition-colors"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Ora fine</label>
+              <input
+                type="time"
+                value={newOraFine}
+                onChange={e => setNewOraFine(e.target.value)}
+                className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 focus:outline-none focus:border-[#d64b55] transition-colors"
+              />
+            </div>
+          </div>
+          {newOraInizio && newOraFine && (
+            <div className="text-xs text-blue-600 bg-blue-50 border border-blue-200 rounded-[7px] px-3 py-2">
+              Durata calcolata: <span className="font-semibold">{oreFromTimes}h</span>
+            </div>
+          )}
+          {!(newOraInizio && newOraFine) && (
+            <Input
+              label="Ore *"
+              type="number"
+              min={0.5}
+              step={0.5}
+              max={oreResidue}
+              value={newOre}
+              onChange={e => setNewOre(e.target.value)}
+              hint={oreResidue > 0 ? `Max ${oreResidue}h residue` : 'Ore residue esaurite'}
+              error={oreError}
+              placeholder={`Es. ${Math.min(oreResidue, 4)}`}
+            />
+          )}
           {isIbrido && (
             <div>
               <div className="text-sm font-medium text-gray-700 mb-2">Modalità sessione *</div>
@@ -1392,6 +1666,42 @@ export function CorsoDetailClient({
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* Referente corso modal */}
+      <Modal
+        open={referenteCorsoEditOpen}
+        onClose={() => setReferenteCorsoEditOpen(false)}
+        title="Referente corso"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setReferenteCorsoEditOpen(false)}>Annulla</Button>
+            <Button onClick={handleSaveReferenteCorso} loading={savingReferenteCorso}>Salva</Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <Input
+            label="Nome"
+            value={referenteCorsoForm.referente_corso_nome}
+            onChange={e => setReferenteCorsoForm(f => ({ ...f, referente_corso_nome: e.target.value }))}
+            placeholder="Nome referente..."
+          />
+          <Input
+            label="Email"
+            type="email"
+            value={referenteCorsoForm.referente_corso_email}
+            onChange={e => setReferenteCorsoForm(f => ({ ...f, referente_corso_email: e.target.value }))}
+            placeholder="email@scuola.it"
+          />
+          <Input
+            label="Telefono"
+            value={referenteCorsoForm.referente_corso_telefono}
+            onChange={e => setReferenteCorsoForm(f => ({ ...f, referente_corso_telefono: e.target.value }))}
+            placeholder="+39 000 0000000"
+          />
+        </div>
       </Modal>
 
       <DeleteConfirmModal
