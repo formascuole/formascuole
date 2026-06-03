@@ -80,13 +80,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       if (!toEmail) toEmail = progetto.ref_email
 
       if (toEmail) {
-        const { subject: scuolaSubject, body: scuolaBody } = generateCalendarioConfermatoScuolaEmail({
+        const { subject: scuolaSubject, body: scuolaBody, htmlBody: scuolaHtmlBody } = generateCalendarioConfermatoScuolaEmail({
           corso_title: corso.title,
           school_name: progetto.school_name,
           referente_nome: toNome,
           sessioni: sessioni || [],
         })
-        sendEmail({ to: toEmail, subject: scuolaSubject, body: scuolaBody }).catch(console.error)
+        sendEmail({ to: toEmail, subject: scuolaSubject, body: scuolaBody, htmlBody: scuolaHtmlBody }).catch(console.error)
       }
     }
   }

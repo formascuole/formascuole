@@ -66,7 +66,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     formatore_nome = fmt?.nome || null
   }
 
-  const { subject, body } = generateInvioCalendarioEmail({
+  const { subject, body, htmlBody } = generateInvioCalendarioEmail({
     corso_title: corso.title,
     school_name: progetto.school_name,
     referente_nome: toNome,
@@ -76,7 +76,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
   if (!toEmail) return NextResponse.json({ error: 'Nessun indirizzo email disponibile per la scuola' }, { status: 400 })
 
-  await sendEmail({ to: toEmail, subject, body })
+  await sendEmail({ to: toEmail, subject, body, htmlBody })
 
   await admin
     .from('corsi')

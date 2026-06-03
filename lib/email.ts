@@ -722,6 +722,50 @@ Rispondi SOLO con il corpo dell'email in testo semplice (no HTML, no oggetto ema
   }
 }
 
+// ─── Sessioni table helper ────────────────────────────────────────────────────
+
+const GIORNI_IT = ['Domenica', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato']
+
+function buildSessioniTable(
+  sessioni: Array<{ data: string; ora_inizio?: string | null; ora_fine?: string | null; ore: number }>,
+): string {
+  const sorted = [...sessioni].sort((a, b) => a.data.localeCompare(b.data))
+  const totalOre = sorted.reduce((sum, s) => sum + Number(s.ore), 0)
+  const rows = sorted.map(s => {
+    const [yStr, mStr, dStr] = s.data.split('-')
+    const dateStr = `${dStr}/${mStr}/${yStr}`
+    const giorno = GIORNI_IT[new Date(Number(yStr), Number(mStr) - 1, Number(dStr)).getDay()]
+    const orario = s.ora_inizio && s.ora_fine
+      ? `${s.ora_inizio.substring(0, 5)}–${s.ora_fine.substring(0, 5)}`
+      : 'Da definire'
+    return `        <tr>
+          <td style="padding:8px; border:1px solid #ddd;">${dateStr}</td>
+          <td style="padding:8px; border:1px solid #ddd;">${giorno}</td>
+          <td style="padding:8px; border:1px solid #ddd;">${orario}</td>
+          <td style="padding:8px; border:1px solid #ddd; text-align:center;">${s.ore}h</td>
+        </tr>`
+  }).join('\n')
+  return `<table style="width:100%; border-collapse:collapse; font-size:14px;">
+      <thead>
+        <tr style="background:#f5f5f5;">
+          <th style="padding:8px; border:1px solid #ddd; text-align:left;">Data</th>
+          <th style="padding:8px; border:1px solid #ddd; text-align:left;">Giorno</th>
+          <th style="padding:8px; border:1px solid #ddd; text-align:left;">Orario</th>
+          <th style="padding:8px; border:1px solid #ddd; text-align:center;">Ore</th>
+        </tr>
+      </thead>
+      <tbody>
+${rows}
+      </tbody>
+      <tfoot>
+        <tr style="background:#f5f5f5; font-weight:bold;">
+          <td colspan="3" style="padding:8px; border:1px solid #ddd;">Totale</td>
+          <td style="padding:8px; border:1px solid #ddd; text-align:center;">${totalOre}h</td>
+        </tr>
+      </tfoot>
+    </table>`
+}
+
 // ─── Calendario Completo ──────────────────────────────────────────────────────
 
 interface CalendarioCompletoParams {
@@ -827,7 +871,7 @@ interface InvioCalendarioParams {
   sessioni: Array<{ data: string; ora_inizio?: string | null; ora_fine?: string | null; ore: number }>
 }
 
-export function generateInvioCalendarioEmail(p: InvioCalendarioParams): { subject: string; body: string } {
+export function generateInvioCalendarioEmail(p: InvioCalendarioParams): { subject: string; body: string; htmlBody: string } {
   const subject = `Calendario corso "${p.corso_title}" — ${p.school_name}`
   const sessioniList = p.sessioni
     .sort((a, b) => a.data.localeCompare(b.data))
@@ -854,7 +898,14 @@ In caso di necessità di modifiche, siamo a disposizione per concordare le varia
 Cordiali saluti,
 Il team Formascuole`
 
-  return { subject, body }
+  const htmlBody = `<p>Gentile ${p.referente_nome},</p>
+<p>in riferimento al corso <strong>"${p.corso_title}"</strong> in programma presso la vostra scuola, le trasmettiamo il calendario delle sessioni concordato${p.formatore_nome ? ` con il formatore ${p.formatore_nome}` : ''}:</p>
+${buildSessioniTable(p.sessioni)}
+<p style="margin-top:16px;">La preghiamo di confermare la ricezione e l'approvazione del calendario rispondendo a questa email o contattando il nostro ufficio.</p>
+<p>In caso di necessità di modifiche, siamo a disposizione per concordare le variazioni necessarie.</p>
+<p>Cordiali saluti,<br/>Il team Formascuole</p>`
+
+  return { subject, body, htmlBody }
 }
 
 interface CalendarioConfermatoAdminParams {
@@ -881,7 +932,7 @@ interface CalendarioConfermatoScuolaParams {
   sessioni: Array<{ data: string; ora_inizio?: string | null; ora_fine?: string | null; ore: number }>
 }
 
-export function generateCalendarioConfermatoScuolaEmail(p: CalendarioConfermatoScuolaParams): { subject: string; body: string } {
+export function generateCalendarioConfermatoScuolaEmail(p: CalendarioConfermatoScuolaParams): { subject: string; body: string; htmlBody: string } {
   const subject = `Conferma calendario corso "${p.corso_title}" — ${p.school_name}`
   const sessioniList = p.sessioni
     .sort((a, b) => a.data.localeCompare(b.data))
@@ -908,7 +959,14 @@ Conservi questa email come ricevuta di conferma.
 Cordiali saluti,
 Il team Formascuole`
 
-  return { subject, body }
+  const htmlBody = `<p>Gentile ${p.referente_nome},</p>
+<p>confermiamo la ricezione dell'approvazione del calendario per il corso <strong>"${p.corso_title}"</strong>.</p>
+<p>Riepilogo sessioni confermate:</p>
+${buildSessioniTable(p.sessioni)}
+<p style="margin-top:16px;">Conservi questa email come ricevuta di conferma.</p>
+<p>Cordiali saluti,<br/>Il team Formascuole</p>`
+
+  return { subject, body, htmlBody }
 }
 
 // ─── Corso Completato (formatore) ─────────────────────────────────────────────
@@ -1041,11 +1099,13 @@ export async function sendEmail({
   to,
   subject,
   body,
+  htmlBody,
   actions,
 }: {
   to: string
   subject: string
   body: string
+  htmlBody?: string
   actions?: EmailAction[]
 }) {
   const actionsHtml = actions?.length
@@ -1070,7 +1130,10 @@ export async function sendEmail({
       <div style="margin-bottom: 24px;">
         <span style="font-size: 20px; font-weight: bold; color: #d64b55;">Formascuole</span>
       </div>
-      <div style="white-space: pre-wrap; color: #1a1a1a; line-height: 1.6;">${body.replace(/\n/g, '<br/>')}</div>
+      ${htmlBody
+    ? `<div style="color:#1a1a1a;line-height:1.6;">${htmlBody}</div>`
+    : `<div style="white-space:pre-wrap;color:#1a1a1a;line-height:1.6;">${body.replace(/\n/g, '<br/>')}</div>`
+  }
       ${actionsHtml}
       <div style="margin-top: 32px; padding-top: 16px; border-top: 1px solid #e5e5e5; font-size: 12px; color: #888;">
         <p>Formascuole — Piattaforma gestione progetti formativi</p>
