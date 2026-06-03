@@ -40,6 +40,7 @@ interface ReminderSessioneEmailParams {
   data_sessione: string
   ore_sessione: number
   corso_url: string
+  piattaforma_futura_url?: string
 }
 
 interface SollecitoAccettazioneEmailParams {
@@ -183,12 +184,15 @@ Il team Formascuole`
 }
 
 function fallbackReminderSessioneEmail(p: ReminderSessioneEmailParams): string {
+  const piattaformaLine = p.piattaforma_futura_url
+    ? `\nRicorda di registrare la sessione anche su Piattaforma Futura: ${p.piattaforma_futura_url}\n`
+    : ''
   return `Gentile ${p.formatore_nome},
 
 ti ricordiamo di confermare la sessione del ${p.data_sessione} (${p.ore_sessione}h) per il corso "${p.corso_title}" presso ${p.school_name}.
 
 Accedi qui per segnare la sessione come completata: ${p.corso_url}
-
+${piattaformaLine}
 Grazie,
 Il team Formascuole`
 }
@@ -413,7 +417,7 @@ export async function generateReminderSessioneEmail(params: ReminderSessioneEmai
       messages: [
         {
           role: 'user',
-          content: `Genera un breve reminder email in italiano per un formatore che deve confermare una sessione svoltasi ieri.
+          content: `Genera un breve reminder email in italiano per un formatore che deve confermare una sessione svoltasi di recente.
 
 Dati:
 - Nome formatore: ${params.formatore_nome}
@@ -421,14 +425,14 @@ Dati:
 - Nome scuola: ${params.school_name}
 - Data sessione: ${params.data_sessione}
 - Ore sessione: ${params.ore_sessione}h
-- Link scheda corso: ${params.corso_url}
+- Link scheda corso: ${params.corso_url}${params.piattaforma_futura_url ? `\n- Link Piattaforma Futura: ${params.piattaforma_futura_url}` : ''}
 
 L'email deve:
 1. Salutare il formatore per nome
-2. Ricordare che la sessione del [data] di [ore]h si è svolta ieri
-3. Chiedere di accedere alla piattaforma e segnare la sessione come "Completata"
-4. Fornire il link diretto alla scheda corso
-5. Essere breve e diretta (max 5 righe di corpo)
+2. Ricordare che la sessione del [data] di [ore]h deve essere confermata
+3. Chiedere di accedere alla piattaforma Formascuole e segnare la sessione come "Completata"
+4. Fornire il link diretto alla scheda corso${params.piattaforma_futura_url ? '\n5. Ricordare di registrare la sessione anche su Piattaforma Futura con il link fornito' : ''}
+${params.piattaforma_futura_url ? '6' : '5'}. Essere breve e diretta (max 6 righe di corpo)
 
 Rispondi SOLO con il corpo dell'email in testo semplice (no HTML, no oggetto email).`,
         },

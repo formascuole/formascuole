@@ -281,9 +281,9 @@ export async function GET(request: NextRequest) {
     }
 
     // ── FASE 3: Reminder sessioni ──────────────────────────────────────────────
-    const yesterday = new Date(now)
-    yesterday.setDate(yesterday.getDate() - 1)
-    const yesterdayStr = yesterday.toISOString().split('T')[0]
+    // Target sessions whose date was at least 12h ago
+    const twelveHoursAgo = new Date(now.getTime() - 12 * 60 * 60 * 1000)
+    const targetDateStr = twelveHoursAgo.toISOString().split('T')[0]
 
     const { data: sessioniDaConfermare } = await supabase
       .from('sessioni')
@@ -291,7 +291,7 @@ export async function GET(request: NextRequest) {
         id, corso_id, data, ore,
         corso:corsi(id, title, formatore_id, project:progetti(school_name))
       `)
-      .eq('data', yesterdayStr)
+      .eq('data', targetDateStr)
       .eq('completata', false)
       .not('corso.formatore_id', 'is', null)
 
@@ -316,7 +316,7 @@ export async function GET(request: NextRequest) {
         .select('id')
         .eq('corso_id', sessione.corso_id)
         .eq('tipo', 'reminder_sessione')
-        .gte('sent_at', `${now.toISOString().split('T')[0]}T00:00:00Z`)
+        .gte('sent_at', `${targetDateStr}T00:00:00Z`)
         .maybeSingle()
 
       if (existingReminder) {
@@ -330,14 +330,15 @@ export async function GET(request: NextRequest) {
           formatore_email: formatore.email,
           corso_title: corso.title,
           school_name: corso.project.school_name,
-          data_sessione: yesterdayStr,
+          data_sessione: targetDateStr,
           ore_sessione: Number(sessione.ore),
           corso_url: `${APP_URL}/progetti/${corso.id}`,
+          piattaforma_futura_url: 'https://pnrr.istruzione.it',
         })
 
         await sendEmail({
           to: formatore.email,
-          subject: `Reminder: conferma sessione del ${yesterdayStr} — ${corso.title}`,
+          subject: `Promemoria — Sessione del ${targetDateStr} da confermare`,
           body: emailBody,
         })
 
@@ -554,6 +555,7 @@ export async function GET(request: NextRequest) {
       accettazione_results: accettazioneResults,
       processed: (corsiIncomplete || []).length,
       results,
+      reminder_sessioni_date: targetDateStr,
       reminder_sessioni_processed: (sessioniDaConfermare || []).length,
       reminder_results: reminderResults,
       questionario_processed: corsoIdsOggi.length,

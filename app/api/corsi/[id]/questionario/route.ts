@@ -80,5 +80,11 @@ Il team Formascuole`
     html: htmlBody,
   })
 
+  const { data: currentCorso } = await admin.from('corsi').select('questionario_generato_count').eq('id', corsoId).single()
+  await admin.from('corsi').update({
+    questionario_generato_at: new Date().toISOString(),
+    questionario_generato_count: ((currentCorso?.questionario_generato_count as number | null) ?? 0) + 1,
+  }).eq('id', corsoId)
+
   return NextResponse.json({ success: true })
 }

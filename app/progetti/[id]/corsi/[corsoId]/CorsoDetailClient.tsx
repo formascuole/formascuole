@@ -609,6 +609,25 @@ export function CorsoDetailClient({
                 )}
               </span>
             )}
+            {isAdmin && (
+              (corso.questionario_generato_count ?? 0) > 0 ? (
+                <div className="flex flex-col gap-0.5">
+                  <span className="inline-flex items-center gap-1 text-xs text-green-700 bg-green-100 px-2.5 py-1 rounded-md font-medium">
+                    <svg width="10" height="10" fill="none" viewBox="0 0 24 24">
+                      <polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
+                    </svg>
+                    Questionario generato
+                  </span>
+                  <span style={{ fontSize: '11px' }} className="text-gray-400 pl-0.5">
+                    Ultima: {corso.questionario_generato_at ? new Date(corso.questionario_generato_at).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'} · {corso.questionario_generato_count}×
+                  </span>
+                </div>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-xs text-gray-500 bg-gray-100 px-2.5 py-1 rounded-md font-medium">
+                  Questionario non generato
+                </span>
+              )
+            )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <button
@@ -1205,13 +1224,17 @@ export function CorsoDetailClient({
                   {/* Riga 2: stato / azioni */}
                   <div className="flex items-center gap-2 flex-wrap">
                     {s.completata ? (
-                      <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-md bg-green-100 text-green-700">
-                        <svg width="10" height="10" fill="none" viewBox="0 0 24 24">
-                          <polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
-                        </svg>
-                        Completata
-                        {s.completata_at && <span className="font-normal ml-1">{formatDate(s.completata_at)}</span>}
-                      </span>
+                      <div className="flex flex-col gap-0.5">
+                        <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-md bg-green-100 text-green-700">
+                          <svg width="10" height="10" fill="none" viewBox="0 0 24 24">
+                            <polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
+                          </svg>
+                          Completata
+                        </span>
+                        {s.completata_at && (
+                          <span style={{ fontSize: '11px' }} className="text-gray-400 pl-0.5">Confermata il {formatDate(s.completata_at)}</span>
+                        )}
+                      </div>
                     ) : isFuture ? (
                       <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-blue-100 text-blue-700">Pianificata</span>
                     ) : (

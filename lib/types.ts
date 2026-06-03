@@ -118,6 +118,8 @@ export interface Corso {
   corso_completato_at?: string | null
   tariffa_oraria?: number | null
   tariffa_oraria_tutor?: number | null
+  questionario_generato_at?: string | null
+  questionario_generato_count?: number
 }
 
 export interface Candidatura {
