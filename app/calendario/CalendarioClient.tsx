@@ -65,7 +65,7 @@ export function CalendarioClient({
       formatore_nome: s.formatore_nome,
     }))
 
-    const indEvs: IndisponibilitaCalendarioEvent[] = showIndisponibilita
+    const indEvs: IndisponibilitaCalendarioEvent[] = (showIndisponibilita && !filterProgetto)
       ? indisponibilita.map(i => ({
           kind: 'indisponibilita',
           id: i.id,
