@@ -68,6 +68,12 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
   // --- Delete state ---
   const [deleteTarget, setDeleteTarget] = useState<UtenteConStats | null>(null)
 
+  // --- Reinvia credenziali state ---
+  const [reinviaTarget, setReinviaTarget] = useState<UtenteConStats | null>(null)
+  const [reinviando, setReinviando] = useState(false)
+  const [reinviaError, setReinviaError] = useState('')
+  const [reinviaSuccessId, setReinviaSuccessId] = useState<string | null>(null)
+
   // Fetch stats client-side via service-role API to bypass RLS
   useEffect(() => {
     fetch('/api/utenti/stats')
@@ -188,6 +194,23 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
   }
 
   const canSave = editForm.nome.trim().length > 0 && editForm.roles.length > 0
+
+  const handleReinvia = async () => {
+    if (!reinviaTarget) return
+    setReinviando(true)
+    setReinviaError('')
+    try {
+      const res = await fetch(`/api/utenti/${reinviaTarget.id}/reinvia-credenziali`, { method: 'POST' })
+      const json = await res.json()
+      if (!res.ok) { setReinviaError(json.error || 'Errore'); return }
+      const sentId = reinviaTarget.id
+      setReinviaTarget(null)
+      setReinviaSuccessId(sentId)
+      setTimeout(() => setReinviaSuccessId(null), 3000)
+    } finally {
+      setReinviando(false)
+    }
+  }
 
   return (
     <div className="p-8 max-w-5xl mx-auto">
@@ -316,6 +339,22 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
                         <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                         <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                       </svg>
+                    </button>
+                    <button
+                      onClick={() => { setReinviaTarget(u); setReinviaError('') }}
+                      className={`p-1.5 rounded-[7px] transition-colors ${reinviaSuccessId === u.id ? 'text-green-500 bg-green-50' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'}`}
+                      title="Reinvia credenziali"
+                    >
+                      {reinviaSuccessId === u.id ? (
+                        <svg width="15" height="15" fill="none" viewBox="0 0 24 24">
+                          <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      ) : (
+                        <svg width="15" height="15" fill="none" viewBox="0 0 24 24">
+                          <path d="M4 4h16a2 2 0 012 2v12a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                          <path d="M22 6l-10 7L2 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                        </svg>
+                      )}
                     </button>
                     {isSuperAdmin && !(u.roles || [u.role]).includes('super_admin') && (
                       <button
@@ -482,6 +521,32 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
           router.refresh()
         }}
       />
+
+      {/* Reinvia credenziali modal */}
+      <Modal
+        open={!!reinviaTarget}
+        onClose={() => setReinviaTarget(null)}
+        title="Reinvia credenziali"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setReinviaTarget(null)}>Annulla</Button>
+            <Button onClick={handleReinvia} loading={reinviando}>Conferma</Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <p className="text-sm text-gray-700">
+            Vuoi reinviare le credenziali di accesso a{' '}
+            <span className="font-semibold">{reinviaTarget?.nome}</span>{' '}
+            (<span className="text-gray-500">{reinviaTarget?.email}</span>)?
+          </p>
+          <p className="text-xs text-gray-400">
+            Verrà generata una nuova password temporanea e inviata via email. La password attuale dell&apos;utente verrà sostituita.
+          </p>
+          {reinviaError && <p className="text-sm text-red-600">{reinviaError}</p>}
+        </div>
+      </Modal>
     </div>
   )
 }
