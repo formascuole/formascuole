@@ -561,6 +561,17 @@ export function CorsoDetailClient({
 
   return (
     <div className="p-8 max-w-4xl mx-auto">
+      {!isAdmin && (
+        <button
+          onClick={() => router.back()}
+          className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700 mb-5 transition-colors"
+        >
+          <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
+            <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          Indietro
+        </button>
+      )}
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-gray-400 mb-6 flex-wrap">
         <Link href="/progetti" className="hover:text-gray-700">Progetti</Link>
@@ -959,6 +970,68 @@ export function CorsoDetailClient({
           </div>
         )}
       </div>
+
+      {/* Referenti section — visible to formatori */}
+      {!isAdmin && (
+        <div className="bg-white rounded-xl p-6 mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
+          <h2 className="font-semibold text-gray-900 mb-4">Referenti</h2>
+          <div className="space-y-4">
+            {/* A: Referente progetto */}
+            {progetto && (progetto.ref_name || progetto.ref_email) && (
+              <div>
+                <div className="mb-1.5">
+                  <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-gray-100 text-gray-600">Referente progetto</span>
+                </div>
+                <div className="pl-0.5">
+                  {progetto.ref_name && <div className="font-medium text-gray-900 text-sm">{progetto.ref_name}</div>}
+                  {progetto.ref_email && <a href={`mailto:${progetto.ref_email}`} className="text-sm text-blue-600 hover:underline">{progetto.ref_email}</a>}
+                  {progetto.ref_tel && (
+                    <div className="text-sm text-gray-400 mt-0.5">
+                      <a href={`tel:${progetto.ref_tel}`} className="hover:text-gray-600">{progetto.ref_tel}</a>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            {/* B: Referente corso */}
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="mb-1.5">
+                  <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-blue-100 text-blue-700">Referente corso</span>
+                </div>
+                {corso.referente_corso_nome || corso.referente_corso_email ? (
+                  <div className="pl-0.5">
+                    {corso.referente_corso_nome && <div className="font-medium text-gray-900 text-sm">{corso.referente_corso_nome}</div>}
+                    {corso.referente_corso_email && (
+                      <a href={`mailto:${corso.referente_corso_email}`} className="text-sm text-blue-600 hover:underline">{corso.referente_corso_email}</a>
+                    )}
+                    {corso.referente_corso_telefono && (
+                      <div className="text-sm text-gray-400 mt-0.5">
+                        <a href={`tel:${corso.referente_corso_telefono}`} className="hover:text-gray-600">{corso.referente_corso_telefono}</a>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-400 pl-0.5">Nessun referente specifico per questo corso.</p>
+                )}
+              </div>
+              <button
+                onClick={() => {
+                  setReferenteCorsoForm({
+                    referente_corso_nome: corso.referente_corso_nome || '',
+                    referente_corso_email: corso.referente_corso_email || '',
+                    referente_corso_telefono: corso.referente_corso_telefono || '',
+                  })
+                  setReferenteCorsoEditOpen(true)
+                }}
+                className="shrink-0 text-xs text-gray-400 hover:text-gray-700 border border-gray-200 hover:bg-gray-50 px-2.5 py-1.5 rounded-[7px] transition-colors"
+              >
+                {corso.referente_corso_nome ? 'Modifica' : 'Aggiungi'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Referente corso (specifico per questo corso, diverso dal referente progetto) */}
       {isAdmin && (

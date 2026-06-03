@@ -48,9 +48,23 @@ export default async function ProgettoFormatorePage({ params }: { params: Promis
     for (const r of referenti || []) referentiMap.set(r.id, r)
   }
 
+  // Fetch ore erogate (completed sessions) for all corsi in this project
+  const corsiIds = corsi.map(c => c.id as string)
+  const { data: sessioni_completate } = await admin
+    .from('sessioni')
+    .select('corso_id, ore')
+    .in('corso_id', corsiIds)
+    .eq('completata', true)
+
+  const oreErogateMap = new Map<string, number>()
+  for (const s of sessioni_completate || []) {
+    oreErogateMap.set(s.corso_id, (oreErogateMap.get(s.corso_id) ?? 0) + Number(s.ore))
+  }
+
   const corsiConReferente = corsi.map(c => ({
     ...c,
     referente: c.referente_id ? referentiMap.get(c.referente_id) || null : null,
+    ore_erogate: oreErogateMap.get(c.id as string) ?? 0,
   }))
 
   const { data: finanziamenti } = await supabase.from('finanziamenti').select('id,nome').order('nome')

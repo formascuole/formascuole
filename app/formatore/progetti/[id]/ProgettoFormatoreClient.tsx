@@ -1,11 +1,10 @@
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { CorsoConOre } from '@/lib/types'
 import { OreCounter } from '@/components/ui/OreCounter'
 import { StatusBadge } from '@/components/ui/StatusBadge'
-import { ProgressBar } from '@/components/ui/ProgressBar'
+import { DualProgressBar } from '@/components/ui/DualProgressBar'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
@@ -33,6 +32,7 @@ function badgeColor(nome: string) {
 type ReferenteInfo = { id: string; nome: string; email: string; tel?: string } | null
 interface CorsoConReferente extends Omit<CorsoConOre, 'referente'> {
   referente?: ReferenteInfo
+  ore_erogate?: number
 }
 
 interface ProgettoInfo {
@@ -181,16 +181,16 @@ export function ProgettoFormatoreClient({ progetto, corsi, finanziamenti, format
         </div>
       )}
 
-      {/* Back link */}
-      <Link
-        href="/formatore/progetti"
+      {/* Back button */}
+      <button
+        onClick={() => router.back()}
         className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700 mb-6 transition-colors"
       >
         <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
           <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
-        Tutti i progetti
-      </Link>
+        Indietro
+      </button>
 
       {/* Header progetto */}
       <div className="bg-white rounded-xl px-5 py-5 mb-6" style={{ border: '0.5px solid #e5e5e5' }}>
@@ -239,6 +239,7 @@ export function ProgettoFormatoreClient({ progetto, corsi, finanziamenti, format
         {corsi.map(corso => {
           const oreTot = Number(corso.ore_totali)
           const orePian = Number(corso.ore_pianificate)
+          const oreErog = Number(corso.ore_erogate ?? 0)
           const oreRes = Math.max(oreTot - orePian, 0)
           const pct = oreTot > 0 ? Math.min(Math.round((orePian / oreTot) * 100), 100) : 0
           const stato = corso.calendario_completo
@@ -341,7 +342,7 @@ export function ProgettoFormatoreClient({ progetto, corsi, finanziamenti, format
                   </div>
                 )}
               </div>
-              <ProgressBar value={pct} size="sm" />
+              <DualProgressBar oreTotali={oreTot} orePianificate={orePian} oreErogate={oreErog} size="sm" />
               {corso.link_scheda && (
                 <div className="mt-2">
                   <a
