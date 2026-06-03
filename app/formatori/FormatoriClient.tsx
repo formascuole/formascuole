@@ -19,6 +19,8 @@ interface UtenteConStats {
   avatar_initials: string
   role: UserRole
   roles: UserRole[]
+  profilo_completo?: boolean | null
+  tariffa_oraria_formatore?: number | null
   // Formatore stats
   n_corsi_formatore: number
   ore_formatore: number
@@ -256,6 +258,7 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
               <th className="text-center text-xs font-medium text-gray-400 px-2 py-3">ORE</th>
               <th className="text-left text-xs font-medium text-gray-400 px-3 py-3 min-w-[110px]">PIANIF. %</th>
               <th className="text-center text-xs font-medium text-gray-400 px-2 py-3">ACCETT. %</th>
+              <th className="text-center text-xs font-medium text-gray-400 px-2 py-3">PROFILO</th>
               <th className="px-3 py-3"></th>
             </tr>
           </thead>
@@ -328,6 +331,30 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
                     </>
                   )
                 })()}
+                <td className="px-2 py-3 text-center">
+                  {(u.roles || [u.role]).includes('formatore') ? (() => {
+                    if (u.profilo_completo && u.tariffa_oraria_formatore != null) {
+                      return (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-md bg-green-100 text-green-700">
+                          <svg width="9" height="9" fill="none" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>
+                          Completo
+                        </span>
+                      )
+                    }
+                    if (u.profilo_completo) {
+                      return (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-md bg-amber-100 text-amber-700">
+                          Manca tariffa
+                        </span>
+                      )
+                    }
+                    return (
+                      <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-md bg-red-100 text-red-700">
+                        Incompleto
+                      </span>
+                    )
+                  })() : <span className="text-gray-300">—</span>}
+                </td>
                 <td className="px-3 py-3">
                   <div className="flex items-center justify-end gap-1">
                     <button
@@ -374,7 +401,7 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={9} className="px-6 py-12 text-center text-sm text-gray-400">
+                <td colSpan={10} className="px-6 py-12 text-center text-sm text-gray-400">
                   {search ? 'Nessun utente trovato per questa ricerca' : 'Nessun utente registrato'}
                 </td>
               </tr>
