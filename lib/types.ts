@@ -16,6 +16,19 @@ export interface Profile {
   avatar_initials: string
   created_at: string
   roles?: UserRole[]      // all assigned roles (from profiles_roles)
+  // Onboarding / fiscal fields
+  luogo_nascita?: string | null
+  data_nascita?: string | null
+  codice_fiscale?: string | null
+  indirizzo_via?: string | null
+  indirizzo_cap?: string | null
+  indirizzo_citta?: string | null
+  indirizzo_provincia?: string | null
+  iban?: string | null
+  banca?: string | null
+  intestatario_conto?: string | null
+  profilo_completo?: boolean | null
+  password_cambiata?: boolean | null
 }
 
 export interface Finanziamento {

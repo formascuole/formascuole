@@ -72,9 +72,36 @@ export async function middleware(request: NextRequest) {
     return res
   }
 
+  // ── Onboarding redirect for formatori/tutori ───────────────────────────
+  // /onboarding is exempt to avoid an infinite redirect loop.
+  // We query only 3 columns by PK — the smallest possible footprint.
+  // On DB error we silently let through; the page itself handles auth.
+  if (!pathname.startsWith('/onboarding')) {
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role, password_cambiata, profilo_completo')
+        .eq('id', user.id)
+        .single()
+
+      if (profile && (profile.role === 'formatore' || profile.role === 'tutor')) {
+        if (!profile.password_cambiata || !profile.profilo_completo) {
+          const url = request.nextUrl.clone()
+          url.pathname = '/onboarding'
+          url.search = ''
+          const res = NextResponse.redirect(url)
+          supabaseResponse.cookies.getAll().forEach(({ name, value }) =>
+            res.cookies.set(name, value)
+          )
+          return res
+        }
+      }
+    } catch {
+      // DB unavailable → let through, pages handle their own auth
+    }
+  }
+
   // Authenticated — let the server component decide role-based access.
-  // NO DB queries here. Role checks in the middleware caused the loop
-  // when profiles were null (dashboard→formatore→dashboard→...).
   return supabaseResponse
 }
 

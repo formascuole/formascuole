@@ -152,6 +152,7 @@ export default async function UtenteDetailPage({ params }: { params: Promise<{ i
         oreErogateTutor={oreErogateTutor}
         oreErogatePerCorsoFormatore={oreErogatePerCorsoFormatore}
         oreErogatePerCorsoTutor={oreErogatePerCorsoTutor}
+        isAdmin={['admin', 'super_admin'].includes(currentProfile.role)}
       />
     </AppLayout>
   )

@@ -30,6 +30,7 @@ interface UtenteDetailClientProps {
   oreErogateTutor?: number
   oreErogatePerCorsoFormatore?: Record<string, number>
   oreErogatePerCorsoTutor?: Record<string, number>
+  isAdmin: boolean
 }
 
 function corsoStato(c: CorsoConOre, oreErogate: number): { label: string; color: string } {
@@ -111,7 +112,7 @@ function CorsiTable({ corsi, oreErogateMap = {} }: { corsi: CorsoConProgetto[]; 
   )
 }
 
-export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSuperAdmin, currentUserId, nRifiutati = 0, tassoAccettazione = null, questionari = [], mediaGlobale = null, oreErogateFormatore = 0, oreErogateTutor = 0, oreErogatePerCorsoFormatore = {}, oreErogatePerCorsoTutor = {} }: UtenteDetailClientProps) {
+export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSuperAdmin, currentUserId, nRifiutati = 0, tassoAccettazione = null, questionari = [], mediaGlobale = null, oreErogateFormatore = 0, oreErogateTutor = 0, oreErogatePerCorsoFormatore = {}, oreErogatePerCorsoTutor = {}, isAdmin }: UtenteDetailClientProps) {
   const router = useRouter()
   const [deleteOpen, setDeleteOpen] = useState(false)
 
@@ -154,6 +155,11 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
                   {ROLE_LABELS[r]}
                 </span>
               ))}
+              {(profile.roles.includes('formatore') || profile.roles.includes('tutor')) && (
+                profile.profilo_completo
+                  ? <span className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md bg-green-100 text-green-700">Profilo completo</span>
+                  : <span className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md bg-red-100 text-red-700">Profilo incompleto</span>
+              )}
             </div>
           </div>
           <div className="flex flex-col items-end gap-3 shrink-0">
@@ -275,6 +281,25 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
         </div>
       )}
 
+      {/* Dati fiscali e bancari — visibile solo ad admin */}
+      {isAdmin && (profile.roles.includes('formatore') || profile.roles.includes('tutor')) && (
+        <div className="bg-white rounded-xl p-6 mt-6" style={{ border: '0.5px solid #e5e5e5' }}>
+          <h2 className="font-semibold text-gray-900 mb-4">Dati fiscali e bancari</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
+            <FiscalAdminRow label="Luogo di nascita" value={profile.luogo_nascita} />
+            <FiscalAdminRow label="Data di nascita" value={profile.data_nascita
+              ? new Date(profile.data_nascita).toLocaleDateString('it-IT', { day: '2-digit', month: 'long', year: 'numeric' })
+              : null
+            } />
+            <FiscalAdminRow label="Codice fiscale" value={profile.codice_fiscale} mono />
+            <FiscalAdminRow label="Indirizzo" value={[profile.indirizzo_via, profile.indirizzo_cap, profile.indirizzo_citta, profile.indirizzo_provincia].filter(Boolean).join(', ') || null} />
+            <FiscalAdminRow label="IBAN" value={profile.iban} mono />
+            <FiscalAdminRow label="Banca" value={profile.banca} />
+            <FiscalAdminRow label="Intestatario conto" value={profile.intestatario_conto} />
+          </div>
+        </div>
+      )}
+
       <DeleteConfirmModal
         open={deleteOpen}
         onClose={() => setDeleteOpen(false)}
@@ -290,6 +315,17 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
           router.push('/formatori')
         }}
       />
+    </div>
+  )
+}
+
+function FiscalAdminRow({ label, value, mono }: { label: string; value: string | null | undefined; mono?: boolean }) {
+  return (
+    <div className="flex items-center justify-between py-2 border-b border-gray-50">
+      <span className="text-sm text-gray-500">{label}</span>
+      <span className={`text-sm font-medium text-gray-900 ${mono ? 'font-mono' : ''}`}>
+        {value || <span className="text-gray-300">—</span>}
+      </span>
     </div>
   )
 }

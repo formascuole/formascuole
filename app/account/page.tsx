@@ -41,6 +41,16 @@ export default async function AccountPage() {
         role={profile.role}
         avatarInitials={profile.avatar_initials}
         createdAt={profile.created_at}
+        luogo_nascita={profile.luogo_nascita ?? null}
+        data_nascita={profile.data_nascita ?? null}
+        codice_fiscale={profile.codice_fiscale ?? null}
+        indirizzo_via={profile.indirizzo_via ?? null}
+        indirizzo_cap={profile.indirizzo_cap ?? null}
+        indirizzo_citta={profile.indirizzo_citta ?? null}
+        indirizzo_provincia={profile.indirizzo_provincia ?? null}
+        iban={profile.iban ?? null}
+        banca={profile.banca ?? null}
+        intestatario_conto={profile.intestatario_conto ?? null}
       />
     </AppLayout>
   )
