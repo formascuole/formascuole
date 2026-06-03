@@ -242,7 +242,7 @@ export function ProgettoFormatoreClient({ progetto, corsi, finanziamenti, format
           const oreRes = Math.max(oreTot - orePian, 0)
           const pct = oreTot > 0 ? Math.min(Math.round((orePian / oreTot) * 100), 100) : 0
           const stato = corso.calendario_completo
-            ? { label: 'Completato', bg: '#dcfce7', text: '#166534' }
+            ? { label: 'Pianificato', bg: '#dcfce7', text: '#166534' }
             : orePian === 0
             ? { label: 'Da pianificare', bg: '#f3f4f6', text: '#6b7280' }
             : { label: 'In corso', bg: '#dbeafe', text: '#1e40af' }
@@ -292,6 +292,14 @@ export function ProgettoFormatoreClient({ progetto, corsi, finanziamenti, format
                     >
                       {stato.label}
                     </span>
+                    {(corso as CorsoConReferente & { corso_completato?: boolean }).corso_completato && (
+                      <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-700">
+                        <svg width="9" height="9" fill="none" viewBox="0 0 24 24">
+                          <polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
+                        </svg>
+                        Completato
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center gap-4 text-xs text-gray-400">
                     <span>{oreTot}h totali</span>

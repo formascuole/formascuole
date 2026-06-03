@@ -112,6 +112,9 @@ export interface Corso {
   calendario_inviato_at?: string | null
   calendario_confermato?: boolean
   calendario_confermato_at?: string | null
+  corso_completato?: boolean
+  corso_completato_at?: string | null
+  tariffa_oraria?: number | null
 }
 
 export interface Candidatura {

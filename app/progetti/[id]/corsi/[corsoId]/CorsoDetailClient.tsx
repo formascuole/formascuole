@@ -138,6 +138,18 @@ export function CorsoDetailClient({
   const [calendarioConfermatoLocal, setCalendarioConfermatoLocal] = useState(corso.calendario_confermato ?? false)
   const [calendarioInviatoAt, setCalendarioInviatoAt] = useState(corso.calendario_inviato_at ?? null)
 
+  // Completamento corso
+  const [completamentoModalOpen, setCompletamentoModalOpen] = useState(false)
+  const [completamentoLoading, setCompletamentoLoading] = useState(false)
+  const [completamentoError, setCompletamentoError] = useState<string | null>(null)
+  const [corsoCompletatoLocal, setCorsoCompletatoLocal] = useState(corso.corso_completato ?? false)
+  const [corsoCompletatoAtLocal, setCorsoCompletatoAtLocal] = useState(corso.corso_completato_at ?? null)
+
+  // Tariffa oraria (admin edit)
+  const [tariffaModalOpen, setTariffaModalOpen] = useState(false)
+  const [tariffaForm, setTariffaForm] = useState(corso.tariffa_oraria != null ? String(corso.tariffa_oraria) : '')
+  const [savingTariffa, setSavingTariffa] = useState(false)
+
   // Time-to-ore helper (round to nearest 0.5h)
   const calcOreFromTime = (start: string, end: string): number => {
     const [sh, sm] = start.split(':').map(Number)
@@ -470,6 +482,42 @@ export function CorsoDetailClient({
     }
   }
 
+  const handleCompletaCorso = async () => {
+    setCompletamentoLoading(true)
+    setCompletamentoError(null)
+    try {
+      const res = await fetch(`/api/corsi/${corso.id}/completamento`, { method: 'POST' })
+      if (res.ok) {
+        setCorsoCompletatoLocal(true)
+        setCorsoCompletatoAtLocal(new Date().toISOString())
+        setCompletamentoModalOpen(false)
+        router.refresh()
+      } else {
+        const j = await res.json().catch(() => ({}))
+        setCompletamentoError(j.error || 'Errore durante il completamento')
+      }
+    } finally {
+      setCompletamentoLoading(false)
+    }
+  }
+
+  const handleSaveTariffa = async () => {
+    setSavingTariffa(true)
+    try {
+      const res = await fetch(`/api/corsi/${corso.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tariffa_oraria: tariffaForm.trim() ? Number(tariffaForm) : null }),
+      })
+      if (res.ok) {
+        setTariffaModalOpen(false)
+        router.refresh()
+      }
+    } finally {
+      setSavingTariffa(false)
+    }
+  }
+
   // Sessions stats for the counter
   const today = new Date().toISOString().split('T')[0]
   const sessioniCompletate = sessioni.filter(s => s.completata).length
@@ -486,6 +534,8 @@ export function CorsoDetailClient({
     ? Math.round(oreTutoraggio * (oreErogate / oreTotaliNum))
     : 0
   const pctTutor = oreTutoraggio > 0 ? Math.round((oreTutorErogate / oreTutoraggio) * 100) : 0
+
+  const canMarkComplete = !isAdmin && !corsoCompletatoLocal && oreErogate >= Number(corso.ore_totali) && Number(corso.ore_totali) > 0
 
   return (
     <div className="p-8 max-w-4xl mx-auto">
@@ -524,6 +574,19 @@ export function CorsoDetailClient({
                 In attesa conferma
               </span>
             ) : null}
+            {corsoCompletatoLocal && (
+              <span className="inline-flex items-center gap-1 text-xs text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-md font-medium">
+                <svg width="10" height="10" fill="none" viewBox="0 0 24 24">
+                  <polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
+                </svg>
+                Completato dal formatore
+                {corsoCompletatoAtLocal && (
+                  <span className="font-normal ml-1">
+                    il {new Date(corsoCompletatoAtLocal).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' })}
+                  </span>
+                )}
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <button
@@ -964,6 +1027,47 @@ export function CorsoDetailClient({
           ) : isAdmin ? (
             <p className="text-sm text-gray-400">Nessun link scheda impostato.</p>
           ) : null}
+        </div>
+      )}
+
+      {/* Tariffa oraria */}
+      {(isAdmin || (corso.tariffa_oraria != null && !isAdmin)) && (
+        <div className="bg-white rounded-xl p-6 mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="font-semibold text-gray-900">Tariffa oraria</h2>
+              <p className="text-sm text-gray-600 mt-1">
+                {corso.tariffa_oraria != null
+                  ? `€ ${Number(corso.tariffa_oraria).toFixed(2)}/h`
+                  : <span className="text-gray-400">Non definita</span>
+                }
+              </p>
+            </div>
+            {isAdmin && (
+              <Button variant="secondary" size="sm" onClick={() => {
+                setTariffaForm(corso.tariffa_oraria != null ? String(corso.tariffa_oraria) : '')
+                setTariffaModalOpen(true)
+              }}>
+                {corso.tariffa_oraria != null ? 'Modifica' : 'Imposta'}
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Bottone corso completato — solo formatore quando 100% erogato */}
+      {canMarkComplete && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-5 mb-4 flex items-center justify-between gap-4">
+          <div>
+            <div className="font-semibold text-emerald-800 text-sm">Tutte le ore sono state erogate</div>
+            <div className="text-xs text-emerald-600 mt-0.5">Puoi dichiarare il corso concluso per ricevere il riepilogo con le istruzioni di pagamento.</div>
+          </div>
+          <Button onClick={() => setCompletamentoModalOpen(true)}>
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
+              <polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            Corso completato
+          </Button>
         </div>
       )}
 
@@ -1734,6 +1838,55 @@ export function CorsoDetailClient({
         corsoId={corso.id}
         hasFormatore={!!corso.formatore}
       />
+
+      {/* Modal conferma completamento corso */}
+      <Modal
+        open={completamentoModalOpen}
+        onClose={() => { setCompletamentoModalOpen(false); setCompletamentoError(null) }}
+        title="Conferma completamento corso"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setCompletamentoModalOpen(false)}>Annulla</Button>
+            <Button onClick={handleCompletaCorso} loading={completamentoLoading}>Conferma</Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <p className="text-sm text-gray-700">
+            Confermi il completamento del corso <strong>{corso.title}</strong> presso <strong>{progetto?.school_name}</strong>?
+          </p>
+          <p className="text-sm text-gray-500">
+            Verrà inviata una mail riepilogativa con le istruzioni per il pagamento.
+          </p>
+          {completamentoError && <p className="text-sm text-red-600">{completamentoError}</p>}
+        </div>
+      </Modal>
+
+      {/* Modal tariffa oraria (admin only) */}
+      <Modal
+        open={tariffaModalOpen}
+        onClose={() => setTariffaModalOpen(false)}
+        title="Tariffa oraria"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setTariffaModalOpen(false)}>Annulla</Button>
+            <Button onClick={handleSaveTariffa} loading={savingTariffa}>Salva</Button>
+          </>
+        }
+      >
+        <Input
+          label="Tariffa oraria (€)"
+          type="number"
+          min={0}
+          step={0.01}
+          value={tariffaForm}
+          onChange={e => setTariffaForm(e.target.value)}
+          placeholder="Es. 45.00"
+          hint="Lascia vuoto per rimuovere la tariffa"
+        />
+      </Modal>
     </div>
   )
 }

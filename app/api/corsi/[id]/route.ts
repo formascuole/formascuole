@@ -17,6 +17,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const updates: Record<string, unknown> = {}
   if ('link_scheda' in body) updates.link_scheda = body.link_scheda?.trim() || null
   if ('descrizione' in body) updates.descrizione = body.descrizione?.trim() || null
+  if ('tariffa_oraria' in body) {
+    const t = body.tariffa_oraria
+    updates.tariffa_oraria = t !== null && t !== '' ? Number(t) : null
+  }
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: 'Nessun campo da aggiornare' }, { status: 400 })

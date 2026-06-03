@@ -911,6 +911,115 @@ Il team Formascuole`
   return { subject, body }
 }
 
+// ─── Corso Completato (formatore) ─────────────────────────────────────────────
+
+interface CompletamentoFormatoreParams {
+  formatore_nome: string
+  formatore_email: string
+  corso_title: string
+  school_name: string
+  data_prima_sessione: string
+  data_ultima_sessione: string
+  ore_erogate: number
+  tariffa_oraria?: number | null
+  finanziamento?: string | null
+}
+
+function fallbackCompletamentoFormatoreEmail(p: CompletamentoFormatoreParams): string {
+  const hasRates = p.tariffa_oraria && p.tariffa_oraria > 0
+  const imponibile = hasRates ? +(p.ore_erogate * p.tariffa_oraria!).toFixed(2) : 0
+  const ritenuta = hasRates ? +(imponibile * 0.2).toFixed(2) : 0
+  const netto = hasRates ? +(imponibile - ritenuta).toFixed(2) : 0
+
+  return `Gentile ${p.formatore_nome},
+
+il corso ${p.corso_title} presso ${p.school_name} si è concluso regolarmente.
+
+RIEPILOGO INCARICO:
+- Corso: ${p.corso_title}
+- Scuola: ${p.school_name}
+- Periodo: ${p.data_prima_sessione} — ${p.data_ultima_sessione}
+- Ore erogate: ${p.ore_erogate}h${p.finanziamento ? `\n- Linea di finanziamento: ${p.finanziamento}` : ''}${
+  hasRates ? `
+- Tariffa oraria: € ${p.tariffa_oraria!.toFixed(2)}/h
+- Imponibile: € ${imponibile.toFixed(2)}
+- Ritenuta d'acconto 20%: € ${ritenuta.toFixed(2)}
+- Netto a pagare: € ${netto.toFixed(2)}` : ''
+}
+
+${hasRates ? `Per procedere con il pagamento invia la tua pro forma (notula senza marca da bollo) a:
+amministrazione@formascuole.it
+
+La pro forma deve riportare:
+- I tuoi dati anagrafici e fiscali
+- I dati di SVC Consulting Srl come committente
+- La descrizione della prestazione
+- L'importo con ritenuta d'acconto 20%
+- Le tue coordinate bancarie (IBAN)` : `Per l'importo del compenso attendi comunicazione da amministrazione@formascuole.it`}
+
+Cordiali saluti,
+Il team Formascuole`
+}
+
+export async function generateCompletamentoFormatoreEmail(p: CompletamentoFormatoreParams): Promise<{ subject: string; body: string }> {
+  const subject = `Riepilogo corso completato — ${p.corso_title} — ${p.school_name}`
+  const hasRates = p.tariffa_oraria && p.tariffa_oraria > 0
+  const imponibile = hasRates ? +(p.ore_erogate * p.tariffa_oraria!).toFixed(2) : 0
+  const ritenuta = hasRates ? +(imponibile * 0.2).toFixed(2) : 0
+  const netto = hasRates ? +(imponibile - ritenuta).toFixed(2) : 0
+
+  try {
+    const message = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 700,
+      messages: [{
+        role: 'user',
+        content: `Genera un'email professionale e cordiale in italiano per un formatore al termine di un corso.
+
+Dati:
+- Nome formatore: ${p.formatore_nome}
+- Titolo corso: ${p.corso_title}
+- Scuola: ${p.school_name}
+- Periodo: ${p.data_prima_sessione} — ${p.data_ultima_sessione}
+- Ore erogate: ${p.ore_erogate}h${p.finanziamento ? `\n- Linea di finanziamento: ${p.finanziamento}` : ''}${
+  hasRates ? `
+- Tariffa oraria: € ${p.tariffa_oraria!.toFixed(2)}/h
+- Imponibile: € ${imponibile.toFixed(2)}
+- Ritenuta d'acconto 20%: € ${ritenuta.toFixed(2)}
+- Netto a pagare: € ${netto.toFixed(2)}` : ''
+}
+
+Struttura richiesta:
+"Gentile ${p.formatore_nome},
+
+il corso ${p.corso_title} presso ${p.school_name} si è concluso regolarmente.
+
+RIEPILOGO INCARICO:
+[elenco dati sopra]
+
+${hasRates ? `Per procedere con il pagamento invia la tua pro forma (notula senza marca da bollo) a:
+amministrazione@formascuole.it
+
+La pro forma deve riportare:
+- I tuoi dati anagrafici e fiscali
+- I dati di SVC Consulting Srl come committente
+- La descrizione della prestazione
+- L'importo con ritenuta d'acconto 20%
+- Le tue coordinate bancarie (IBAN)` : `Per l'importo del compenso attendi comunicazione da amministrazione@formascuole.it`}
+
+Cordiali saluti,
+Il team Formascuole"
+
+Rispondi SOLO con il corpo dell'email in testo semplice (no HTML, no oggetto). Tono professionale e caloroso.`,
+      }],
+    })
+    return { subject, body: (message.content[0] as { type: string; text: string }).text }
+  } catch (err) {
+    console.error('[email] Anthropic non disponibile, fallback completamento formatore:', err)
+    return { subject, body: fallbackCompletamentoFormatoreEmail(p) }
+  }
+}
+
 // ─── Sender ───────────────────────────────────────────────────────────────────
 
 export async function sendEmail({
