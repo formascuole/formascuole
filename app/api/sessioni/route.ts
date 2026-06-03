@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { maybeNotificaCalendarioCompleto } from '@/lib/notifiche-corso'
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient()
@@ -76,5 +77,11 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Notifica calendario completo (fire-and-forget, non blocca la risposta)
+  maybeNotificaCalendarioCompleto(corso_id).catch(err =>
+    console.error('[notifica] Errore calendario completo (POST sessione):', err)
+  )
+
   return NextResponse.json(data, { status: 201 })
 }

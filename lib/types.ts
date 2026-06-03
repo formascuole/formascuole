@@ -4,7 +4,7 @@ export type ProjectStatus = 'active' | 'pending' | 'completed'
 export type CorsoTipo = 'PF' | 'Lab'
 export type ModalitaCorso = 'presenza' | 'online' | 'ibrido'
 export type ModalitaSessione = 'presenza' | 'online'
-export type SollectipoTipo = 'assegnazione' | 'sollecito_1' | 'sollecito_2' | 'sollecito_3' | 'reminder_sessione' | 'reminder_accettazione' | 'reminder_questionario' | 'reminder_candidatura'
+export type SollectipoTipo = 'assegnazione' | 'sollecito_1' | 'sollecito_2' | 'sollecito_3' | 'reminder_sessione' | 'reminder_accettazione' | 'reminder_questionario' | 'reminder_candidatura' | 'notifica_calendario_completo' | 'notifica_corso_concluso'
 export type StatoAssegnazione = 'non_assegnato' | 'in_attesa' | 'accettato' | 'rifiutato'
 export type StatoCandidatura = 'in_attesa' | 'selezionato' | 'non_selezionato'
 

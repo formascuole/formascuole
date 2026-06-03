@@ -679,6 +679,101 @@ Rispondi SOLO con il corpo dell'email in testo semplice (no HTML, no oggetto ema
   }
 }
 
+// ─── Calendario Completo ──────────────────────────────────────────────────────
+
+interface CalendarioCompletoParams {
+  corso_title: string
+  school_name: string
+  formatore_nome: string
+  ore_totali: number
+  finanziamento?: string | null
+  corso_url: string
+}
+
+export function generateCalendarioCompletoEmail(p: CalendarioCompletoParams): { subject: string; body: string } {
+  const subject = `Calendario completo — ${p.corso_title} — ${p.school_name}`
+  const body = `Il calendario del corso "${p.corso_title}" presso ${p.school_name} è completo.
+
+Riepilogo:
+- Formatore: ${p.formatore_nome}
+- Ore totali: ${p.ore_totali}h${p.finanziamento ? `\n- Linea di finanziamento: ${p.finanziamento}` : ''}
+
+Tutte le ${p.ore_totali} ore sono state pianificate.
+
+Grazie,
+Il team Formascuole`
+  return { subject, body }
+}
+
+// ─── Corso Concluso ───────────────────────────────────────────────────────────
+
+interface CorsoConclusoParams {
+  corso_title: string
+  school_name: string
+  formatore_nome: string
+  tutor_nome?: string | null
+  ore_totali: number
+  data_ultima_sessione: string
+  finanziamento?: string | null
+  corso_url: string
+}
+
+function fallbackCorsoConclusoEmail(p: CorsoConclusoParams): string {
+  return `Il corso "${p.corso_title}" presso ${p.school_name} è stato completato.
+
+Riepilogo:
+- Formatore: ${p.formatore_nome}${p.tutor_nome ? `\n- Tutor: ${p.tutor_nome}` : ''}
+- Ore totali: ${p.ore_totali}h
+- Data ultima sessione: ${p.data_ultima_sessione}${p.finanziamento ? `\n- Linea di finanziamento: ${p.finanziamento}` : ''}
+
+Accedi alla piattaforma per i dettagli:
+${p.corso_url}
+
+Grazie,
+Il team Formascuole`
+}
+
+export async function generateCorsoConclusoEmail(p: CorsoConclusoParams): Promise<{ subject: string; body: string }> {
+  const subject = `Corso concluso — ${p.corso_title} — ${p.school_name}`
+  try {
+    const message = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 500,
+      messages: [{
+        role: 'user',
+        content: `Genera un'email di notifica professionale in italiano per informare il team di pianificazione che un corso è stato completato.
+
+Dati:
+- Titolo corso: ${p.corso_title}
+- Scuola: ${p.school_name}
+- Formatore: ${p.formatore_nome}${p.tutor_nome ? `\n- Tutor: ${p.tutor_nome}` : ''}
+- Ore totali: ${p.ore_totali}h
+- Data ultima sessione: ${p.data_ultima_sessione}${p.finanziamento ? `\n- Linea di finanziamento: ${p.finanziamento}` : ''}
+- Link corso: ${p.corso_url}
+
+Struttura richiesta:
+"Il corso [titolo] presso [scuola] è stato completato.
+
+Riepilogo:
+- Formatore: [nome]
+[- Tutor: [nome] solo se presente]
+- Ore totali: [ore]h
+- Data ultima sessione: [data]
+[- Linea di finanziamento: [nome] solo se presente]
+
+Accedi alla piattaforma per i dettagli:
+[link]"
+
+Rispondi SOLO con il corpo dell'email in testo semplice. Tono professionale.`,
+      }],
+    })
+    return { subject, body: (message.content[0] as { type: string; text: string }).text }
+  } catch (err) {
+    console.error('[email] Anthropic non disponibile, fallback corso concluso:', err)
+    return { subject, body: fallbackCorsoConclusoEmail(p) }
+  }
+}
+
 // ─── Sender ───────────────────────────────────────────────────────────────────
 
 export async function sendEmail({

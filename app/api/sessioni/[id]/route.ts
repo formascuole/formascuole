@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { generateModificaSessioneEmail, sendEmail } from '@/lib/email'
+import { maybeNotificaCalendarioCompleto, maybeNotificaCorsoConcluso } from '@/lib/notifiche-corso'
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -66,6 +67,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Notifica corso concluso
+  maybeNotificaCorsoConcluso(sessione.corso_id).catch(err =>
+    console.error('[notifica] Errore corso concluso:', err)
+  )
+
   return NextResponse.json(data)
 }
 
@@ -164,6 +171,13 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         (admins || []).map(a => sendEmail({ to: a.email, subject, body: emailBody, actions: [{ label: 'Vedi corso', url: corsoUrl, primary: true }] }))
       )
     }
+  }
+
+  // Notifica calendario completo (solo se le ore sono cambiate)
+  if (oreChanged) {
+    maybeNotificaCalendarioCompleto(sessione.corso_id).catch(err =>
+      console.error('[notifica] Errore calendario completo (PUT sessione):', err)
+    )
   }
 
   return NextResponse.json(updated)
