@@ -101,6 +101,31 @@ interface EmailAction {
   primary?: boolean
 }
 
+// ─── Shared blocks ────────────────────────────────────────────────────────────
+
+function pwaInstallBlock(): string {
+  return `
+---
+
+📱 INSTALLA L'APP SUL TUO TELEFONO
+
+iPhone/iPad:
+1. Apri Safari e vai su ${APP_URL}
+2. Tocca l'icona Condividi (quadrato con freccia)
+3. Scorri e tocca "Aggiungi a schermata Home"
+4. Tocca "Aggiungi"
+
+Android:
+1. Apri Chrome e vai su ${APP_URL}
+2. Tocca i tre puntini in alto a destra
+3. Tocca "Aggiungi a schermata Home"
+4. Tocca "Aggiungi"
+
+L'app apparirà sulla tua schermata home come una normale app!
+
+---`
+}
+
 // ─── Fallback template helpers ────────────────────────────────────────────────
 
 function fallbackAssegnazioneEmail(p: AssegnazioneEmailParams): string {
@@ -254,8 +279,26 @@ ISTRUZIONI PER IL PRIMO ACCESSO:
 Ti consigliamo di conservare queste credenziali in modo sicuro e di non condividerle con nessuno.
 
 In caso di problemi di accesso, contatta il tuo amministratore di sistema.
+${pwaInstallBlock()}
 
 Benvenuto/a nel team Formascuole!
+
+Cordiali saluti,
+Il team Formascuole`
+}
+
+export function generateReinvioCredenzialiEmail({ nome, email, password }: BenvenutoEmailParams): string {
+  return `Gentile ${nome},
+
+le tue credenziali di accesso alla piattaforma Formascuole sono state aggiornate.
+
+  Email:    ${email}
+  Password: ${password}
+
+Accedi qui: ${APP_URL}
+
+Ti consigliamo di cambiare la password al primo accesso dalla sezione "Il mio account".
+${pwaInstallBlock()}
 
 Cordiali saluti,
 Il team Formascuole`

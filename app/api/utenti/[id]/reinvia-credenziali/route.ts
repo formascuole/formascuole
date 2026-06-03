@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { sendEmail } from '@/lib/email'
+import { sendEmail, generateReinvioCredenzialiEmail } from '@/lib/email'
 
 function generatePassword(length = 12): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'
@@ -28,20 +28,8 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   const { error: pwError } = await admin.auth.admin.updateUserById(id, { password: newPassword })
   if (pwError) return NextResponse.json({ error: pwError.message }, { status: 500 })
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.formascuole.it'
-  const body = `Gentile ${targetProfile.nome},
-
-le tue credenziali di accesso alla piattaforma Formascuole sono state aggiornate.
-
-Email: ${targetProfile.email}
-Password temporanea: ${newPassword}
-
-Accedi qui: ${appUrl}
-
-Ti consigliamo di cambiare la password al primo accesso dalla sezione "Il mio account".
-
-Grazie,
-Il team Formascuole`
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://formascuole.vercel.app'
+  const body = generateReinvioCredenzialiEmail({ nome: targetProfile.nome, email: targetProfile.email, password: newPassword })
 
   await sendEmail({
     to: targetProfile.email,
