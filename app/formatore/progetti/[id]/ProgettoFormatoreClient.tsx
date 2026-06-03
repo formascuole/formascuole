@@ -32,7 +32,6 @@ function badgeColor(nome: string) {
 type ReferenteInfo = { id: string; nome: string; email: string; tel?: string } | null
 interface CorsoConReferente extends Omit<CorsoConOre, 'referente'> {
   referente?: ReferenteInfo
-  ore_erogate?: number
 }
 
 interface ProgettoInfo {
@@ -239,7 +238,7 @@ export function ProgettoFormatoreClient({ progetto, corsi, finanziamenti, format
         {corsi.map(corso => {
           const oreTot = Number(corso.ore_totali)
           const orePian = Number(corso.ore_pianificate)
-          const oreErog = Number(corso.ore_erogate ?? 0)
+          const oreErog = Number(corso.ore_erogate)
           const oreRes = Math.max(oreTot - orePian, 0)
           const pct = oreTot > 0 ? Math.min(Math.round((orePian / oreTot) * 100), 100) : 0
           const stato = corso.calendario_completo

@@ -134,6 +134,7 @@ export interface Candidatura {
 
 export interface CorsoConOre extends Corso {
   ore_pianificate: number
+  ore_erogate: number
   ore_residue: number
   calendario_completo: boolean
   formatore?: Profile
