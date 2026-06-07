@@ -4,6 +4,7 @@ import { checkIsSuperAdmin, createAdminClient } from '@/lib/supabase/admin'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { UtenteDetailClient } from './UtenteDetailClient'
 import { UserRole } from '@/lib/types'
+import { getUnreadNotificheCount } from '@/lib/notifiche-utils'
 
 export default async function UtenteDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -72,10 +73,7 @@ export default async function UtenteDetailPage({ params }: { params: Promise<{ i
   const totRisposte = nAccettati + nRifiutati
   const tassoAccettazione = totRisposte > 0 ? Math.round((nAccettati / totRisposte) * 100) : null
 
-  const { count: notifiche } = await supabase
-    .from('solleciti_log')
-    .select('*', { count: 'exact', head: true })
-    .eq('tipo', 'sollecito_3')
+  const notifiche = await getUnreadNotificheCount(supabase, user.id)
 
   // Ore erogate come formatore
   const adminQ = createAdminClient()
@@ -136,7 +134,7 @@ export default async function UtenteDetailPage({ params }: { params: Promise<{ i
       nome={currentProfile.nome}
       email={currentProfile.email}
       avatarInitials={currentProfile.avatar_initials}
-      notificheBadge={notifiche || 0}
+      notificheBadge={notifiche}
     >
       <UtenteDetailClient
         profile={{ ...profile, roles }}

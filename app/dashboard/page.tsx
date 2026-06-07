@@ -6,6 +6,7 @@ import { DualProgressBar } from '@/components/ui/DualProgressBar'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { ProgettoConStats } from '@/lib/types'
 import Link from 'next/link'
+import { getUnreadNotificheCount } from '@/lib/notifiche-utils'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -60,10 +61,7 @@ export default async function DashboardPage() {
     if (oreEro > 0) oreErogatePerProgetto[c.project_id] = (oreErogatePerProgetto[c.project_id] ?? 0) + oreEro
   }
 
-  const { count: notifiche } = await supabase
-    .from('solleciti_log')
-    .select('*', { count: 'exact', head: true })
-    .eq('tipo', 'sollecito_3')
+  const notifiche = await getUnreadNotificheCount(supabase, user.id)
 
   // Calendario stats
   const { count: corsiDaPianificare } = await supabase
@@ -111,7 +109,7 @@ export default async function DashboardPage() {
       nome={profile.nome}
       email={profile.email}
       avatarInitials={profile.avatar_initials}
-      notificheBadge={notifiche || 0}
+      notificheBadge={notifiche}
     >
       <div className="p-8 max-w-7xl mx-auto">
         <div className="mb-8">

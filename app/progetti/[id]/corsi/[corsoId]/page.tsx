@@ -4,6 +4,7 @@ import { AppLayout } from '@/components/layout/AppLayout'
 import { CorsoDetailClient } from './CorsoDetailClient'
 import { Profile } from '@/lib/types'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getUnreadNotificheCount } from '@/lib/notifiche-utils'
 
 export default async function CorsoDetailPage({
   params,
@@ -115,9 +116,7 @@ export default async function CorsoDetailPage({
     .eq('corso_id', corsoId)
     .order('created_at', { ascending: true })
 
-  const { count: notifiche } = isAdmin
-    ? await supabase.from('solleciti_log').select('*', { count: 'exact', head: true }).eq('tipo', 'sollecito_3')
-    : { count: 0 }
+  const notifiche = isAdmin ? await getUnreadNotificheCount(supabase, user.id) : 0
 
   // Candidature (admin only)
   const adminQ = createAdminClient()
@@ -148,7 +147,7 @@ export default async function CorsoDetailPage({
       nome={profile.nome}
       email={profile.email}
       avatarInitials={profile.avatar_initials}
-      notificheBadge={notifiche || 0}
+      notificheBadge={notifiche}
       isSuperAdmin={isSuperAdmin}
     >
       <CorsoDetailClient

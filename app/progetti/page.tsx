@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { ProgettiClient } from './ProgettiClient'
+import { getUnreadNotificheCount } from '@/lib/notifiche-utils'
 
 export default async function ProgettiPage({ searchParams }: { searchParams: Promise<{ in_attesa?: string }> }) {
   const supabase = await createClient()
@@ -21,10 +22,10 @@ export default async function ProgettiPage({ searchParams }: { searchParams: Pro
 
   const { in_attesa } = await searchParams
 
-  const [{ data: progetti }, { data: finanziamenti }, { count: notifiche }] = await Promise.all([
+  const [{ data: progetti }, { data: finanziamenti }, notifiche] = await Promise.all([
     supabase.from('progetti_con_stats').select('*').order('created_at', { ascending: false }),
     supabase.from('finanziamenti').select('*').order('nome'),
-    supabase.from('solleciti_log').select('*', { count: 'exact', head: true }).eq('tipo', 'sollecito_3'),
+    getUnreadNotificheCount(supabase, user.id),
   ])
 
   // If filtering by in_attesa, fetch the project IDs that have pending corsi
@@ -43,7 +44,7 @@ export default async function ProgettiPage({ searchParams }: { searchParams: Pro
       nome={profile.nome}
       email={profile.email}
       avatarInitials={profile.avatar_initials}
-      notificheBadge={notifiche || 0}
+      notificheBadge={notifiche}
       isSuperAdmin={isSuperAdmin}
     >
       <ProgettiClient

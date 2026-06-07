@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { FinanziamentiClient } from './FinanziamentiClient'
+import { getUnreadNotificheCount } from '@/lib/notifiche-utils'
 
 export default async function FinanziamentiPage() {
   const supabase = await createClient()
@@ -25,10 +26,7 @@ export default async function FinanziamentiPage() {
     .select('*')
     .order('nome')
 
-  const { count: notifiche } = await supabase
-    .from('solleciti_log')
-    .select('*', { count: 'exact', head: true })
-    .eq('tipo', 'sollecito_3')
+  const notifiche = await getUnreadNotificheCount(supabase, user.id)
 
   return (
     <AppLayout
@@ -36,7 +34,7 @@ export default async function FinanziamentiPage() {
       nome={profile!.nome}
       email={profile!.email}
       avatarInitials={profile!.avatar_initials}
-      notificheBadge={notifiche || 0}
+      notificheBadge={notifiche}
       isSuperAdmin={true}
     >
       <FinanziamentiClient finanziamenti={finanziamenti || []} />

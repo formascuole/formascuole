@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient, checkIsSuperAdmin } from '@/lib/supabase/admin'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { StatisticheClient } from './StatisticheClient'
+import { getUnreadNotificheCount } from '@/lib/notifiche-utils'
 
 export interface FinanziamentoStats {
   id: string
@@ -64,8 +65,7 @@ export default async function StatistichePage() {
 
   const isSuperAdmin = await checkIsSuperAdmin(user.id)
 
-  const { count: notifiche } = await supabase
-    .from('solleciti_log').select('*', { count: 'exact', head: true }).eq('tipo', 'sollecito_3')
+  const notifiche = await getUnreadNotificheCount(supabase, user.id)
 
   const admin = createAdminClient()
 
@@ -264,7 +264,7 @@ export default async function StatistichePage() {
       nome={profile.nome}
       email={profile.email}
       avatarInitials={profile.avatar_initials}
-      notificheBadge={notifiche || 0}
+      notificheBadge={notifiche}
       isSuperAdmin={isSuperAdmin}
     >
       <StatisticheClient data={data} />

@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { checkIsSuperAdmin } from '@/lib/supabase/admin'
 import { AccountClient } from './AccountClient'
+import { getUnreadNotificheCount } from '@/lib/notifiche-utils'
 
 export default async function AccountPage() {
   const supabase = await createClient()
@@ -19,12 +20,9 @@ export default async function AccountPage() {
 
   const isSuperAdmin = await checkIsSuperAdmin(user.id)
 
-  const { count: notifiche } = ['admin', 'super_admin'].includes(profile.role)
-    ? await supabase
-        .from('solleciti_log')
-        .select('*', { count: 'exact', head: true })
-        .eq('tipo', 'sollecito_3')
-    : { count: 0 }
+  const notifiche = ['admin', 'super_admin'].includes(profile.role)
+    ? await getUnreadNotificheCount(supabase, user.id)
+    : 0
 
   return (
     <AppLayout
@@ -32,7 +30,7 @@ export default async function AccountPage() {
       nome={profile.nome}
       email={profile.email}
       avatarInitials={profile.avatar_initials}
-      notificheBadge={notifiche || 0}
+      notificheBadge={notifiche}
       isSuperAdmin={isSuperAdmin}
     >
       <AccountClient

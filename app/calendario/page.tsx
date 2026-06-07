@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { CalendarioClient, SessioneRow, IndisponibilitaRow } from './CalendarioClient'
+import { getUnreadNotificheCount } from '@/lib/notifiche-utils'
 
 export default async function CalendarioPage() {
   const supabase = await createClient()
@@ -64,10 +65,7 @@ export default async function CalendarioPage() {
     .select('id, school_name')
     .order('school_name')
 
-  const { count: notifiche } = await supabase
-    .from('solleciti_log')
-    .select('*', { count: 'exact', head: true })
-    .eq('tipo', 'sollecito_3')
+  const notifiche = await getUnreadNotificheCount(supabase, user.id)
 
   return (
     <AppLayout
@@ -75,7 +73,7 @@ export default async function CalendarioPage() {
       nome={profile.nome}
       email={profile.email}
       avatarInitials={profile.avatar_initials}
-      notificheBadge={notifiche || 0}
+      notificheBadge={notifiche}
     >
       <CalendarioClient
         initialSessioni={sessioni}

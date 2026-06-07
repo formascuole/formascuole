@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { checkIsSuperAdmin, createAdminClient } from '@/lib/supabase/admin'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { ProgettoDetailClient } from './ProgettoDetailClient'
+import { getUnreadNotificheCount } from '@/lib/notifiche-utils'
 
 export default async function ProgettoDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -71,10 +72,7 @@ export default async function ProgettoDetailPage({ params }: { params: Promise<{
     .eq('attivo', true)
     .order('titolo')
 
-  const { count: notifiche } = await supabase
-    .from('solleciti_log')
-    .select('*', { count: 'exact', head: true })
-    .eq('tipo', 'sollecito_3')
+  const notifiche = await getUnreadNotificheCount(supabase, user.id)
 
   // Questionari e ore erogate per tutti i corsi di questo progetto
   const corsiIds = (corsi || []).map(c => c.id)
@@ -98,7 +96,7 @@ export default async function ProgettoDetailPage({ params }: { params: Promise<{
       nome={profile.nome}
       email={profile.email}
       avatarInitials={profile.avatar_initials}
-      notificheBadge={notifiche || 0}
+      notificheBadge={notifiche}
       isSuperAdmin={isSuperAdmin}
     >
       <ProgettoDetailClient
