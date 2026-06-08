@@ -54,10 +54,12 @@ interface Props {
 export function ProgettoFormatoreClient({ progetto, corsi, finanziamenti, formatoreNome }: Props) {
   const router = useRouter()
   const [selectedCorso, setSelectedCorso] = useState<CorsoConReferente | null>(null)
-  const [sessioni, setSessioni] = useState<{ id: string; data: string; ore: number; created_at: string }[]>([])
+  const [sessioni, setSessioni] = useState<{ id: string; data: string; ore: number; ora_inizio?: string | null; ora_fine?: string | null; created_at: string }[]>([])
   const [loadingSessioni, setLoadingSessioni] = useState(false)
   const [newData, setNewData] = useState('')
   const [newOre, setNewOre] = useState('')
+  const [newOraInizio, setNewOraInizio] = useState('')
+  const [newOraFine, setNewOraFine] = useState('')
   const [saving, setSaving] = useState(false)
 
   const [questionarioCorsoId, setQuestionarioCorsoId] = useState<string | null>(null)
@@ -129,9 +131,25 @@ export function ProgettoFormatoreClient({ progetto, corsi, finanziamenti, format
   const oreResidue = selectedCorso
     ? Math.max(Number(selectedCorso.ore_totali) - Number(selectedCorso.ore_pianificate), 0)
     : 0
-  const newOreNum = Number(newOre)
-  const oreError = newOre && newOreNum > oreResidue ? `Max ${oreResidue}h residue` : ''
-  const canSubmit = newData && newOre && !oreError && newOreNum > 0 && oreResidue > 0
+
+  function calcOreFromTime(start: string, end: string): number {
+    const [sh, sm] = start.split(':').map(Number)
+    const [eh, em] = end.split(':').map(Number)
+    const diffMin = (eh * 60 + em) - (sh * 60 + sm)
+    if (diffMin <= 0) return 0
+    return Math.round((diffMin / 60) * 2) / 2
+  }
+
+  const oreFromTimes = newOraInizio && newOraFine ? calcOreFromTime(newOraInizio, newOraFine) : 0
+  const useTimePickers = !!(newOraInizio && newOraFine)
+  const effectiveNewOre = useTimePickers ? String(oreFromTimes) : newOre
+  const newOreNum = Number(effectiveNewOre)
+  const oraFineError = useTimePickers && oreFromTimes <= 0 ? 'Ora fine deve essere successiva all\'ora inizio' : ''
+  const oreError = !oraFineError && effectiveNewOre && newOreNum > oreResidue
+    ? `Max ${oreResidue}h residue`
+    : (!oraFineError && !useTimePickers && newOre && newOreNum <= 0 ? 'Ore non valide' : '')
+  const canSubmit = newData && newOreNum > 0 && !oreError && !oraFineError && oreResidue > 0 &&
+    (useTimePickers || !!newOre)
 
   const handleAddSession = async () => {
     if (!selectedCorso) return
@@ -140,11 +158,19 @@ export function ProgettoFormatoreClient({ progetto, corsi, finanziamenti, format
       const res = await fetch('/api/sessioni', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ corso_id: selectedCorso.id, data: newData, ore: newOreNum }),
+        body: JSON.stringify({
+          corso_id: selectedCorso.id,
+          data: newData,
+          ore: newOreNum,
+          ...(newOraInizio && { ora_inizio: newOraInizio }),
+          ...(newOraFine && { ora_fine: newOraFine }),
+        }),
       })
       if (res.ok) {
         setNewData('')
         setNewOre('')
+        setNewOraInizio('')
+        setNewOraFine('')
         const updated = await fetch(`/api/sessioni?corso_id=${selectedCorso.id}`)
         setSessioni((await updated.json()) || [])
         router.refresh()
@@ -407,7 +433,7 @@ export function ProgettoFormatoreClient({ progetto, corsi, finanziamenti, format
       {/* Calendario modal */}
       <Modal
         open={!!selectedCorso}
-        onClose={() => { setSelectedCorso(null); setNewData(''); setNewOre('') }}
+        onClose={() => { setSelectedCorso(null); setNewData(''); setNewOre(''); setNewOraInizio(''); setNewOraFine('') }}
         title={selectedCorso ? `Calendario — ${selectedCorso.title}` : ''}
         size="lg"
       >
@@ -421,19 +447,52 @@ export function ProgettoFormatoreClient({ progetto, corsi, finanziamenti, format
             {!selectedCorso.calendario_completo && (
               <div className="bg-gray-50 rounded-xl p-4 space-y-3">
                 <h4 className="text-sm font-medium text-gray-700">Aggiungi sessione</h4>
+                <Input label="Data *" type="date" value={newData} onChange={e => setNewData(e.target.value)} />
                 <div className="grid grid-cols-2 gap-3">
-                  <Input label="Data *" type="date" value={newData} onChange={e => setNewData(e.target.value)} />
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Ora inizio</label>
+                    <input
+                      type="time"
+                      value={newOraInizio}
+                      onChange={e => setNewOraInizio(e.target.value)}
+                      className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 focus:outline-none focus:border-[#d64b55] transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Ora fine</label>
+                    <input
+                      type="time"
+                      value={newOraFine}
+                      onChange={e => setNewOraFine(e.target.value)}
+                      className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 focus:outline-none focus:border-[#d64b55] transition-colors"
+                    />
+                  </div>
+                </div>
+                {oraFineError && (
+                  <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-[7px] px-3 py-2">
+                    {oraFineError}
+                  </div>
+                )}
+                {useTimePickers && !oraFineError && (
+                  <div className={`text-xs rounded-[7px] px-3 py-2 ${newOreNum > oreResidue ? 'text-red-600 bg-red-50 border border-red-200' : 'text-blue-600 bg-blue-50 border border-blue-200'}`}>
+                    Durata calcolata: <span className="font-semibold">{oreFromTimes}h</span>
+                    {newOreNum > oreResidue && ` — Max ${oreResidue}h residue`}
+                  </div>
+                )}
+                {!useTimePickers && (
                   <Input
                     label="Ore *"
                     type="number"
-                    min={1}
+                    min={0.5}
+                    step={0.5}
                     max={oreResidue}
                     value={newOre}
                     onChange={e => setNewOre(e.target.value)}
-                    hint={`Max ${oreResidue}h residue`}
+                    hint={oreResidue > 0 ? `Max ${oreResidue}h residue` : 'Ore residue esaurite'}
                     error={oreError}
+                    placeholder={`Es. ${Math.min(oreResidue, 4)}`}
                   />
-                </div>
+                )}
                 <Button onClick={handleAddSession} loading={saving} disabled={!canSubmit} size="sm">
                   Aggiungi sessione
                 </Button>
@@ -454,6 +513,9 @@ export function ProgettoFormatoreClient({ progetto, corsi, finanziamenti, format
                     {sessioni.map(s => (
                       <div key={s.id} className="flex items-center gap-3 bg-gray-50 rounded-[7px] px-3 py-2 text-sm">
                         <span className="font-medium text-gray-800">{formatDate(s.data)}</span>
+                        {s.ora_inizio && s.ora_fine && (
+                          <span className="text-gray-500">{s.ora_inizio.substring(0, 5)}–{s.ora_fine.substring(0, 5)}</span>
+                        )}
                         <span className="text-gray-500">{s.ore}h</span>
                       </div>
                     ))}
