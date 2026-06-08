@@ -24,22 +24,24 @@ export async function PATCH(
   // Use admin client to bypass RLS — auth check above already verified the caller is admin
   const adminClient = createAdminClient()
 
-  // Fetch tutor's default tariffa to pre-fill the corso
+  // Fetch tutor's default tariffa AND current corso's tariffa to avoid overwriting
   let tariffaTutor: number | null = null
+  let tariffaTutorGiaImpostata = false
   if (tutor_id) {
-    const { data: tp } = await adminClient
-      .from('profiles')
-      .select('tariffa_oraria_tutor')
-      .eq('id', tutor_id)
-      .single()
+    const [{ data: tp }, { data: currentCorso }] = await Promise.all([
+      adminClient.from('profiles').select('tariffa_oraria_tutor').eq('id', tutor_id).single(),
+      adminClient.from('corsi').select('tariffa_oraria_tutor').eq('id', id).single(),
+    ])
     tariffaTutor = tp?.tariffa_oraria_tutor != null ? Number(tp.tariffa_oraria_tutor) : null
+    tariffaTutorGiaImpostata = currentCorso?.tariffa_oraria_tutor != null
   }
 
   const { data, error } = await adminClient
     .from('corsi')
     .update({
       tutor_id: tutor_id || null,
-      ...(tutor_id && tariffaTutor != null ? { tariffa_oraria_tutor: tariffaTutor } : {}),
+      // Only pre-fill from profile if corso doesn't already have a custom rate
+      ...(tutor_id && tariffaTutor != null && !tariffaTutorGiaImpostata ? { tariffa_oraria_tutor: tariffaTutor } : {}),
     })
     .eq('id', id)
     .select('*, tutor:profiles!tutor_id(id,nome,email,avatar_initials)')

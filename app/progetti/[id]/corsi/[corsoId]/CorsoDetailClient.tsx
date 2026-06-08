@@ -1170,58 +1170,111 @@ export function CorsoDetailClient({
         </div>
       )}
 
-      {/* Tariffe incarico */}
-      {(isAdmin || corso.tariffa_oraria != null || corso.tariffa_oraria_tutor != null) && (
+      {/* Tariffe incarico — admin: entrambe le tariffe + calcolo economico */}
+      {isAdmin && (
         <div className="bg-white rounded-xl p-6 mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
           <h2 className="font-semibold text-gray-900 mb-4">Tariffe incarico</h2>
-          <div className="space-y-3">
+          <div className="space-y-4">
             {/* Tariffa formatore */}
-            {(isAdmin || corso.tariffa_oraria != null) && (
+            <div>
               <div className="flex items-center justify-between py-2 border-b border-gray-50">
                 <div>
                   <div className="text-sm font-medium text-gray-700">
-                    {corso.tipo === 'PF' && corso.tutor ? 'Tariffa formatore' : 'Tariffa oraria'}
+                    {corso.tipo === 'PF' && corso.tutor_previsto ? 'Tariffa formatore' : 'Tariffa oraria'}
                   </div>
                   <div className="text-sm text-gray-600 mt-0.5">
                     {corso.tariffa_oraria != null
                       ? `€ ${Number(corso.tariffa_oraria).toFixed(2)}/h`
-                      : <span className="text-gray-400">Non definita</span>
-                    }
+                      : <span className="text-gray-400">Non definita</span>}
                   </div>
                 </div>
-                {isAdmin && (
-                  <Button variant="secondary" size="sm" onClick={() => {
-                    setTariffaForm(corso.tariffa_oraria != null ? String(corso.tariffa_oraria) : '')
-                    setTariffaModalOpen(true)
-                  }}>
-                    {corso.tariffa_oraria != null ? 'Modifica' : 'Imposta'}
-                  </Button>
-                )}
+                <Button variant="secondary" size="sm" onClick={() => {
+                  setTariffaForm(corso.tariffa_oraria != null ? String(corso.tariffa_oraria) : '')
+                  setTariffaModalOpen(true)
+                }}>
+                  {corso.tariffa_oraria != null ? 'Modifica' : 'Imposta'}
+                </Button>
               </div>
-            )}
-            {/* Tariffa tutor — solo per corsi PF con tutor */}
-            {corso.tipo === 'PF' && (corso.tutor || isAdmin) && (isAdmin || corso.tariffa_oraria_tutor != null) && (
-              <div className="flex items-center justify-between py-2">
-                <div>
-                  <div className="text-sm font-medium text-gray-700">Tariffa tutor</div>
-                  <div className="text-sm text-gray-600 mt-0.5">
-                    {corso.tariffa_oraria_tutor != null
-                      ? `€ ${Number(corso.tariffa_oraria_tutor).toFixed(2)}/h`
-                      : <span className="text-gray-400">Non definita</span>
-                    }
+              {corso.tariffa_oraria != null && oreErogate > 0 && (() => {
+                const tariffa = Number(corso.tariffa_oraria)
+                const imponibile = oreErogate * tariffa
+                const ritenuta = imponibile * 0.20
+                const netto = imponibile - ritenuta
+                return (
+                  <div className="mt-2 space-y-1.5 bg-gray-50 rounded-[7px] px-3 py-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-500">Imponibile ({oreErogate}h × € {tariffa.toFixed(2)})</span>
+                      <span className="font-medium text-gray-800">€ {imponibile.toFixed(2)}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-500">Ritenuta 20%</span>
+                      <span className="text-red-500">− € {ritenuta.toFixed(2)}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm pt-1.5 border-t border-gray-100">
+                      <span className="font-medium text-gray-700">Netto al formatore</span>
+                      <span className="font-semibold text-gray-900">€ {netto.toFixed(2)}</span>
+                    </div>
                   </div>
-                </div>
-                {isAdmin && (
+                )
+              })()}
+            </div>
+
+            {/* Tariffa tutor — solo per corsi PF con tutor previsto */}
+            {corso.tipo === 'PF' && corso.tutor_previsto && (
+              <div>
+                <div className="flex items-center justify-between py-2 border-b border-gray-50">
+                  <div>
+                    <div className="text-sm font-medium text-gray-700">Tariffa tutor</div>
+                    <div className="text-sm text-gray-600 mt-0.5">
+                      {corso.tariffa_oraria_tutor != null
+                        ? `€ ${Number(corso.tariffa_oraria_tutor).toFixed(2)}/h`
+                        : <span className="text-gray-400">Non definita</span>}
+                    </div>
+                  </div>
                   <Button variant="secondary" size="sm" onClick={() => {
                     setTariffaTutorForm(corso.tariffa_oraria_tutor != null ? String(corso.tariffa_oraria_tutor) : '')
                     setTariffaTutorModalOpen(true)
                   }}>
                     {corso.tariffa_oraria_tutor != null ? 'Modifica' : 'Imposta'}
                   </Button>
-                )}
+                </div>
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Tariffe incarico — formatore: solo la propria tariffa (readonly) */}
+      {!isAdmin && corso.formatore_id === currentUserId && (
+        <div className="bg-white rounded-xl p-6 mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
+          <h2 className="font-semibold text-gray-900 mb-3">La tua tariffa per questo corso</h2>
+          {corso.tariffa_oraria != null ? (
+            <div className="flex items-end gap-1">
+              <span className="text-2xl font-bold text-gray-900">€ {Number(corso.tariffa_oraria).toFixed(2)}</span>
+              <span className="text-sm text-gray-400 mb-0.5">/h</span>
+            </div>
+          ) : (
+            <p className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-[7px] px-3 py-2">
+              Tariffa da definire — contatta l&apos;amministrazione
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Tariffe incarico — tutor: solo la propria tariffa (readonly) */}
+      {!isAdmin && corso.tutor_id === currentUserId && (
+        <div className="bg-white rounded-xl p-6 mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
+          <h2 className="font-semibold text-gray-900 mb-3">La tua tariffa per questo corso</h2>
+          {corso.tariffa_oraria_tutor != null ? (
+            <div className="flex items-end gap-1">
+              <span className="text-2xl font-bold text-gray-900">€ {Number(corso.tariffa_oraria_tutor).toFixed(2)}</span>
+              <span className="text-sm text-gray-400 mb-0.5">/h</span>
+            </div>
+          ) : (
+            <p className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-[7px] px-3 py-2">
+              Tariffa da definire — contatta l&apos;amministrazione
+            </p>
+          )}
         </div>
       )}
 

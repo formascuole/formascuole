@@ -261,12 +261,18 @@ export function AccountClient({
         <div className="bg-white rounded-xl p-6 mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
           <h2 className="font-semibold text-gray-900 mb-1">Le mie tariffe</h2>
           <p className="text-xs text-gray-400 mb-4">Per modifiche contatta l&apos;amministrazione</p>
-          <div className="space-y-3">
+          <div className="space-y-4">
             {(role === 'formatore' || tariffa_oraria_formatore != null) && (
-              <TariffaRow label="Tariffa come formatore" value={tariffa_oraria_formatore} />
+              <div>
+                <TariffaRow label="Tariffa standard come formatore" value={tariffa_oraria_formatore} />
+                <p className="text-xs text-gray-400 mt-1.5">La tariffa può variare per singolo ingaggio — verifica nella scheda del corso specifico</p>
+              </div>
             )}
             {(role === 'tutor' || tariffa_oraria_tutor != null) && (
-              <TariffaRow label="Tariffa come tutor" value={tariffa_oraria_tutor} />
+              <div>
+                <TariffaRow label="Tariffa standard come tutor" value={tariffa_oraria_tutor} />
+                <p className="text-xs text-gray-400 mt-1.5">La tariffa può variare per singolo ingaggio — verifica nella scheda del corso specifico</p>
+              </div>
             )}
           </div>
         </div>

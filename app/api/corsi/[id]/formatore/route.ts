@@ -16,16 +16,17 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   const { formatore_id } = await request.json()
 
-  // Fetch formatore's default tariffa to pre-fill the corso
+  // Fetch formatore's default tariffa AND current corso's tariffa to avoid overwriting
   const adminClient = createAdminClient()
   let tariffaFormatore: number | null = null
+  let tariffaCorsoGiaImpostata = false
   if (formatore_id) {
-    const { data: fp } = await adminClient
-      .from('profiles')
-      .select('tariffa_oraria_formatore')
-      .eq('id', formatore_id)
-      .single()
+    const [{ data: fp }, { data: currentCorso }] = await Promise.all([
+      adminClient.from('profiles').select('tariffa_oraria_formatore').eq('id', formatore_id).single(),
+      adminClient.from('corsi').select('tariffa_oraria').eq('id', id).single(),
+    ])
     tariffaFormatore = fp?.tariffa_oraria_formatore != null ? Number(fp.tariffa_oraria_formatore) : null
+    tariffaCorsoGiaImpostata = currentCorso?.tariffa_oraria != null
   }
 
   const updateData = formatore_id
@@ -35,7 +36,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         accettazione_richiesta_at: new Date().toISOString(),
         accettazione_risposta_at: null,
         rifiuto_motivazione: null,
-        ...(tariffaFormatore != null ? { tariffa_oraria: tariffaFormatore } : {}),
+        // Only pre-fill from profile if corso doesn't already have a custom rate
+        ...(!tariffaCorsoGiaImpostata && tariffaFormatore != null ? { tariffa_oraria: tariffaFormatore } : {}),
       }
     : {
         formatore_id: null,
