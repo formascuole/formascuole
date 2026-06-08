@@ -1070,7 +1070,7 @@ export function CorsoDetailClient({
       )}
 
       {/* Stato calendario */}
-      {isAdmin && corso.calendario_completo && (
+      {canConfirmSessions && corso.calendario_completo && (
         <div className="bg-white rounded-xl p-6 mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
           <h2 className="font-semibold text-gray-900 mb-4">Stato calendario</h2>
           <div className="space-y-4">

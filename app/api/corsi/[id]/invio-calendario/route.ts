@@ -10,9 +10,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  if (!['admin', 'super_admin'].includes(profile?.role)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
+  const isAdmin = ['admin', 'super_admin'].includes(profile?.role)
 
   const admin = createAdminClient()
 
@@ -23,6 +21,11 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     .single()
 
   if (!corso) return NextResponse.json({ error: 'Corso non trovato' }, { status: 404 })
+
+  // Admin or the assigned formatore can send the calendar
+  if (!isAdmin && corso.formatore_id !== user.id) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
   if (!corso.calendario_completo) {
     return NextResponse.json({ error: 'Il calendario non è ancora completo' }, { status: 400 })
   }
