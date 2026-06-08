@@ -68,7 +68,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
   const { data: formatoreProfile } = await admin
     .from('profiles')
-    .select('nome, email')
+    .select('nome, email, ha_partita_iva, regime_fiscale, rivalsa_iva')
     .eq('id', user.id)
     .single()
 
@@ -125,6 +125,8 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     ore_erogate: oreErogate,
     tariffa_oraria: corso.tariffa_oraria ? Number(corso.tariffa_oraria) : null,
     finanziamento,
+    regime_fiscale: (formatoreProfile?.regime_fiscale as 'forfettario' | 'ordinario' | 'notula' | null) ?? null,
+    rivalsa_iva: (formatoreProfile?.rivalsa_iva as boolean | null) ?? null,
     tutor_nome: tutorNome,
     ore_tutoraggio_erogate: oreTutorErogate > 0 ? oreTutorErogate : null,
     tariffa_oraria_tutor: corso.tariffa_oraria_tutor ? Number(corso.tariffa_oraria_tutor) : null,

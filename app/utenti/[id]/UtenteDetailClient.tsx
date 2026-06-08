@@ -119,15 +119,33 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
   const router = useRouter()
   const [deleteOpen, setDeleteOpen] = useState(false)
 
+  type RegimeFiscale = 'forfettario' | 'ordinario' | 'notula'
+  const REGIME_LABELS: Record<RegimeFiscale, string> = {
+    forfettario: 'Regime forfettario',
+    ordinario:   'Regime ordinario',
+    notula:      'Prestazione occasionale',
+  }
+  const REGIME_BADGE_CLS: Record<RegimeFiscale, string> = {
+    forfettario: 'bg-green-100 text-green-700',
+    ordinario:   'bg-blue-100 text-blue-700',
+    notula:      'bg-orange-100 text-orange-700',
+  }
+
   const [tariffaForm, setTariffaForm] = useState({
     tariffa_oraria_formatore: profile.tariffa_oraria_formatore != null ? String(profile.tariffa_oraria_formatore) : '',
     tariffa_oraria_tutor: profile.tariffa_oraria_tutor != null ? String(profile.tariffa_oraria_tutor) : '',
+    ha_partita_iva: profile.ha_partita_iva ?? false,
+    regime_fiscale: (profile.regime_fiscale ?? 'notula') as RegimeFiscale,
+    rivalsa_iva: profile.rivalsa_iva ?? false,
   })
   const [tariffaSaving, setTariffaSaving] = useState(false)
   const [tariffaModalOpen, setTariffaModalOpen] = useState(false)
   const [savedTariffe, setSavedTariffe] = useState({
     tariffa_oraria_formatore: profile.tariffa_oraria_formatore ?? null,
     tariffa_oraria_tutor: profile.tariffa_oraria_tutor ?? null,
+    ha_partita_iva: profile.ha_partita_iva ?? false,
+    regime_fiscale: (profile.regime_fiscale ?? 'notula') as RegimeFiscale,
+    rivalsa_iva: profile.rivalsa_iva ?? false,
   })
 
   const isFormatore = profile.roles.includes('formatore')
@@ -139,7 +157,11 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
   const handleSaveTariffe = async () => {
     setTariffaSaving(true)
     try {
-      const body: Record<string, unknown> = {}
+      const body: Record<string, unknown> = {
+        ha_partita_iva: tariffaForm.ha_partita_iva,
+        regime_fiscale: tariffaForm.ha_partita_iva ? tariffaForm.regime_fiscale : 'notula',
+        rivalsa_iva: tariffaForm.ha_partita_iva && tariffaForm.regime_fiscale === 'ordinario' ? tariffaForm.rivalsa_iva : false,
+      }
       if (isFormatore) body.tariffa_oraria_formatore = tariffaForm.tariffa_oraria_formatore.trim() ? Number(tariffaForm.tariffa_oraria_formatore) : null
       if (isTutor) body.tariffa_oraria_tutor = tariffaForm.tariffa_oraria_tutor.trim() ? Number(tariffaForm.tariffa_oraria_tutor) : null
       const res = await fetch(`/api/utenti/${profile.id}/tariffa`, {
@@ -152,6 +174,9 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
         setSavedTariffe({
           tariffa_oraria_formatore: data.tariffa_oraria_formatore ?? null,
           tariffa_oraria_tutor: data.tariffa_oraria_tutor ?? null,
+          ha_partita_iva: data.ha_partita_iva ?? false,
+          regime_fiscale: (data.regime_fiscale ?? 'notula') as RegimeFiscale,
+          rivalsa_iva: data.rivalsa_iva ?? false,
         })
         setTariffaModalOpen(false)
       }
@@ -328,6 +353,9 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
               setTariffaForm({
                 tariffa_oraria_formatore: savedTariffe.tariffa_oraria_formatore != null ? String(savedTariffe.tariffa_oraria_formatore) : '',
                 tariffa_oraria_tutor: savedTariffe.tariffa_oraria_tutor != null ? String(savedTariffe.tariffa_oraria_tutor) : '',
+                ha_partita_iva: savedTariffe.ha_partita_iva,
+                regime_fiscale: savedTariffe.regime_fiscale,
+                rivalsa_iva: savedTariffe.rivalsa_iva,
               })
               setTariffaModalOpen(true)
             }}>
@@ -346,6 +374,15 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
                 label={isFormatore ? 'Tariffa come tutor' : 'Tariffa oraria tutor'}
                 value={savedTariffe.tariffa_oraria_tutor}
               />
+            )}
+            {isFormatore && (
+              <div className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+                <span className="text-sm text-gray-500">Regime fiscale</span>
+                <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md ${REGIME_BADGE_CLS[savedTariffe.regime_fiscale] ?? REGIME_BADGE_CLS.notula}`}>
+                  {REGIME_LABELS[savedTariffe.regime_fiscale] ?? REGIME_LABELS.notula}
+                  {savedTariffe.regime_fiscale === 'ordinario' && savedTariffe.rivalsa_iva && ' + IVA 22%'}
+                </span>
+              </div>
             )}
           </div>
         </div>
@@ -407,6 +444,64 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
               placeholder="Es. 25.00"
               hint="Lascia vuoto per rimuovere"
             />
+          )}
+          {isFormatore && (
+            <>
+              <div className="pt-2 border-t border-gray-100">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Regime fiscale</p>
+                <div>
+                  <p className="text-xs font-medium text-gray-700 mb-2">Ha Partita IVA?</p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setTariffaForm(f => ({
+                        ...f,
+                        ha_partita_iva: true,
+                        regime_fiscale: f.regime_fiscale === 'notula' ? 'forfettario' : f.regime_fiscale,
+                      }))}
+                      className={`flex-1 py-1.5 rounded-[7px] text-sm font-medium border transition-colors ${tariffaForm.ha_partita_iva ? 'bg-[#d64b55] text-white border-[#d64b55]' : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300'}`}
+                    >
+                      Sì
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTariffaForm(f => ({ ...f, ha_partita_iva: false, regime_fiscale: 'notula', rivalsa_iva: false }))}
+                      className={`flex-1 py-1.5 rounded-[7px] text-sm font-medium border transition-colors ${!tariffaForm.ha_partita_iva ? 'bg-[#d64b55] text-white border-[#d64b55]' : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300'}`}
+                    >
+                      No
+                    </button>
+                  </div>
+                </div>
+              </div>
+              {tariffaForm.ha_partita_iva && (
+                <div>
+                  <p className="text-xs font-medium text-gray-700 mb-1.5">Regime</p>
+                  <select
+                    value={tariffaForm.regime_fiscale === 'notula' ? 'forfettario' : tariffaForm.regime_fiscale}
+                    onChange={e => setTariffaForm(f => ({
+                      ...f,
+                      regime_fiscale: e.target.value as RegimeFiscale,
+                      rivalsa_iva: e.target.value !== 'ordinario' ? false : f.rivalsa_iva,
+                    }))}
+                    className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 focus:outline-none focus:border-[#d64b55] transition-colors bg-white"
+                  >
+                    <option value="forfettario">Regime forfettario</option>
+                    <option value="ordinario">Regime ordinario</option>
+                  </select>
+                </div>
+              )}
+              {tariffaForm.ha_partita_iva && tariffaForm.regime_fiscale === 'ordinario' && (
+                <label className="flex items-center gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={tariffaForm.rivalsa_iva}
+                    onChange={e => setTariffaForm(f => ({ ...f, rivalsa_iva: e.target.checked }))}
+                    className="w-4 h-4 rounded border-gray-300 accent-[#d64b55]"
+                  />
+                  <span className="text-sm text-gray-700">Applica rivalsa IVA 22%</span>
+                </label>
+              )}
+            </>
           )}
         </div>
       </Modal>

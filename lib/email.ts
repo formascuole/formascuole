@@ -985,20 +985,71 @@ interface CompletamentoFormatoreParams {
   ore_erogate: number
   tariffa_oraria?: number | null
   finanziamento?: string | null
+  regime_fiscale?: 'forfettario' | 'ordinario' | 'notula' | null
+  rivalsa_iva?: boolean | null
   // tutor section (optional)
   tutor_nome?: string | null
   ore_tutoraggio_erogate?: number | null
   tariffa_oraria_tutor?: number | null
 }
 
-function buildEconomicBlock(ore: number, tariffa: number): string {
+function buildEconomicBlock(
+  ore: number,
+  tariffa: number,
+  regime?: 'forfettario' | 'ordinario' | 'notula' | null,
+  rivalsaIva?: boolean | null,
+): string {
   const imponibile = +(ore * tariffa).toFixed(2)
+  if (regime === 'forfettario') {
+    return `- Tariffa oraria: € ${tariffa.toFixed(2)}/h
+- Imponibile: € ${imponibile.toFixed(2)}
+- Ritenuta d'acconto: nessuna (regime forfettario)
+- Importo da fatturare: € ${imponibile.toFixed(2)}`
+  }
+  if (regime === 'ordinario') {
+    if (rivalsaIva) {
+      const iva = +(imponibile * 0.22).toFixed(2)
+      const totale = +(imponibile + iva).toFixed(2)
+      return `- Tariffa oraria: € ${tariffa.toFixed(2)}/h
+- Imponibile: € ${imponibile.toFixed(2)}
+- IVA 22%: + € ${iva.toFixed(2)}
+- Totale fattura: € ${totale.toFixed(2)}`
+    }
+    return `- Tariffa oraria: € ${tariffa.toFixed(2)}/h
+- Imponibile: € ${imponibile.toFixed(2)}
+- Ritenuta d'acconto: nessuna (regime ordinario)
+- Importo da fatturare: € ${imponibile.toFixed(2)}`
+  }
+  // notula (default)
   const ritenuta = +(imponibile * 0.2).toFixed(2)
   const netto = +(imponibile - ritenuta).toFixed(2)
   return `- Tariffa oraria: € ${tariffa.toFixed(2)}/h
 - Imponibile: € ${imponibile.toFixed(2)}
 - Ritenuta d'acconto 20%: € ${ritenuta.toFixed(2)}
 - Netto a pagare: € ${netto.toFixed(2)}`
+}
+
+function buildPaymentInstructions(regime?: 'forfettario' | 'ordinario' | 'notula' | null, rivalsaIva?: boolean | null): string {
+  if (regime === 'forfettario' || regime === 'ordinario') {
+    return `Per procedere con il pagamento emetti fattura elettronica intestata a:
+SVC Consulting Srl
+
+La fattura deve riportare:
+- I tuoi dati anagrafici e fiscali (Partita IVA inclusa)
+- La descrizione della prestazione di formazione${rivalsaIva && regime === 'ordinario' ? '\n- IVA 22% separata' : ''}
+- Le tue coordinate bancarie (IBAN)
+
+Invia il file XML della fattura elettronica tramite SDI.`
+  }
+  return `Per procedere con il pagamento invia la tua pro forma (notula senza marca da bollo) a:
+amministrazione@formascuole.it
+
+La pro forma deve riportare:
+- I tuoi dati anagrafici e fiscali
+- I dati di SVC Consulting Srl come committente
+- La descrizione della prestazione
+- L'importo con ritenuta d'acconto 20%
+- Le tue coordinate bancarie (IBAN)`
 }
 
 function fallbackCompletamentoFormatoreEmail(p: CompletamentoFormatoreParams): string {
@@ -1020,18 +1071,10 @@ RIEPILOGO INCARICO:
 - Scuola: ${p.school_name}
 - Periodo: ${p.data_prima_sessione} — ${p.data_ultima_sessione}
 - Ore erogate: ${p.ore_erogate}h${p.finanziamento ? `\n- Linea di finanziamento: ${p.finanziamento}` : ''}${
-  hasRates ? `\n${buildEconomicBlock(p.ore_erogate, p.tariffa_oraria!)}` : ''
+  hasRates ? `\n${buildEconomicBlock(p.ore_erogate, p.tariffa_oraria!, p.regime_fiscale, p.rivalsa_iva)}` : ''
 }${tutorBlock}
 
-${hasRates ? `Per procedere con il pagamento invia la tua pro forma (notula senza marca da bollo) a:
-amministrazione@formascuole.it
-
-La pro forma deve riportare:
-- I tuoi dati anagrafici e fiscali
-- I dati di SVC Consulting Srl come committente
-- La descrizione della prestazione
-- L'importo con ritenuta d'acconto 20%
-- Le tue coordinate bancarie (IBAN)` : `Per l'importo del compenso attendi comunicazione da amministrazione@formascuole.it`}
+${hasRates ? buildPaymentInstructions(p.regime_fiscale, p.rivalsa_iva) : `Per l'importo del compenso attendi comunicazione da amministrazione@formascuole.it`}
 
 Cordiali saluti,
 Il team Formascuole`
@@ -1056,7 +1099,7 @@ Dati:
 - Scuola: ${p.school_name}
 - Periodo: ${p.data_prima_sessione} — ${p.data_ultima_sessione}
 - Ore erogate: ${p.ore_erogate}h${p.finanziamento ? `\n- Linea di finanziamento: ${p.finanziamento}` : ''}${
-  hasRates ? `\n${buildEconomicBlock(p.ore_erogate, p.tariffa_oraria!)}` : ''
+  hasRates ? `\n${buildEconomicBlock(p.ore_erogate, p.tariffa_oraria!, p.regime_fiscale, p.rivalsa_iva)}` : ''
 }${hasTutorRates ? `
 
 Tutor: ${p.tutor_nome}
@@ -1074,15 +1117,7 @@ ${hasTutorRates ? `
 RIEPILOGO TUTORAGGIO (${p.tutor_nome}):
 [elenco dati tutor]
 ` : ''}
-${hasRates ? `Per procedere con il pagamento invia la tua pro forma (notula senza marca da bollo) a:
-amministrazione@formascuole.it
-
-La pro forma deve riportare:
-- I tuoi dati anagrafici e fiscali
-- I dati di SVC Consulting Srl come committente
-- La descrizione della prestazione
-- L'importo con ritenuta d'acconto 20%
-- Le tue coordinate bancarie (IBAN)` : `Per l'importo del compenso attendi comunicazione da amministrazione@formascuole.it`}
+${hasRates ? buildPaymentInstructions(p.regime_fiscale, p.rivalsa_iva) : `Per l'importo del compenso attendi comunicazione da amministrazione@formascuole.it`}
 
 Cordiali saluti,
 Il team Formascuole"

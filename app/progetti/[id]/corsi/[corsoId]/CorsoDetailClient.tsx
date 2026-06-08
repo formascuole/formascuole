@@ -1197,23 +1197,64 @@ export function CorsoDetailClient({
               </div>
               {corso.tariffa_oraria != null && oreErogate > 0 && (() => {
                 const tariffa = Number(corso.tariffa_oraria)
-                const imponibile = oreErogate * tariffa
-                const ritenuta = imponibile * 0.20
-                const netto = imponibile - ritenuta
+                const imponibile = +(oreErogate * tariffa).toFixed(2)
+                const regime = corso.formatore?.regime_fiscale ?? 'notula'
+                const rivalsaIva = corso.formatore?.rivalsa_iva ?? false
+                const badgeClasses: Record<string, string> = {
+                  forfettario: 'bg-green-100 text-green-700',
+                  ordinario: 'bg-blue-100 text-blue-700',
+                  notula: 'bg-orange-100 text-orange-700',
+                }
+                const badgeLabels: Record<string, string> = {
+                  forfettario: 'Regime forfettario',
+                  ordinario: rivalsaIva ? 'Regime ordinario + IVA 22%' : 'Regime ordinario',
+                  notula: 'Prestazione occasionale',
+                }
                 return (
                   <div className="mt-2 space-y-1.5 bg-gray-50 rounded-[7px] px-3 py-2">
+                    <div className="mb-2">
+                      <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md ${badgeClasses[regime] ?? badgeClasses.notula}`}>
+                        {badgeLabels[regime] ?? badgeLabels.notula}
+                      </span>
+                    </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-500">Imponibile ({oreErogate}h × € {tariffa.toFixed(2)})</span>
                       <span className="font-medium text-gray-800">€ {imponibile.toFixed(2)}</span>
                     </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-500">Ritenuta 20%</span>
-                      <span className="text-red-500">− € {ritenuta.toFixed(2)}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm pt-1.5 border-t border-gray-100">
-                      <span className="font-medium text-gray-700">Netto al formatore</span>
-                      <span className="font-semibold text-gray-900">€ {netto.toFixed(2)}</span>
-                    </div>
+                    {regime === 'notula' && (() => {
+                      const ritenuta = +(imponibile * 0.20).toFixed(2)
+                      const netto = +(imponibile - ritenuta).toFixed(2)
+                      return <>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-500">Ritenuta 20%</span>
+                          <span className="text-red-500">− € {ritenuta.toFixed(2)}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm pt-1.5 border-t border-gray-100">
+                          <span className="font-medium text-gray-700">Netto al formatore</span>
+                          <span className="font-semibold text-gray-900">€ {netto.toFixed(2)}</span>
+                        </div>
+                      </>
+                    })()}
+                    {regime === 'ordinario' && rivalsaIva && (() => {
+                      const iva = +(imponibile * 0.22).toFixed(2)
+                      const totale = +(imponibile + iva).toFixed(2)
+                      return <>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-500">IVA 22%</span>
+                          <span className="text-blue-600">+ € {iva.toFixed(2)}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm pt-1.5 border-t border-gray-100">
+                          <span className="font-medium text-gray-700">Totale fattura</span>
+                          <span className="font-semibold text-gray-900">€ {totale.toFixed(2)}</span>
+                        </div>
+                      </>
+                    })()}
+                    {(regime === 'forfettario' || (regime === 'ordinario' && !rivalsaIva)) && (
+                      <div className="flex items-center justify-between text-sm pt-1.5 border-t border-gray-100">
+                        <span className="font-medium text-gray-700">Importo da fatturare</span>
+                        <span className="font-semibold text-gray-900">€ {imponibile.toFixed(2)}</span>
+                      </div>
+                    )}
                   </div>
                 )
               })()}

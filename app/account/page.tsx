@@ -51,6 +51,9 @@ export default async function AccountPage() {
         intestatario_conto={profile.intestatario_conto ?? null}
         tariffa_oraria_formatore={profile.tariffa_oraria_formatore ?? null}
         tariffa_oraria_tutor={profile.tariffa_oraria_tutor ?? null}
+        ha_partita_iva={profile.ha_partita_iva ?? false}
+        regime_fiscale={(profile.regime_fiscale ?? 'notula') as 'forfettario' | 'ordinario' | 'notula'}
+        rivalsa_iva={profile.rivalsa_iva ?? false}
       />
     </AppLayout>
   )

@@ -12,7 +12,10 @@ export async function PATCH(req: NextRequest) {
     luogo_nascita, data_nascita, codice_fiscale,
     indirizzo_via, indirizzo_cap, indirizzo_citta, indirizzo_provincia,
     iban, banca, intestatario_conto,
+    ha_partita_iva, regime_fiscale, rivalsa_iva,
   } = body
+
+  const VALID_REGIMI = ['forfettario', 'ordinario', 'notula']
 
   const updates: Record<string, unknown> = {
     luogo_nascita: luogo_nascita?.trim() || null,
@@ -26,6 +29,16 @@ export async function PATCH(req: NextRequest) {
     banca: banca?.trim() || null,
     intestatario_conto: intestatario_conto?.trim() || null,
     profilo_completo: true,
+  }
+
+  if (ha_partita_iva !== undefined) {
+    updates.ha_partita_iva = !!ha_partita_iva
+  }
+  if (regime_fiscale !== undefined && VALID_REGIMI.includes(regime_fiscale)) {
+    updates.regime_fiscale = regime_fiscale
+  }
+  if (rivalsa_iva !== undefined) {
+    updates.rivalsa_iva = !!rivalsa_iva
   }
 
   const admin = createAdminClient()

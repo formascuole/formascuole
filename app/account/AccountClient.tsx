@@ -7,6 +7,8 @@ import { Modal } from '@/components/ui/Modal'
 import { generateAvatarColor } from '@/lib/utils'
 import { UserRole } from '@/lib/types'
 
+type RegimeFiscale = 'forfettario' | 'ordinario' | 'notula'
+
 interface AccountClientProps {
   nome: string
   email: string
@@ -25,6 +27,9 @@ interface AccountClientProps {
   intestatario_conto: string | null
   tariffa_oraria_formatore: number | null
   tariffa_oraria_tutor: number | null
+  ha_partita_iva: boolean
+  regime_fiscale: RegimeFiscale
+  rivalsa_iva: boolean
 }
 
 const ROLE_BADGES: Record<UserRole, { label: string; cls: string }> = {
@@ -37,12 +42,24 @@ const ROLE_BADGES: Record<UserRole, { label: string; cls: string }> = {
 const CF_RE = /^[A-Z]{6}[0-9]{2}[A-EHLMPRST][0-9]{2}[A-Z][0-9]{3}[A-Z]$/i
 const IBAN_RE = /^IT[0-9]{2}[A-Z0-9]{23}$/
 
+const REGIME_LABELS: Record<RegimeFiscale, string> = {
+  forfettario: 'Regime forfettario',
+  ordinario:   'Regime ordinario',
+  notula:      'Prestazione occasionale',
+}
+const REGIME_BADGE_CLS: Record<RegimeFiscale, string> = {
+  forfettario: 'bg-green-100 text-green-700',
+  ordinario:   'bg-blue-100 text-blue-700',
+  notula:      'bg-orange-100 text-orange-700',
+}
+
 export function AccountClient({
   nome, email, role, avatarInitials, createdAt,
   luogo_nascita, data_nascita, codice_fiscale,
   indirizzo_via, indirizzo_cap, indirizzo_citta, indirizzo_provincia,
   iban, banca, intestatario_conto,
   tariffa_oraria_formatore, tariffa_oraria_tutor,
+  ha_partita_iva, regime_fiscale, rivalsa_iva,
 }: AccountClientProps) {
   // Password change state
   const [pwdModalOpen, setPwdModalOpen] = useState(false)
@@ -69,12 +86,16 @@ export function AccountClient({
     iban:                iban ?? '',
     banca:               banca ?? '',
     intestatario_conto:  intestatario_conto ?? '',
+    ha_partita_iva,
+    regime_fiscale,
+    rivalsa_iva,
   })
   // Track saved values to display
   const [savedFiscal, setSavedFiscal] = useState({
     luogo_nascita, data_nascita, codice_fiscale,
     indirizzo_via, indirizzo_cap, indirizzo_citta, indirizzo_provincia,
     iban, banca, intestatario_conto,
+    ha_partita_iva, regime_fiscale, rivalsa_iva,
   })
 
   const isFiscalRole = role === 'formatore' || role === 'tutor'
@@ -146,6 +167,9 @@ export function AccountClient({
         iban: json.iban,
         banca: json.banca,
         intestatario_conto: json.intestatario_conto,
+        ha_partita_iva: json.ha_partita_iva ?? false,
+        regime_fiscale: (json.regime_fiscale ?? 'notula') as RegimeFiscale,
+        rivalsa_iva: json.rivalsa_iva ?? false,
       })
       setFiscalSuccess(true)
       setTimeout(() => { setFiscalModalOpen(false); setFiscalSuccess(false) }, 1200)
@@ -229,6 +253,9 @@ export function AccountClient({
                 iban:                savedFiscal.iban ?? '',
                 banca:               savedFiscal.banca ?? '',
                 intestatario_conto:  savedFiscal.intestatario_conto ?? '',
+                ha_partita_iva:      savedFiscal.ha_partita_iva,
+                regime_fiscale:      savedFiscal.regime_fiscale,
+                rivalsa_iva:         savedFiscal.rivalsa_iva,
               })
               setFiscalError('')
               setFiscalSuccess(false)
@@ -252,6 +279,13 @@ export function AccountClient({
             <FiscalRow label="IBAN" value={savedFiscal.iban} mono />
             <FiscalRow label="Banca" value={savedFiscal.banca} />
             <FiscalRow label="Intestatario conto" value={savedFiscal.intestatario_conto} />
+            <div className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+              <span className="text-sm text-gray-500">Regime fiscale</span>
+              <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md ${REGIME_BADGE_CLS[savedFiscal.regime_fiscale] ?? REGIME_BADGE_CLS.notula}`}>
+                {REGIME_LABELS[savedFiscal.regime_fiscale] ?? REGIME_LABELS.notula}
+                {savedFiscal.regime_fiscale === 'ordinario' && savedFiscal.rivalsa_iva && ' + IVA 22%'}
+              </span>
+            </div>
           </div>
         </div>
       )}
@@ -447,6 +481,59 @@ export function AccountClient({
                 placeholder="Mario Rossi"
               />
             </div>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide pt-2">Regime fiscale</p>
+            <div>
+              <p className="text-xs font-medium text-gray-700 mb-2">Hai una Partita IVA?</p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setFiscal(f => ({
+                    ...f,
+                    ha_partita_iva: true,
+                    regime_fiscale: f.regime_fiscale === 'notula' ? 'forfettario' : f.regime_fiscale,
+                  }))}
+                  className={`flex-1 py-1.5 rounded-[7px] text-sm font-medium border transition-colors ${fiscal.ha_partita_iva ? 'bg-[#d64b55] text-white border-[#d64b55]' : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300'}`}
+                >
+                  Sì
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFiscal(f => ({ ...f, ha_partita_iva: false, regime_fiscale: 'notula', rivalsa_iva: false }))}
+                  className={`flex-1 py-1.5 rounded-[7px] text-sm font-medium border transition-colors ${!fiscal.ha_partita_iva ? 'bg-[#d64b55] text-white border-[#d64b55]' : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300'}`}
+                >
+                  No
+                </button>
+              </div>
+            </div>
+            {fiscal.ha_partita_iva && (
+              <div>
+                <p className="text-xs font-medium text-gray-700 mb-1.5">Regime</p>
+                <select
+                  value={fiscal.regime_fiscale === 'notula' ? 'forfettario' : fiscal.regime_fiscale}
+                  onChange={e => setFiscal(f => ({
+                    ...f,
+                    regime_fiscale: e.target.value as RegimeFiscale,
+                    rivalsa_iva: e.target.value !== 'ordinario' ? false : f.rivalsa_iva,
+                  }))}
+                  className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 focus:outline-none focus:border-[#d64b55] transition-colors bg-white"
+                >
+                  <option value="forfettario">Regime forfettario</option>
+                  <option value="ordinario">Regime ordinario</option>
+                </select>
+              </div>
+            )}
+            {fiscal.ha_partita_iva && fiscal.regime_fiscale === 'ordinario' && (
+              <label className="flex items-center gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={fiscal.rivalsa_iva}
+                  onChange={e => setFiscal(f => ({ ...f, rivalsa_iva: e.target.checked }))}
+                  className="w-4 h-4 rounded border-gray-300 accent-[#d64b55]"
+                />
+                <span className="text-sm text-gray-700">Applico rivalsa IVA 22%</span>
+              </label>
+            )}
+
             {fiscalError && (
               <p className="text-sm text-red-600">{fiscalError}</p>
             )}

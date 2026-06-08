@@ -14,13 +14,16 @@ interface ProfileData {
   iban: string
   banca: string
   intestatario_conto: string
+  ha_partita_iva: boolean
+  regime_fiscale: 'forfettario' | 'ordinario' | 'notula'
+  rivalsa_iva: boolean
 }
 
 interface OnboardingClientProps {
   nome: string
   email: string
   initialStep: 1 | 2
-  profile: ProfileData
+  profile: Omit<ProfileData, 'ha_partita_iva' | 'regime_fiscale' | 'rivalsa_iva'>
   redirectTo: string
 }
 
@@ -44,7 +47,13 @@ export function OnboardingClient({ nome, email, initialStep, profile, redirectTo
   const [step1Error, setStep1Error] = useState('')
 
   // Step 2 state
-  const [form, setForm] = useState<ProfileData>(profile)
+  const [form, setForm] = useState<ProfileData>({
+    ...profile,
+    ha_partita_iva: false,
+    regime_fiscale: 'notula',
+    rivalsa_iva: false,
+  })
+  const [pivaSelected, setPivaSelected] = useState(false)
   const [step2Loading, setStep2Loading] = useState(false)
   const [step2Error, setStep2Error] = useState('')
 
@@ -70,9 +79,9 @@ export function OnboardingClient({ nome, email, initialStep, profile, redirectTo
     'indirizzo_via', 'indirizzo_cap', 'indirizzo_citta', 'indirizzo_provincia',
     'iban', 'banca', 'intestatario_conto',
   ]
-  const allFilled = requiredStep2Fields.every(f => form[f].trim().length > 0)
+  const allFilled = requiredStep2Fields.every(f => (form[f] as string).trim().length > 0)
   const noErrors = !cfError && !ibanError && !provinciaError && !capError
-  const canStep2 = allFilled && noErrors
+  const canStep2 = allFilled && noErrors && pivaSelected
 
   const handleStep1 = async () => {
     setStep1Loading(true)
@@ -305,6 +314,73 @@ export function OnboardingClient({ nome, email, initialStep, profile, redirectTo
                 <input type="text" value={form.intestatario_conto} onChange={setField('intestatario_conto')}
                   placeholder="Nome e cognome intestatario" className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 focus:outline-none focus:border-[#d64b55] transition-colors" />
               </div>
+            </div>
+
+            {/* Regime fiscale */}
+            <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Regime fiscale</h2>
+            <div className="space-y-3 mb-6">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-2">
+                  Hai una Partita IVA? <span className="text-red-500">*</span>
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPivaSelected(true)
+                      setForm(f => ({ ...f, ha_partita_iva: true, regime_fiscale: f.regime_fiscale === 'notula' ? 'forfettario' : f.regime_fiscale }))
+                    }}
+                    className={`flex-1 py-2 rounded-[7px] text-sm font-medium border transition-colors ${form.ha_partita_iva && pivaSelected ? 'bg-[#d64b55] text-white border-[#d64b55]' : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300'}`}
+                  >
+                    Sì
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPivaSelected(true)
+                      setForm(f => ({ ...f, ha_partita_iva: false, regime_fiscale: 'notula', rivalsa_iva: false }))
+                    }}
+                    className={`flex-1 py-2 rounded-[7px] text-sm font-medium border transition-colors ${!form.ha_partita_iva && pivaSelected ? 'bg-[#d64b55] text-white border-[#d64b55]' : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300'}`}
+                  >
+                    No
+                  </button>
+                </div>
+              </div>
+              {form.ha_partita_iva && pivaSelected && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                    Regime fiscale <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={form.regime_fiscale === 'notula' ? 'forfettario' : form.regime_fiscale}
+                    onChange={e => setForm(f => ({
+                      ...f,
+                      regime_fiscale: e.target.value as 'forfettario' | 'ordinario',
+                      rivalsa_iva: e.target.value !== 'ordinario' ? false : f.rivalsa_iva,
+                    }))}
+                    className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 focus:outline-none focus:border-[#d64b55] transition-colors bg-white"
+                  >
+                    <option value="forfettario">Regime forfettario</option>
+                    <option value="ordinario">Regime ordinario</option>
+                  </select>
+                </div>
+              )}
+              {form.ha_partita_iva && pivaSelected && form.regime_fiscale === 'ordinario' && (
+                <label className="flex items-center gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={form.rivalsa_iva}
+                    onChange={e => setForm(f => ({ ...f, rivalsa_iva: e.target.checked }))}
+                    className="w-4 h-4 rounded border-gray-300 accent-[#d64b55]"
+                  />
+                  <span className="text-sm text-gray-700">Applico rivalsa IVA 22%</span>
+                </label>
+              )}
+              {!pivaSelected && (
+                <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-[7px] px-3 py-2">
+                  Seleziona se hai o meno una Partita IVA per procedere.
+                </p>
+              )}
             </div>
 
             {step2Error && (

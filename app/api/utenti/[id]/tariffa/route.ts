@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
+const VALID_REGIMI = ['forfettario', 'ordinario', 'notula']
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -32,6 +34,15 @@ export async function PATCH(
     const v = body.tariffa_oraria_tutor
     updates.tariffa_oraria_tutor = v !== null && v !== '' ? Number(v) : null
   }
+  if ('ha_partita_iva' in body) {
+    updates.ha_partita_iva = !!body.ha_partita_iva
+  }
+  if ('regime_fiscale' in body && VALID_REGIMI.includes(body.regime_fiscale)) {
+    updates.regime_fiscale = body.regime_fiscale
+  }
+  if ('rivalsa_iva' in body) {
+    updates.rivalsa_iva = !!body.rivalsa_iva
+  }
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: 'Nessun campo da aggiornare' }, { status: 400 })
@@ -42,7 +53,7 @@ export async function PATCH(
     .from('profiles')
     .update(updates)
     .eq('id', targetId)
-    .select('id, tariffa_oraria_formatore, tariffa_oraria_tutor')
+    .select('id, tariffa_oraria_formatore, tariffa_oraria_tutor, ha_partita_iva, regime_fiscale, rivalsa_iva')
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

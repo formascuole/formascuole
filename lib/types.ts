@@ -31,6 +31,9 @@ export interface Profile {
   password_cambiata?: boolean | null
   tariffa_oraria_formatore?: number | null
   tariffa_oraria_tutor?: number | null
+  ha_partita_iva?: boolean
+  regime_fiscale?: 'forfettario' | 'ordinario' | 'notula'
+  rivalsa_iva?: boolean
 }
 
 export interface Finanziamento {
