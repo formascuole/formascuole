@@ -52,7 +52,7 @@ export default async function CorsoDetailPage({
   // Fetch formatore, tutor, referente in parallel
   const [{ data: formatore }, { data: tutor }, { data: referente }] = await Promise.all([
     corsoData.formatore_id
-      ? supabase.from('profiles').select('id,nome,email,avatar_initials,ha_partita_iva,regime_fiscale,rivalsa_iva').eq('id', corsoData.formatore_id).single()
+      ? supabase.from('profiles').select('id,nome,email,avatar_initials,ha_partita_iva,regime_fiscale,rivalsa_iva,tariffa_oraria_formatore').eq('id', corsoData.formatore_id).single()
       : Promise.resolve({ data: null }),
     corsoData.tutor_id
       ? supabase.from('profiles').select('id,nome,email,avatar_initials').eq('id', corsoData.tutor_id).single()
