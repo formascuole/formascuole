@@ -1252,7 +1252,7 @@ export function CorsoDetailClient({
               </span>
             )}
           </div>
-          {isAdmin && (
+          {canConfirmSessions && (
             <Button size="sm" onClick={() => setCalendarOpen(true)} disabled={oreResidue === 0}>
               <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
                 <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
@@ -1265,7 +1265,7 @@ export function CorsoDetailClient({
         {sessioni.length === 0 ? (
           <div className="px-6 py-12 text-center text-sm text-gray-400">
             Nessuna sessione pianificata.
-            {oreResidue > 0 && isAdmin && (
+            {oreResidue > 0 && canConfirmSessions && (
               <div className="mt-1 text-xs">Clicca &quot;Aggiungi Sessione&quot; per iniziare.</div>
             )}
           </div>
