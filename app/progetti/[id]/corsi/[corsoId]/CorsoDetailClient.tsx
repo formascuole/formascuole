@@ -1183,8 +1183,8 @@ export function CorsoDetailClient({
                     {corso.tipo === 'PF' && corso.tutor_previsto ? 'Tariffa formatore' : 'Tariffa oraria'}
                   </div>
                   <div className="text-sm text-gray-600 mt-0.5">
-                    {corso.tariffa_oraria != null
-                      ? `€ ${Number(corso.tariffa_oraria).toFixed(2)}/h`
+                    {(corso.tariffa_oraria ?? corso.formatore?.tariffa_oraria_formatore) != null
+                      ? <>{`€ ${Number(corso.tariffa_oraria ?? corso.formatore?.tariffa_oraria_formatore).toFixed(2)}/h`}{corso.tariffa_oraria == null && <span className="ml-1 text-xs text-gray-400">(tariffa standard)</span>}</>
                       : <span className="text-gray-400">Non definita</span>}
                   </div>
                 </div>
@@ -1195,8 +1195,8 @@ export function CorsoDetailClient({
                   {corso.tariffa_oraria != null ? 'Modifica' : 'Imposta'}
                 </Button>
               </div>
-              {corso.tariffa_oraria != null && oreErogate > 0 && (() => {
-                const tariffa = Number(corso.tariffa_oraria)
+              {(corso.tariffa_oraria ?? corso.formatore?.tariffa_oraria_formatore) != null && oreErogate > 0 && (() => {
+                const tariffa = Number(corso.tariffa_oraria ?? corso.formatore?.tariffa_oraria_formatore)
                 const imponibile = +(oreErogate * tariffa).toFixed(2)
                 const regime = corso.formatore?.regime_fiscale ?? 'notula'
                 const rivalsaIva = corso.formatore?.rivalsa_iva ?? false
