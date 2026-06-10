@@ -39,16 +39,28 @@ export default async function ValutazioniFormatorePage() {
     school_name: progettiMap.get(c.project_id)?.school_name || '',
   }))
 
-  const { data: questionari } = corsiIds.length > 0
-    ? await admin
-        .from('questionari_risultati')
-        .select('*')
-        .in('corso_id', corsiIds)
-        .not('media_formatore', 'is', null)
-        .not('media_contenuti', 'is', null)
-        .not('media_apprendimento', 'is', null)
-        .order('created_at', { ascending: false })
-    : { data: [] }
+  // Query both by corso_id (platform submissions) and by formatore name (direct submissions)
+  const [byCorso, byName] = await Promise.all([
+    corsiIds.length > 0
+      ? admin.from('questionari_risultati').select('*')
+          .in('corso_id', corsiIds)
+          .not('media_formatore', 'is', null)
+          .not('media_contenuti', 'is', null)
+          .not('media_apprendimento', 'is', null)
+          .order('created_at', { ascending: false })
+      : Promise.resolve({ data: [] as import('@/lib/types').QuestionarioRisultato[] }),
+    admin.from('questionari_risultati').select('*')
+      .eq('formatore', profile.nome)
+      .not('media_formatore', 'is', null)
+      .not('media_contenuti', 'is', null)
+      .not('media_apprendimento', 'is', null)
+      .order('created_at', { ascending: false }),
+  ])
+
+  const seen = new Set<string>()
+  const questionari = [...(byCorso.data || []), ...(byName.data || [])]
+    .filter(q => { if (seen.has(q.id)) return false; seen.add(q.id); return true })
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))
 
   return (
     <AppLayout role="formatore" nome={profile.nome} email={profile.email} avatarInitials={profile.avatar_initials}>

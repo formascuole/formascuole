@@ -138,13 +138,20 @@ export default async function FormatorePage() {
     }
   }
 
-  // Questionari per questo formatore
-  const [{ data: questionari }, { data: allQuestionari }] = await Promise.all([
+  // Questionari per questo formatore — query both by corso_id and by name to catch
+  // records submitted without the platform URL (where corso_id is null but formatore text is set)
+  const [byCorso, byName, { data: allQuestionari }] = await Promise.all([
     corsiIds.length > 0
       ? admin.from('questionari_risultati').select('*').in('corso_id', corsiIds).not('media_formatore', 'is', null).not('media_contenuti', 'is', null).not('media_apprendimento', 'is', null).order('created_at', { ascending: false })
-      : Promise.resolve({ data: [] }),
+      : Promise.resolve({ data: [] as import('@/lib/types').QuestionarioRisultato[] }),
+    admin.from('questionari_risultati').select('*').eq('formatore', profile.nome).not('media_formatore', 'is', null).not('media_contenuti', 'is', null).not('media_apprendimento', 'is', null).order('created_at', { ascending: false }),
     admin.from('questionari_risultati').select('media_formatore,media_contenuti,media_apprendimento,numero_risposte').not('media_formatore', 'is', null).not('media_contenuti', 'is', null).not('media_apprendimento', 'is', null),
   ])
+
+  const seenQ = new Set<string>()
+  const questionari = [...(byCorso.data || []), ...(byName.data || [])]
+    .filter(q => { if (seenQ.has(q.id)) return false; seenQ.add(q.id); return true })
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))
 
   const globalTot = (allQuestionari || []).reduce((s, q) => s + (q.numero_risposte ?? 1), 0)
   const mediaGlobale = globalTot > 0
