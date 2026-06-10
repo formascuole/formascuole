@@ -128,15 +128,34 @@ export default async function CorsoDetailPage({
         .order('created_at')
     : { data: [] }
 
-  // Questionari — use admin client to bypass RLS for formatori
-  const { data: questionari } = await adminQ
-    .from('questionari_risultati')
+  // Questionari — use admin client to bypass RLS for formatori.
+  // Two queries: by corso_id (platform submissions) and by title+school (direct submissions
+  // where corso_id was not pre-filled in the URL).
+  const qBase = adminQ.from('questionari_risultati')
     .select('*')
-    .eq('corso_id', corsoId)
     .not('media_formatore', 'is', null)
     .not('media_contenuti', 'is', null)
     .not('media_apprendimento', 'is', null)
     .order('created_at', { ascending: false })
+
+  const [byCorso, byText] = await Promise.all([
+    qBase.eq('corso_id', corsoId),
+    corsoData.title && progetto?.school_name
+      ? adminQ.from('questionari_risultati').select('*')
+          .is('corso_id', null)
+          .eq('titolo_corso', corsoData.title)
+          .eq('scuola', progetto.school_name)
+          .not('media_formatore', 'is', null)
+          .not('media_contenuti', 'is', null)
+          .not('media_apprendimento', 'is', null)
+          .order('created_at', { ascending: false })
+      : Promise.resolve({ data: [] as import('@/lib/types').QuestionarioRisultato[] }),
+  ])
+
+  const seenQ = new Set<string>()
+  const questionari = [...(byCorso.data || []), ...(byText.data || [])]
+    .filter(q => { if (seenQ.has(q.id)) return false; seenQ.add(q.id); return true })
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))
 
   // Il formatore assegnato può confermare le sessioni
   const canConfirmSessions = isAdmin || corsoData.formatore_id === user.id
