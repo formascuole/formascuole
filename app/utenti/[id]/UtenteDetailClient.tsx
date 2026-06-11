@@ -404,6 +404,14 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
         <div className="bg-white rounded-xl p-6 mt-6" style={{ border: '0.5px solid #e5e5e5' }}>
           <h2 className="font-semibold text-gray-900 mb-4">Dati fiscali e bancari</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
+            {profile.telefono && (
+              <div className="flex items-center justify-between py-2 border-b border-gray-50">
+                <span className="text-sm text-gray-500">Telefono</span>
+                <a href={`tel:${profile.telefono}`} className="text-sm font-medium text-blue-600 hover:underline">
+                  {profile.telefono}
+                </a>
+              </div>
+            )}
             <FiscalAdminRow label="Luogo di nascita" value={profile.luogo_nascita} />
             <FiscalAdminRow label="Data di nascita" value={profile.data_nascita
               ? new Date(profile.data_nascita).toLocaleDateString('it-IT', { day: '2-digit', month: 'long', year: 'numeric' })

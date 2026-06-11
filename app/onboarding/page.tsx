@@ -38,6 +38,7 @@ export default async function OnboardingPage({
       email={profile.email}
       initialStep={initialStep}
       profile={{
+        telefono: profile.telefono ?? '',
         luogo_nascita: profile.luogo_nascita ?? '',
         data_nascita: profile.data_nascita ?? '',
         codice_fiscale: profile.codice_fiscale ?? '',

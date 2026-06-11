@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 interface ProfileData {
+  telefono: string
   luogo_nascita: string
   data_nascita: string
   codice_fiscale: string
@@ -77,7 +78,7 @@ export function OnboardingClient({ nome, email, initialStep, profile, redirectTo
     : ''
 
   const requiredStep2Fields: (keyof ProfileData)[] = [
-    'luogo_nascita', 'data_nascita', 'codice_fiscale',
+    'telefono', 'luogo_nascita', 'data_nascita', 'codice_fiscale',
     'indirizzo_via', 'indirizzo_cap', 'indirizzo_citta', 'indirizzo_provincia',
     'iban', 'banca', 'intestatario_conto',
   ]
@@ -228,6 +229,13 @@ export function OnboardingClient({ nome, email, initialStep, profile, redirectTo
                   readOnly
                   className="w-full text-sm border border-gray-100 rounded-[7px] px-3 py-2 bg-gray-50 text-gray-500 cursor-not-allowed"
                 />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Telefono <span className="text-red-500">*</span>
+                </label>
+                <input type="tel" value={form.telefono} onChange={setField('telefono')}
+                  placeholder="+39 333 1234567" className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 focus:outline-none focus:border-[#d64b55] transition-colors" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>

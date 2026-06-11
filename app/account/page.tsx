@@ -55,6 +55,7 @@ export default async function AccountPage() {
         regime_fiscale={(profile.regime_fiscale ?? 'notula') as 'forfettario' | 'ordinario' | 'notula'}
         rivalsa_iva={profile.rivalsa_iva ?? false}
         partita_iva={profile.partita_iva ?? null}
+        telefono={profile.telefono ?? null}
       />
     </AppLayout>
   )

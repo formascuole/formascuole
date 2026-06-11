@@ -31,6 +31,7 @@ interface AccountClientProps {
   regime_fiscale: RegimeFiscale
   rivalsa_iva: boolean
   partita_iva?: string | null
+  telefono?: string | null
 }
 
 const ROLE_BADGES: Record<UserRole, { label: string; cls: string }> = {
@@ -60,7 +61,7 @@ export function AccountClient({
   indirizzo_via, indirizzo_cap, indirizzo_citta, indirizzo_provincia,
   iban, banca, intestatario_conto,
   tariffa_oraria_formatore, tariffa_oraria_tutor,
-  ha_partita_iva, regime_fiscale, rivalsa_iva, partita_iva,
+  ha_partita_iva, regime_fiscale, rivalsa_iva, partita_iva, telefono,
 }: AccountClientProps) {
   // Password change state
   const [pwdModalOpen, setPwdModalOpen] = useState(false)
@@ -91,13 +92,14 @@ export function AccountClient({
     regime_fiscale,
     rivalsa_iva,
     partita_iva: partita_iva ?? '',
+    telefono: telefono ?? '',
   })
   // Track saved values to display
   const [savedFiscal, setSavedFiscal] = useState({
     luogo_nascita, data_nascita, codice_fiscale,
     indirizzo_via, indirizzo_cap, indirizzo_citta, indirizzo_provincia,
     iban, banca, intestatario_conto,
-    ha_partita_iva, regime_fiscale, rivalsa_iva, partita_iva,
+    ha_partita_iva, regime_fiscale, rivalsa_iva, partita_iva, telefono,
   })
 
   const isFiscalRole = role === 'formatore' || role === 'tutor'
@@ -173,6 +175,7 @@ export function AccountClient({
         regime_fiscale: (json.regime_fiscale ?? 'notula') as RegimeFiscale,
         rivalsa_iva: json.rivalsa_iva ?? false,
         partita_iva: json.partita_iva ?? null,
+        telefono: json.telefono ?? null,
       })
       setFiscalSuccess(true)
       setTimeout(() => { setFiscalModalOpen(false); setFiscalSuccess(false) }, 1200)
@@ -260,6 +263,7 @@ export function AccountClient({
                 regime_fiscale:      savedFiscal.regime_fiscale,
                 rivalsa_iva:         savedFiscal.rivalsa_iva,
                 partita_iva:         savedFiscal.partita_iva ?? '',
+                telefono:            savedFiscal.telefono ?? '',
               })
               setFiscalError('')
               setFiscalSuccess(false)
@@ -273,6 +277,7 @@ export function AccountClient({
             </Button>
           </div>
           <div className="space-y-3">
+            <FiscalRow label="Telefono" value={savedFiscal.telefono} />
             <FiscalRow label="Luogo di nascita" value={savedFiscal.luogo_nascita} />
             <FiscalRow label="Data di nascita" value={savedFiscal.data_nascita
               ? new Date(savedFiscal.data_nascita).toLocaleDateString('it-IT', { day: '2-digit', month: 'long', year: 'numeric' })
@@ -414,6 +419,13 @@ export function AccountClient({
         ) : (
           <div className="space-y-4">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Dati anagrafici</p>
+            <Input
+              label="Numero di telefono"
+              type="tel"
+              value={fiscal.telefono}
+              onChange={e => setFiscal(f => ({ ...f, telefono: e.target.value }))}
+              placeholder="+39 333 1234567"
+            />
             <div className="grid grid-cols-2 gap-3">
               <Input
                 label="Luogo di nascita"

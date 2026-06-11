@@ -38,6 +38,7 @@ interface UtenteConStats {
   regime_fiscale?: string | null
   rivalsa_iva?: boolean | null
   partita_iva?: string | null
+  telefono?: string | null
   // Formatore stats
   n_corsi_formatore: number
   ore_formatore: number
@@ -68,7 +69,7 @@ const REGIME_EXPORT_LABELS: Record<string, string> = {
 async function exportFormatori(utenti: UtenteConStats[], statsMap: Record<string, UtenteStats>) {
   const XLSX = await import('xlsx')
   const headers = [
-    'Nome completo', 'Email', 'Ruolo',
+    'Nome completo', 'Email', 'Telefono', 'Ruolo',
     'Profilo completo', 'Regime fiscale', 'Partita IVA',
     'Tariffa formatore (€/h)', 'Tariffa tutor (€/h)',
     'Luogo di nascita', 'Data di nascita', 'Codice fiscale',
@@ -94,6 +95,7 @@ async function exportFormatori(utenti: UtenteConStats[], statsMap: Record<string
       return [
         u.nome,
         u.email,
+        u.telefono || '',
         ruolo,
         u.profilo_completo ? 'Sì' : 'No',
         regime,
