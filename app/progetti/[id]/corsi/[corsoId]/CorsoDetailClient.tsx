@@ -81,6 +81,18 @@ export function CorsoDetailClient({
   const [deletingNota, setDeletingNota] = useState<string | null>(null)
 
   const [questionarioOpen, setQuestionarioOpen] = useState(false)
+  const [localQCount, setLocalQCount] = useState(corso.questionario_generato_count ?? 0)
+  const [localQAt, setLocalQAt] = useState<string | null>(corso.questionario_generato_at ?? null)
+
+  const handleOpenQuestionario = () => {
+    const nowIso = new Date().toISOString()
+    setLocalQCount(c => c + 1)
+    setLocalQAt(nowIso)
+    setQuestionarioOpen(true)
+    fetch(`/api/corsi/${corso.id}/questionario`, { method: 'PATCH' })
+      .then(() => router.refresh())
+      .catch(() => {})
+  }
 
   // Edit session state
   type LogEntry = {
@@ -621,7 +633,7 @@ export function CorsoDetailClient({
               </span>
             )}
             {isAdmin && (
-              (corso.questionario_generato_count ?? 0) > 0 ? (
+              localQCount > 0 ? (
                 <div className="flex flex-col gap-0.5">
                   <span className="inline-flex items-center gap-1 text-xs text-green-700 bg-green-100 px-2.5 py-1 rounded-md font-medium">
                     <svg width="10" height="10" fill="none" viewBox="0 0 24 24">
@@ -630,7 +642,7 @@ export function CorsoDetailClient({
                     Questionario generato
                   </span>
                   <span style={{ fontSize: '11px' }} className="text-gray-400 pl-0.5">
-                    Ultima: {corso.questionario_generato_at ? new Date(corso.questionario_generato_at).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'} · {corso.questionario_generato_count}×
+                    Ultima: {localQAt ? new Date(localQAt).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'} · {localQCount}×
                   </span>
                 </div>
               ) : (
@@ -642,7 +654,7 @@ export function CorsoDetailClient({
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <button
-              onClick={() => setQuestionarioOpen(true)}
+              onClick={handleOpenQuestionario}
               className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-gray-900 bg-white hover:bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-[7px] transition-colors"
             >
               <svg width="13" height="13" fill="none" viewBox="0 0 24 24">

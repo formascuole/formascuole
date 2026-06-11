@@ -80,6 +80,18 @@ Il team Formascuole`
     html: htmlBody,
   })
 
+  return NextResponse.json({ success: true })
+}
+
+// Called when admin opens the modal — increments counter immediately
+export async function PATCH(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id: corsoId } = await params
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const admin = createAdminClient()
   const { data: currentCorso } = await admin.from('corsi').select('questionario_generato_count').eq('id', corsoId).single()
   await admin.from('corsi').update({
     questionario_generato_at: new Date().toISOString(),
