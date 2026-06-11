@@ -12,7 +12,14 @@ interface NavItem {
   badge?: number
 }
 
-const adminNav: NavItem[] = [
+interface NavGroup {
+  group: string
+  icon: React.ReactNode
+  items: { href: string; label: string }[]
+}
+type NavEntry = NavItem | NavGroup
+
+const adminNav: NavEntry[] = [
   {
     href: '/dashboard',
     label: 'Dashboard',
@@ -64,6 +71,20 @@ const adminNav: NavItem[] = [
       </svg>
     ),
   },
+  {
+    group: 'Economia',
+    icon: (
+      <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
+        <rect x="2" y="7" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+        <path d="M16 14a1 1 0 100-2 1 1 0 000 2z" fill="currentColor"/>
+        <path d="M6 7V5a2 2 0 012-2h8a2 2 0 012 2v2" stroke="currentColor" strokeWidth="1.5"/>
+      </svg>
+    ),
+    items: [
+      { href: '/economia/estratti-conto', label: 'Estratti conto' },
+      { href: '/economia/corsi-completati', label: 'Corsi completati' },
+    ],
+  } as NavGroup,
   {
     href: '/notifiche',
     label: 'Notifiche',
@@ -201,7 +222,7 @@ export function Sidebar({ role, nome, email, avatarInitials, notificheBadge, isS
   const router = useRouter()
   const isSA = isSuperAdmin ?? role === 'super_admin'
   const baseNav = role === 'admin' || role === 'super_admin' ? adminNav : role === 'tutor' ? tutorNav : formatoreNav
-  const nav = isSA ? [...baseNav, finanziamentiNavItem] : baseNav
+  const nav: NavEntry[] = isSA ? [...baseNav, finanziamentiNavItem] : baseNav
 
   // Close sidebar on route change (mobile)
   useEffect(() => {
@@ -263,30 +284,41 @@ export function Sidebar({ role, nome, email, avatarInitials, notificheBadge, isS
 
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-        {nav.map((item) => {
+        {nav.map((entry) => {
+          if ('group' in entry) {
+            const groupActive = entry.items.some(i => pathname === i.href || pathname.startsWith(i.href + '/'))
+            return (
+              <div key={entry.group} className="mt-1">
+                <div className={`flex items-center gap-3 px-3 py-2 text-xs font-semibold uppercase tracking-wider ${groupActive ? 'text-[#d64b55]' : 'text-gray-400'}`}>
+                  <span className={groupActive ? 'text-[#d64b55]' : 'text-gray-300'}>{entry.icon}</span>
+                  {entry.group}
+                </div>
+                {entry.items.map(sub => {
+                  const isActive = pathname === sub.href || pathname.startsWith(sub.href + '/')
+                  return (
+                    <Link
+                      key={sub.href}
+                      href={sub.href}
+                      className={`flex items-center pl-9 pr-3 py-2 rounded-[7px] text-sm font-medium transition-all ${isActive ? 'text-white' : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50'}`}
+                      style={isActive ? { backgroundColor: '#d64b55' } : {}}
+                    >
+                      {sub.label}
+                    </Link>
+                  )
+                })}
+              </div>
+            )
+          }
+          // original item rendering (unchanged logic)
+          const item = entry  // entry is NavItem here
           const isActive = pathname === item.href || (item.href !== '/formatore' && pathname.startsWith(item.href + '/'))
           const badgeCount = item.href === '/notifiche' ? notificheBadge : undefined
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-[7px] text-sm font-medium transition-all relative ${
-                isActive
-                  ? 'text-white'
-                  : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50'
-              }`}
-              style={isActive ? { backgroundColor: '#d64b55' } : {}}
-            >
+            <Link key={item.href} href={item.href} className={`flex items-center gap-3 px-3 py-2.5 rounded-[7px] text-sm font-medium transition-all relative ${isActive ? 'text-white' : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50'}`} style={isActive ? { backgroundColor: '#d64b55' } : {}}>
               <span className={isActive ? 'text-white' : 'text-gray-400'}>{item.icon}</span>
               {item.label}
               {badgeCount != null && badgeCount > 0 && (
-                <span
-                  className="ml-auto text-xs font-semibold rounded-full px-1.5 py-0.5 min-w-[20px] text-center leading-none"
-                  style={{
-                    backgroundColor: isActive ? 'rgba(255,255,255,0.3)' : '#fbeced',
-                    color: isActive ? 'white' : '#d64b55',
-                  }}
-                >
+                <span className="ml-auto text-xs font-semibold rounded-full px-1.5 py-0.5 min-w-[20px] text-center leading-none" style={{ backgroundColor: isActive ? 'rgba(255,255,255,0.3)' : '#fbeced', color: isActive ? 'white' : '#d64b55' }}>
                   {badgeCount}
                 </span>
               )}
