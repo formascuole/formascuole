@@ -5,6 +5,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts'
 import type { StatisticheData } from './page'
+import { StatisticheNav } from '@/components/ui/StatisticheNav'
 
 interface Props { data: StatisticheData }
 
@@ -155,6 +156,7 @@ export function StatisticheClient({ data }: Props) {
     <div ref={printRef} className="p-8 max-w-6xl mx-auto print:p-4">
       {/* Page header */}
       <div className="flex items-center justify-between mb-8 print:mb-4">
+
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Statistiche</h1>
           <p className="text-sm text-gray-500 mt-1">Report aggregato di tutti i dati della piattaforma</p>
@@ -193,6 +195,8 @@ export function StatisticheClient({ data }: Props) {
           </button>
         </div>
       </div>
+
+      <StatisticheNav />
 
       {/* ── Sezione 1: Riepilogo generale ──────────────────────────────────── */}
       <section className="mb-10">

@@ -82,7 +82,7 @@ export default async function UtenteDetailPage({ params }: { params: Promise<{ i
 
   const [{ data: sessioniFormatore }, { data: sessioniTutor }, { data: corsiTutorData }] = await Promise.all([
     corsiFormatoreIds.length > 0
-      ? adminQ.from('sessioni').select('corso_id, ore').in('corso_id', corsiFormatoreIds).eq('completata', true)
+      ? adminQ.from('sessioni').select('corso_id, ore, data').in('corso_id', corsiFormatoreIds).eq('completata', true)
       : Promise.resolve({ data: [] }),
     corsiTutorIds.length > 0
       ? adminQ.from('sessioni').select('corso_id, ore').in('corso_id', corsiTutorIds).eq('completata', true)
@@ -97,6 +97,19 @@ export default async function UtenteDetailPage({ params }: { params: Promise<{ i
   for (const s of sessioniFormatore || []) {
     oreErogatePerCorsoFormatore[s.corso_id] = (oreErogatePerCorsoFormatore[s.corso_id] ?? 0) + Number(s.ore)
     oreErogateFormatore += Number(s.ore)
+  }
+
+  const sessionDatesByCorso: Record<string, { prima: string; ultima: string }> = {}
+  for (const s of sessioniFormatore || []) {
+    const sTyped = s as { corso_id: string; ore: number; data: string }
+    if (!sTyped.data) continue
+    const cur = sessionDatesByCorso[sTyped.corso_id]
+    if (!cur) {
+      sessionDatesByCorso[sTyped.corso_id] = { prima: sTyped.data, ultima: sTyped.data }
+    } else {
+      if (sTyped.data < cur.prima) cur.prima = sTyped.data
+      if (sTyped.data > cur.ultima) cur.ultima = sTyped.data
+    }
   }
 
   const oreErogatePerCorsoTutor: Record<string, number> = {}
@@ -157,6 +170,7 @@ export default async function UtenteDetailPage({ params }: { params: Promise<{ i
         oreErogatePerCorsoFormatore={oreErogatePerCorsoFormatore}
         oreErogatePerCorsoTutor={oreErogatePerCorsoTutor}
         isAdmin={['admin', 'super_admin'].includes(currentProfile.role)}
+        sessionDatesByCorso={sessionDatesByCorso}
       />
     </AppLayout>
   )

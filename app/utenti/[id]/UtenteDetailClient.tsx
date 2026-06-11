@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Profile, CorsoConOre, UserRole, QuestionarioRisultato } from '@/lib/types'
@@ -34,6 +34,7 @@ interface UtenteDetailClientProps {
   oreErogatePerCorsoFormatore?: Record<string, number>
   oreErogatePerCorsoTutor?: Record<string, number>
   isAdmin: boolean
+  sessionDatesByCorso?: Record<string, { prima: string; ultima: string }>
 }
 
 function corsoStato(c: CorsoConOre, oreErogate: number): { label: string; color: string } {
@@ -115,7 +116,7 @@ function CorsiTable({ corsi, oreErogateMap = {} }: { corsi: CorsoConProgetto[]; 
   )
 }
 
-export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSuperAdmin, currentUserId, nRifiutati = 0, tassoAccettazione = null, questionari = [], mediaGlobale = null, oreErogateFormatore = 0, oreErogateTutor = 0, oreErogatePerCorsoFormatore = {}, oreErogatePerCorsoTutor = {}, isAdmin }: UtenteDetailClientProps) {
+export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSuperAdmin, currentUserId, nRifiutati = 0, tassoAccettazione = null, questionari = [], mediaGlobale = null, oreErogateFormatore = 0, oreErogateTutor = 0, oreErogatePerCorsoFormatore = {}, oreErogatePerCorsoTutor = {}, isAdmin, sessionDatesByCorso = {} }: UtenteDetailClientProps) {
   const router = useRouter()
   const [deleteOpen, setDeleteOpen] = useState(false)
 
@@ -348,6 +349,16 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
         </div>
       )}
 
+      {/* Estratto conto — visibile solo ad admin per formatori */}
+      {isFormatore && isAdmin && (
+        <EstrattoContoSection
+          corsiFormatore={corsiFormatore}
+          sessionDatesByCorso={sessionDatesByCorso}
+          savedTariffe={savedTariffe}
+          nomeFormatore={profile.nome}
+        />
+      )}
+
       {/* Tariffe orarie — visibile solo ad admin */}
       {isAdmin && (profile.roles.includes('formatore') || profile.roles.includes('tutor')) && (
         <div className="bg-white rounded-xl p-6 mt-6" style={{ border: '0.5px solid #e5e5e5' }}>
@@ -577,4 +588,379 @@ function TariffaAdminRow({ label, value }: { label: string; value: number | null
       </span>
     </div>
   )
+}
+
+// ── Estratto Conto ────────────────────────────────────────────────────────────
+
+type RegimeFiscaleEC = 'forfettario' | 'ordinario' | 'notula'
+
+interface CorsoEC {
+  corso_id: string
+  title: string
+  school_name: string
+  ore_erogate: number
+  tariffa: number | null
+  prima_sessione: string | null
+  ultima_sessione: string | null
+  anno: number | null
+  imponibile: number
+  ritenuteIva: number
+  netto: number
+  regimeFiscale: RegimeFiscaleEC
+  rivalsaIva: boolean
+}
+
+function calcEC(ore: number, tariffa: number, regime: RegimeFiscaleEC, rivalsa: boolean): { imponibile: number; ritenuteIva: number; netto: number } {
+  const imponibile = ore * tariffa
+  if (regime === 'notula') {
+    const ritenuta = imponibile * 0.2
+    return { imponibile, ritenuteIva: -ritenuta, netto: imponibile - ritenuta }
+  }
+  if (regime === 'ordinario' && rivalsa) {
+    const iva = imponibile * 0.22
+    return { imponibile, ritenuteIva: iva, netto: imponibile + iva }
+  }
+  return { imponibile, ritenuteIva: 0, netto: imponibile }
+}
+
+function fmtDateShortEC(d: string | null): string | null {
+  if (!d) return null
+  const [y, m, day] = d.substring(0, 10).split('-')
+  return `${day}/${m}/${y.slice(2)}`
+}
+
+function fmtCurrency(n: number) {
+  return `€ ${n.toFixed(2)}`
+}
+
+async function exportEstrattoContoExcel(rows: CorsoEC[], nomeFormatore: string, annoFilter: string) {
+  const XLSX = await import('xlsx')
+  const fmt = (d: string | null) => {
+    if (!d) return ''
+    const [y, m, day] = d.substring(0, 10).split('-')
+    return `${day}/${m}/${y.slice(2)}`
+  }
+  const headers = ['Corso', 'Scuola', 'Periodo', 'Ore', 'Tariffa (€/h)', 'Imponibile (€)', 'Ritenuta/IVA (€)', 'Netto (€)']
+  const data: (string | number)[][] = rows.map(r => [
+    r.title,
+    r.school_name,
+    [r.prima_sessione ? fmt(r.prima_sessione) : null, r.ultima_sessione ? fmt(r.ultima_sessione) : null].filter(Boolean).join(' – ') || '—',
+    r.ore_erogate,
+    r.tariffa ?? '',
+    r.tariffa ? r.imponibile : '',
+    r.tariffa ? r.ritenuteIva : '',
+    r.tariffa ? r.netto : '',
+  ])
+  const totOre = rows.reduce((s, r) => s + r.ore_erogate, 0)
+  const totImponibile = rows.filter(r => r.tariffa).reduce((s, r) => s + r.imponibile, 0)
+  const totRit = rows.filter(r => r.tariffa).reduce((s, r) => s + r.ritenuteIva, 0)
+  const totNetto = rows.filter(r => r.tariffa).reduce((s, r) => s + r.netto, 0)
+  data.push(['TOTALE', '', '', totOre, '', totImponibile, totRit, totNetto])
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...data])
+  ws['!cols'] = headers.map((h, i) => ({
+    wch: Math.min(Math.max(h.length, ...data.map(r => String(r[i] ?? '').length)) + 2, 40),
+  }))
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Estratto conto')
+  XLSX.writeFile(wb, `Estratto_${nomeFormatore.replace(/\s+/g, '_')}_${annoFilter}.xlsx`)
+}
+
+function exportEstrattoContoPDF(rows: CorsoEC[], nomeFormatore: string, annoFilter: string, regime: RegimeFiscaleEC, rivalsa: boolean) {
+  const fmtCur = (n: number) => `€ ${n.toFixed(2)}`
+  const fmtDate = (d: string | null) => d ? [d.slice(8, 10), d.slice(5, 7), d.slice(2, 4)].join('/') : '—'
+  const regimeLabel = regime === 'notula' ? 'Prestazione occasionale (ritenuta 20%)'
+    : regime === 'forfettario' ? 'Regime forfettario'
+    : rivalsa ? 'Regime ordinario + IVA 22%' : 'Regime ordinario'
+
+  const totOre = rows.reduce((s, r) => s + r.ore_erogate, 0)
+  const rowsWithTariffa = rows.filter(r => r.tariffa)
+  const totImp = rowsWithTariffa.reduce((s, r) => s + r.imponibile, 0)
+  const totRit = rowsWithTariffa.reduce((s, r) => s + r.ritenuteIva, 0)
+  const totNetto = rowsWithTariffa.reduce((s, r) => s + r.netto, 0)
+
+  const tableRows = rows.map(r => `
+    <tr>
+      <td>${r.title}</td><td>${r.school_name}</td>
+      <td>${[fmtDate(r.prima_sessione), fmtDate(r.ultima_sessione)].filter(x => x !== '—').join(' – ') || '—'}</td>
+      <td class="num">${r.ore_erogate}</td>
+      <td class="num">${r.tariffa ? `€ ${r.tariffa.toFixed(2)}` : 'N/D'}</td>
+      <td class="num">${r.tariffa ? fmtCur(r.imponibile) : '—'}</td>
+      <td class="num">${r.tariffa ? (r.ritenuteIva !== 0 ? fmtCur(r.ritenuteIva) : '—') : '—'}</td>
+      <td class="num bold">${r.tariffa ? fmtCur(r.netto) : '—'}</td>
+    </tr>
+  `).join('')
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+  <title>Estratto Conto ${nomeFormatore} ${annoFilter}</title>
+  <style>
+    body{font-family:Arial,sans-serif;font-size:10px;color:#111;padding:20px}
+    h1{font-size:16px;margin:0}h2{font-size:12px;font-weight:normal;margin:4px 0 0}
+    .header{margin-bottom:16px}
+    .meta{margin-bottom:12px;color:#555;font-size:9px}
+    table{width:100%;border-collapse:collapse;margin-top:8px}
+    th{background:#f3f4f6;text-align:left;padding:5px 6px;font-size:9px;text-transform:uppercase;border:1px solid #e5e7eb}
+    td{padding:4px 6px;border:1px solid #e5e7eb;vertical-align:top}
+    .num{text-align:right}.bold{font-weight:bold}
+    tr.totale{background:#f9fafb;font-weight:bold}
+    @media print{body{padding:0}}
+  </style></head><body>
+  <div class="header">
+    <h1>SVC Consulting Srl</h1>
+    <h2>Estratto Conto Formatori</h2>
+  </div>
+  <div class="meta">
+    <strong>Formatore:</strong> ${nomeFormatore} &nbsp;|&nbsp;
+    <strong>Anno:</strong> ${annoFilter} &nbsp;|&nbsp;
+    <strong>Regime:</strong> ${regimeLabel}
+  </div>
+  <table>
+    <thead><tr>
+      <th>Corso</th><th>Scuola</th><th>Periodo</th><th>Ore</th>
+      <th>Tariffa</th><th>Imponibile</th><th>Rit./IVA</th><th>Netto</th>
+    </tr></thead>
+    <tbody>${tableRows}
+    <tr class="totale">
+      <td colspan="3">TOTALE</td>
+      <td class="num">${totOre}</td><td></td>
+      <td class="num">${fmtCur(totImp)}</td>
+      <td class="num">${totRit !== 0 ? fmtCur(totRit) : '—'}</td>
+      <td class="num bold">${fmtCur(totNetto)}</td>
+    </tr></tbody>
+  </table>
+  <script>window.onload=function(){window.print();window.close()}</script>
+  </body></html>`
+
+  const w = window.open('', '_blank', 'width=900,height=700')
+  if (w) { w.document.write(html); w.document.close() }
+}
+
+interface EstrattoContoProps {
+  corsiFormatore: CorsoConProgetto[]
+  sessionDatesByCorso: Record<string, { prima: string; ultima: string }>
+  savedTariffe: {
+    tariffa_oraria_formatore: number | null
+    regime_fiscale: RegimeFiscaleEC
+    rivalsa_iva: boolean
+  }
+  nomeFormatore: string
+}
+
+function EstrattoContoSection({ corsiFormatore, sessionDatesByCorso, savedTariffe, nomeFormatore }: EstrattoContoProps) {
+  const [anno, setAnno] = useState(() => String(new Date().getFullYear()))
+
+  const regime = savedTariffe.regime_fiscale
+  const rivalsa = savedTariffe.rivalsa_iva
+
+  const allRows = useMemo<CorsoEC[]>(() => {
+    return corsiFormatore
+      .filter(c => c.corso_completato)
+      .map(c => {
+        const tariffa = (c.tariffa_oraria != null ? Number(c.tariffa_oraria) : null)
+          ?? savedTariffe.tariffa_oraria_formatore
+        const dates = sessionDatesByCorso[c.id]
+        const prima = dates?.prima ?? null
+        const ultima = dates?.ultima ?? null
+        const annoVal = c.corso_completato_at?.substring(0, 4) || ultima?.substring(0, 4) || null
+        const ore = oreErogateFromC(c)
+        const computed = tariffa != null
+          ? calcEC(ore, tariffa, regime, rivalsa)
+          : { imponibile: 0, ritenuteIva: 0, netto: 0 }
+        return {
+          corso_id: c.id,
+          title: c.title,
+          school_name: c.project?.school_name ?? '—',
+          ore_erogate: ore,
+          tariffa,
+          prima_sessione: prima,
+          ultima_sessione: ultima,
+          anno: annoVal ? Number(annoVal) : null,
+          imponibile: computed.imponibile,
+          ritenuteIva: computed.ritenuteIva,
+          netto: computed.netto,
+          regimeFiscale: regime,
+          rivalsaIva: rivalsa,
+        }
+      })
+  }, [corsiFormatore, sessionDatesByCorso, savedTariffe, regime, rivalsa])
+
+  const anni = useMemo(() => {
+    const s = new Set<string>()
+    for (const r of allRows) {
+      if (r.anno) s.add(String(r.anno))
+    }
+    return [...s].sort().reverse()
+  }, [allRows])
+
+  const filtered = useMemo(() => {
+    if (!anno || anno === 'all') return allRows
+    return allRows.filter(r => r.anno === Number(anno))
+  }, [allRows, anno])
+
+  const noTariffa = savedTariffe.tariffa_oraria_formatore == null && allRows.every(r => r.tariffa == null)
+
+  const totOre = filtered.reduce((s, r) => s + r.ore_erogate, 0)
+  const rowsWithT = filtered.filter(r => r.tariffa != null)
+  const totImp = rowsWithT.reduce((s, r) => s + r.imponibile, 0)
+  const totRit = rowsWithT.reduce((s, r) => s + r.ritenuteIva, 0)
+  const totNetto = rowsWithT.reduce((s, r) => s + r.netto, 0)
+  const hasFinancial = rowsWithT.length > 0
+
+  const regimeLabel = regime === 'notula' ? 'Regime: Prestazione occasionale (ritenuta 20%)'
+    : regime === 'forfettario' ? 'Regime: Forfettario'
+    : rivalsa ? 'Regime: Ordinario + IVA 22%' : 'Regime: Ordinario'
+
+  return (
+    <div className="bg-white rounded-xl p-6 mt-6" style={{ border: '0.5px solid #e5e5e5' }}>
+      <div className="flex items-start justify-between mb-1">
+        <div>
+          <h2 className="font-semibold text-gray-900">Estratto conto</h2>
+          <p className="text-sm text-gray-400 mt-0.5">Corsi completati — calcolato sulla tariffa oraria effettiva</p>
+        </div>
+        {filtered.length > 0 && (
+          <div className="flex gap-2">
+            <button
+              onClick={() => exportEstrattoContoExcel(filtered, nomeFormatore, anno)}
+              className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-[7px] border border-gray-200 hover:bg-gray-50 text-gray-600 transition-colors"
+            >
+              <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              Excel
+            </button>
+            <button
+              onClick={() => exportEstrattoContoPDF(filtered, nomeFormatore, anno, regime, rivalsa)}
+              className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-[7px] border border-gray-200 hover:bg-gray-50 text-gray-600 transition-colors"
+            >
+              <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
+                <polyline points="6 9 6 2 18 2 18 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                <path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                <rect x="6" y="14" width="12" height="8" rx="1" stroke="currentColor" strokeWidth="1.5" />
+              </svg>
+              PDF
+            </button>
+          </div>
+        )}
+      </div>
+
+      {noTariffa && (
+        <div className="my-4 bg-amber-50 border border-amber-200 text-amber-700 text-sm px-4 py-3 rounded-lg">
+          Imposta la tariffa oraria per visualizzare l&apos;estratto conto
+        </div>
+      )}
+
+      {allRows.length === 0 ? (
+        <div className="py-8 text-center text-sm text-gray-400">
+          Nessun corso completato da mostrare.
+        </div>
+      ) : (
+        <>
+          {/* Filter row + regime badge */}
+          <div className="flex items-center gap-4 mt-4 mb-4">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-400">Anno:</span>
+              <select
+                value={anno}
+                onChange={e => setAnno(e.target.value)}
+                className="text-sm border border-gray-200 rounded-[7px] px-3 py-1.5 focus:outline-none focus:border-[#d64b55] bg-white"
+              >
+                <option value="all">Tutti</option>
+                {anni.map(a => <option key={a} value={a}>{a}</option>)}
+              </select>
+            </div>
+            <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md ${
+              regime === 'notula' ? 'bg-orange-100 text-orange-700'
+              : regime === 'forfettario' ? 'bg-green-100 text-green-700'
+              : 'bg-blue-100 text-blue-700'
+            }`}>
+              {regimeLabel}
+            </span>
+          </div>
+
+          {filtered.length === 0 ? (
+            <div className="py-6 text-center text-sm text-gray-400">
+              Nessun corso completato per l&apos;anno selezionato.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100">
+                    <th className="text-left text-xs font-medium text-gray-400 py-2 pr-4">CORSO</th>
+                    <th className="text-left text-xs font-medium text-gray-400 py-2 pr-4">SCUOLA</th>
+                    <th className="text-left text-xs font-medium text-gray-400 py-2 pr-4">PERIODO</th>
+                    <th className="text-right text-xs font-medium text-gray-400 py-2 pr-4">ORE</th>
+                    <th className="text-right text-xs font-medium text-gray-400 py-2 pr-4">TARIFFA</th>
+                    <th className="text-right text-xs font-medium text-gray-400 py-2 pr-4">IMPONIBILE</th>
+                    <th className="text-right text-xs font-medium text-gray-400 py-2 pr-4">RITENUTA/IVA</th>
+                    <th className="text-right text-xs font-medium text-gray-400 py-2">NETTO</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {filtered.map(r => {
+                    const p1 = fmtDateShortEC(r.prima_sessione)
+                    const p2 = fmtDateShortEC(r.ultima_sessione)
+                    const periodo = p1 ? (p2 && p2 !== p1 ? `${p1} – ${p2}` : p1) : '—'
+                    return (
+                      <tr key={r.corso_id} className="hover:bg-gray-50">
+                        <td className="py-3 pr-4 text-gray-900 font-medium">{r.title}</td>
+                        <td className="py-3 pr-4 text-gray-600">{r.school_name}</td>
+                        <td className="py-3 pr-4 text-xs text-gray-500 whitespace-nowrap">{periodo}</td>
+                        <td className="py-3 pr-4 text-right text-gray-700">{r.ore_erogate}h</td>
+                        <td className="py-3 pr-4 text-right font-mono text-gray-700">
+                          {r.tariffa != null ? `€ ${r.tariffa.toFixed(2)}/h` : <span className="text-gray-300">N/D</span>}
+                        </td>
+                        <td className="py-3 pr-4 text-right font-mono text-gray-700">
+                          {r.tariffa != null ? fmtCurrency(r.imponibile) : <span className="text-gray-300">—</span>}
+                        </td>
+                        <td className="py-3 pr-4 text-right font-mono">
+                          {r.tariffa != null
+                            ? r.ritenuteIva === 0
+                              ? <span className="text-gray-300">–</span>
+                              : r.ritenuteIva < 0
+                                ? <span className="text-red-600">-{fmtCurrency(-r.ritenuteIva)} (20%)</span>
+                                : <span className="text-green-700">+{fmtCurrency(r.ritenuteIva)} (IVA 22%)</span>
+                            : <span className="text-gray-300">—</span>
+                          }
+                        </td>
+                        <td className="py-3 text-right font-mono font-semibold text-gray-900">
+                          {r.tariffa != null ? fmtCurrency(r.netto) : <span className="text-gray-300 font-normal">—</span>}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                  {/* Totals row */}
+                  <tr className="bg-gray-50 font-semibold">
+                    <td colSpan={3} className="py-3 pr-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">TOTALE</td>
+                    <td className="py-3 pr-4 text-right font-mono text-gray-900">{totOre}h</td>
+                    <td className="py-3 pr-4"></td>
+                    <td className="py-3 pr-4 text-right font-mono text-gray-900">
+                      {hasFinancial ? fmtCurrency(totImp) : <span className="text-gray-300">—</span>}
+                    </td>
+                    <td className="py-3 pr-4 text-right font-mono">
+                      {hasFinancial
+                        ? totRit === 0
+                          ? <span className="text-gray-300">–</span>
+                          : totRit < 0
+                            ? <span className="text-red-600">-{fmtCurrency(-totRit)}</span>
+                            : <span className="text-green-700">+{fmtCurrency(totRit)}</span>
+                        : <span className="text-gray-300">—</span>
+                      }
+                    </td>
+                    <td className="py-3 text-right font-mono font-bold text-gray-900">
+                      {hasFinancial ? fmtCurrency(totNetto) : <span className="text-gray-300 font-normal">—</span>}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+function oreErogateFromC(c: CorsoConProgetto): number {
+  // Use ore_erogate from the CorsoConOre view if available
+  return Number((c as CorsoConOre).ore_erogate ?? 0)
 }
