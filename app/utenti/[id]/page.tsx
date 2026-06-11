@@ -111,14 +111,20 @@ export default async function UtenteDetailPage({ params }: { params: Promise<{ i
     return sum + Math.round(Number(c.ore_tutoraggio) * (oreComp / Number(c.ore_totali)))
   }, 0)
 
-  // Questionari per questo formatore
+  // Questionari per questo formatore — two-query merge to catch records with corso_id null
   const corsiIds = (corsiFormatore || []).map(c => c.id)
-  const [{ data: questionari }, { data: allQuestionari }] = await Promise.all([
+  const [{ data: qByCorso }, { data: qByName }, { data: allQuestionari }] = await Promise.all([
     corsiIds.length > 0
       ? adminQ.from('questionari_risultati').select('*').in('corso_id', corsiIds).not('media_formatore', 'is', null).not('media_contenuti', 'is', null).not('media_apprendimento', 'is', null).order('created_at', { ascending: false })
-      : Promise.resolve({ data: [] }),
+      : Promise.resolve({ data: [] as import('@/lib/types').QuestionarioRisultato[] }),
+    adminQ.from('questionari_risultati').select('*').eq('formatore', profile.nome).not('media_formatore', 'is', null).not('media_contenuti', 'is', null).not('media_apprendimento', 'is', null).order('created_at', { ascending: false }),
     adminQ.from('questionari_risultati').select('media_formatore,media_contenuti,media_apprendimento,numero_risposte').not('media_formatore', 'is', null).not('media_contenuti', 'is', null).not('media_apprendimento', 'is', null),
   ])
+
+  const seenQ = new Set<string>()
+  const questionari = [...(qByCorso || []), ...(qByName || [])]
+    .filter(q => { if (seenQ.has(q.id)) return false; seenQ.add(q.id); return true })
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))
 
   const globalTot = (allQuestionari || []).reduce((s, q) => s + (q.numero_risposte ?? 1), 0)
   const globalMedia = globalTot > 0
