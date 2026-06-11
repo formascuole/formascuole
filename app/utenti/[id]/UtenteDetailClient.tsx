@@ -137,6 +137,7 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
     ha_partita_iva: profile.ha_partita_iva ?? false,
     regime_fiscale: (profile.regime_fiscale ?? 'notula') as RegimeFiscale,
     rivalsa_iva: profile.rivalsa_iva ?? false,
+    partita_iva: profile.partita_iva ?? '',
   })
   const [tariffaSaving, setTariffaSaving] = useState(false)
   const [tariffaModalOpen, setTariffaModalOpen] = useState(false)
@@ -146,6 +147,7 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
     ha_partita_iva: profile.ha_partita_iva ?? false,
     regime_fiscale: (profile.regime_fiscale ?? 'notula') as RegimeFiscale,
     rivalsa_iva: profile.rivalsa_iva ?? false,
+    partita_iva: profile.partita_iva ?? null,
   })
 
   const isFormatore = profile.roles.includes('formatore')
@@ -161,6 +163,7 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
         ha_partita_iva: tariffaForm.ha_partita_iva,
         regime_fiscale: tariffaForm.ha_partita_iva ? tariffaForm.regime_fiscale : 'notula',
         rivalsa_iva: tariffaForm.ha_partita_iva && tariffaForm.regime_fiscale === 'ordinario' ? tariffaForm.rivalsa_iva : false,
+        partita_iva: tariffaForm.ha_partita_iva ? (tariffaForm.partita_iva.trim() || null) : null,
       }
       if (isFormatore) body.tariffa_oraria_formatore = tariffaForm.tariffa_oraria_formatore.trim() ? Number(tariffaForm.tariffa_oraria_formatore) : null
       if (isTutor) body.tariffa_oraria_tutor = tariffaForm.tariffa_oraria_tutor.trim() ? Number(tariffaForm.tariffa_oraria_tutor) : null
@@ -177,6 +180,7 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
           ha_partita_iva: data.ha_partita_iva ?? false,
           regime_fiscale: (data.regime_fiscale ?? 'notula') as RegimeFiscale,
           rivalsa_iva: data.rivalsa_iva ?? false,
+          partita_iva: data.partita_iva ?? null,
         })
         setTariffaModalOpen(false)
       }
@@ -356,6 +360,7 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
                 ha_partita_iva: savedTariffe.ha_partita_iva,
                 regime_fiscale: savedTariffe.regime_fiscale,
                 rivalsa_iva: savedTariffe.rivalsa_iva,
+                partita_iva: savedTariffe.partita_iva ?? '',
               })
               setTariffaModalOpen(true)
             }}>
@@ -376,12 +381,18 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
               />
             )}
             {isFormatore && (
-              <div className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+              <div className="flex items-center justify-between py-2 border-b border-gray-50">
                 <span className="text-sm text-gray-500">Regime fiscale</span>
                 <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md ${REGIME_BADGE_CLS[savedTariffe.regime_fiscale] ?? REGIME_BADGE_CLS.notula}`}>
                   {REGIME_LABELS[savedTariffe.regime_fiscale] ?? REGIME_LABELS.notula}
                   {savedTariffe.regime_fiscale === 'ordinario' && savedTariffe.rivalsa_iva && ' + IVA 22%'}
                 </span>
+              </div>
+            )}
+            {isFormatore && savedTariffe.ha_partita_iva && savedTariffe.partita_iva && (
+              <div className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+                <span className="text-sm text-gray-500">Partita IVA</span>
+                <span className="text-sm font-mono font-medium text-gray-700">{savedTariffe.partita_iva}</span>
               </div>
             )}
           </div>
@@ -473,6 +484,19 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
                   </div>
                 </div>
               </div>
+              {tariffaForm.ha_partita_iva && (
+                <div>
+                  <p className="text-xs font-medium text-gray-700 mb-1">Numero Partita IVA</p>
+                  <input
+                    type="text"
+                    value={tariffaForm.partita_iva}
+                    onChange={e => setTariffaForm(f => ({ ...f, partita_iva: e.target.value.replace(/\D/g, '').slice(0, 11) }))}
+                    placeholder="12345678901"
+                    maxLength={11}
+                    className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 focus:outline-none focus:border-[#d64b55] transition-colors font-mono mb-3"
+                  />
+                </div>
+              )}
               {tariffaForm.ha_partita_iva && (
                 <div>
                   <p className="text-xs font-medium text-gray-700 mb-1.5">Regime</p>

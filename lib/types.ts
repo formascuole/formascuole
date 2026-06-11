@@ -34,6 +34,7 @@ export interface Profile {
   ha_partita_iva?: boolean
   regime_fiscale?: 'forfettario' | 'ordinario' | 'notula'
   rivalsa_iva?: boolean
+  partita_iva?: string | null
 }
 
 export interface Finanziamento {

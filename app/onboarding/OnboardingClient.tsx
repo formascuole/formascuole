@@ -17,13 +17,14 @@ interface ProfileData {
   ha_partita_iva: boolean
   regime_fiscale: 'forfettario' | 'ordinario' | 'notula'
   rivalsa_iva: boolean
+  partita_iva: string
 }
 
 interface OnboardingClientProps {
   nome: string
   email: string
   initialStep: 1 | 2
-  profile: Omit<ProfileData, 'ha_partita_iva' | 'regime_fiscale' | 'rivalsa_iva'>
+  profile: Omit<ProfileData, 'ha_partita_iva' | 'regime_fiscale' | 'rivalsa_iva' | 'partita_iva'>
   redirectTo: string
 }
 
@@ -52,6 +53,7 @@ export function OnboardingClient({ nome, email, initialStep, profile, redirectTo
     ha_partita_iva: false,
     regime_fiscale: 'notula',
     rivalsa_iva: false,
+    partita_iva: '',
   })
   const [pivaSelected, setPivaSelected] = useState(false)
   const [step2Loading, setStep2Loading] = useState(false)
@@ -80,8 +82,11 @@ export function OnboardingClient({ nome, email, initialStep, profile, redirectTo
     'iban', 'banca', 'intestatario_conto',
   ]
   const allFilled = requiredStep2Fields.every(f => (form[f] as string).trim().length > 0)
-  const noErrors = !cfError && !ibanError && !provinciaError && !capError
-  const canStep2 = allFilled && noErrors && pivaSelected
+  const pivaNumError = form.ha_partita_iva && pivaSelected && !/^\d{11}$/.test(form.partita_iva)
+    ? 'Deve contenere esattamente 11 cifre numeriche'
+    : ''
+  const noErrors = !cfError && !ibanError && !provinciaError && !capError && !pivaNumError
+  const canStep2 = allFilled && noErrors && pivaSelected && (!form.ha_partita_iva || /^\d{11}$/.test(form.partita_iva))
 
   const handleStep1 = async () => {
     setStep1Loading(true)
@@ -346,6 +351,22 @@ export function OnboardingClient({ nome, email, initialStep, profile, redirectTo
                   </button>
                 </div>
               </div>
+              {form.ha_partita_iva && pivaSelected && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Numero Partita IVA <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={form.partita_iva}
+                    onChange={e => setForm(f => ({ ...f, partita_iva: e.target.value.replace(/\D/g, '').slice(0, 11) }))}
+                    placeholder="12345678901"
+                    maxLength={11}
+                    className={`w-full text-sm border rounded-[7px] px-3 py-2 focus:outline-none focus:border-[#d64b55] transition-colors font-mono ${pivaNumError ? 'border-red-300' : 'border-gray-200'}`}
+                  />
+                  {pivaNumError && <p className="text-xs text-red-500 mt-1">{pivaNumError}</p>}
+                </div>
+              )}
               {form.ha_partita_iva && pivaSelected && (
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1.5">

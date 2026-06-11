@@ -21,6 +21,23 @@ interface UtenteConStats {
   roles: UserRole[]
   profilo_completo?: boolean | null
   tariffa_oraria_formatore?: number | null
+  tariffa_oraria_tutor?: number | null
+  created_at?: string
+  // Fiscal / profile
+  luogo_nascita?: string | null
+  data_nascita?: string | null
+  codice_fiscale?: string | null
+  indirizzo_via?: string | null
+  indirizzo_cap?: string | null
+  indirizzo_citta?: string | null
+  indirizzo_provincia?: string | null
+  iban?: string | null
+  banca?: string | null
+  intestatario_conto?: string | null
+  ha_partita_iva?: boolean | null
+  regime_fiscale?: string | null
+  rivalsa_iva?: boolean | null
+  partita_iva?: string | null
   // Formatore stats
   n_corsi_formatore: number
   ore_formatore: number
@@ -41,6 +58,83 @@ const SELECTABLE_ROLES: { value: UserRole; label: string; desc: string }[] = [
   { value: 'tutor', label: 'Tutor', desc: 'Può visualizzare e annotare i corsi assegnati' },
   { value: 'admin', label: 'Admin', desc: 'Accesso completo alla piattaforma' },
 ]
+
+const REGIME_EXPORT_LABELS: Record<string, string> = {
+  forfettario: 'Forfettario',
+  ordinario:   'Ordinario',
+  notula:      'Prestazione occasionale',
+}
+
+async function exportFormatori(utenti: UtenteConStats[], statsMap: Record<string, UtenteStats>) {
+  const XLSX = await import('xlsx')
+  const headers = [
+    'Nome completo', 'Email', 'Ruolo',
+    'Profilo completo', 'Regime fiscale', 'Partita IVA',
+    'Tariffa formatore (€/h)', 'Tariffa tutor (€/h)',
+    'Luogo di nascita', 'Data di nascita', 'Codice fiscale',
+    'Via', 'CAP', 'Città', 'Prov.',
+    'IBAN', 'Banca', 'Intestatario conto',
+    'N. corsi (form.)', 'Ore formatore',
+    'N. corsi (tutor)', 'Ore tutor',
+    '% pianificazione', '% accettazione',
+    'Data creazione',
+  ]
+
+  const rows = utenti
+    .filter(u => (u.roles || [u.role]).some(r => r === 'formatore' || r === 'tutor'))
+    .map(u => {
+      const s = statsMap[u.id]
+      const ruolo = (u.roles || [u.role])
+        .filter(r => r === 'formatore' || r === 'tutor')
+        .map(r => r === 'formatore' ? 'Formatore' : 'Tutor')
+        .join(' / ')
+      const regime = u.ha_partita_iva
+        ? (REGIME_EXPORT_LABELS[u.regime_fiscale || ''] || u.regime_fiscale || '')
+        : 'Prestazione occasionale'
+      return [
+        u.nome,
+        u.email,
+        ruolo,
+        u.profilo_completo ? 'Sì' : 'No',
+        regime,
+        u.ha_partita_iva ? (u.partita_iva || '') : '',
+        u.tariffa_oraria_formatore ?? '',
+        u.tariffa_oraria_tutor ?? '',
+        u.luogo_nascita || '',
+        u.data_nascita ? new Date(u.data_nascita).toLocaleDateString('it-IT') : '',
+        u.codice_fiscale || '',
+        u.indirizzo_via || '',
+        u.indirizzo_cap || '',
+        u.indirizzo_citta || '',
+        u.indirizzo_provincia || '',
+        u.iban || '',
+        u.banca || '',
+        u.intestatario_conto || '',
+        s?.n_corsi_formatore ?? 0,
+        s?.ore_formatore ?? 0,
+        s?.n_corsi_tutor ?? 0,
+        s?.ore_tutor ?? 0,
+        s?.pct != null ? `${s.pct}%` : '',
+        s?.tasso_accettazione != null ? `${s.tasso_accettazione}%` : '',
+        u.created_at ? new Date(u.created_at).toLocaleDateString('it-IT') : '',
+      ]
+    })
+
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows])
+
+  // Auto column widths
+  ws['!cols'] = headers.map((h, i) => ({
+    wch: Math.min(Math.max(
+      h.length,
+      ...rows.map(r => String(r[i] ?? '').length)
+    ) + 2, 40),
+  }))
+
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Formatori')
+  const today = new Date().toISOString().split('T')[0]
+  XLSX.writeFile(wb, `Formatori_Formascuole_${today}.xlsx`)
+}
 
 const initialCreateForm = { nome: '', email: '', password: '', roles: ['formatore'] as UserRole[] }
 
@@ -221,12 +315,25 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
           <h1 className="text-2xl font-bold text-gray-900">Utenti</h1>
           <p className="text-sm text-gray-500 mt-1">{utenti.length} utenti registrati</p>
         </div>
-        <Button onClick={() => setCreateOpen(true)}>
-          <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
-            <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-          </svg>
-          Aggiungi Utente
-        </Button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => exportFormatori(utenti, statsMap)}
+            disabled={statsLoading}
+            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-[7px] border border-gray-200 hover:bg-gray-50 text-gray-600 transition-colors disabled:opacity-40"
+            title="Esporta Excel"
+          >
+            <svg width="15" height="15" fill="none" viewBox="0 0 24 24">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            Esporta Excel
+          </button>
+          <Button onClick={() => setCreateOpen(true)}>
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
+              <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+            Aggiungi Utente
+          </Button>
+        </div>
       </div>
 
       {/* Search */}

@@ -30,6 +30,7 @@ interface AccountClientProps {
   ha_partita_iva: boolean
   regime_fiscale: RegimeFiscale
   rivalsa_iva: boolean
+  partita_iva?: string | null
 }
 
 const ROLE_BADGES: Record<UserRole, { label: string; cls: string }> = {
@@ -59,7 +60,7 @@ export function AccountClient({
   indirizzo_via, indirizzo_cap, indirizzo_citta, indirizzo_provincia,
   iban, banca, intestatario_conto,
   tariffa_oraria_formatore, tariffa_oraria_tutor,
-  ha_partita_iva, regime_fiscale, rivalsa_iva,
+  ha_partita_iva, regime_fiscale, rivalsa_iva, partita_iva,
 }: AccountClientProps) {
   // Password change state
   const [pwdModalOpen, setPwdModalOpen] = useState(false)
@@ -89,13 +90,14 @@ export function AccountClient({
     ha_partita_iva,
     regime_fiscale,
     rivalsa_iva,
+    partita_iva: partita_iva ?? '',
   })
   // Track saved values to display
   const [savedFiscal, setSavedFiscal] = useState({
     luogo_nascita, data_nascita, codice_fiscale,
     indirizzo_via, indirizzo_cap, indirizzo_citta, indirizzo_provincia,
     iban, banca, intestatario_conto,
-    ha_partita_iva, regime_fiscale, rivalsa_iva,
+    ha_partita_iva, regime_fiscale, rivalsa_iva, partita_iva,
   })
 
   const isFiscalRole = role === 'formatore' || role === 'tutor'
@@ -170,6 +172,7 @@ export function AccountClient({
         ha_partita_iva: json.ha_partita_iva ?? false,
         regime_fiscale: (json.regime_fiscale ?? 'notula') as RegimeFiscale,
         rivalsa_iva: json.rivalsa_iva ?? false,
+        partita_iva: json.partita_iva ?? null,
       })
       setFiscalSuccess(true)
       setTimeout(() => { setFiscalModalOpen(false); setFiscalSuccess(false) }, 1200)
@@ -256,6 +259,7 @@ export function AccountClient({
                 ha_partita_iva:      savedFiscal.ha_partita_iva,
                 regime_fiscale:      savedFiscal.regime_fiscale,
                 rivalsa_iva:         savedFiscal.rivalsa_iva,
+                partita_iva:         savedFiscal.partita_iva ?? '',
               })
               setFiscalError('')
               setFiscalSuccess(false)
@@ -279,13 +283,16 @@ export function AccountClient({
             <FiscalRow label="IBAN" value={savedFiscal.iban} mono />
             <FiscalRow label="Banca" value={savedFiscal.banca} />
             <FiscalRow label="Intestatario conto" value={savedFiscal.intestatario_conto} />
-            <div className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+            <div className="flex items-center justify-between py-2 border-b border-gray-50">
               <span className="text-sm text-gray-500">Regime fiscale</span>
               <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md ${REGIME_BADGE_CLS[savedFiscal.regime_fiscale] ?? REGIME_BADGE_CLS.notula}`}>
                 {REGIME_LABELS[savedFiscal.regime_fiscale] ?? REGIME_LABELS.notula}
                 {savedFiscal.regime_fiscale === 'ordinario' && savedFiscal.rivalsa_iva && ' + IVA 22%'}
               </span>
             </div>
+            {savedFiscal.ha_partita_iva && savedFiscal.partita_iva && (
+              <FiscalRow label="Partita IVA" value={savedFiscal.partita_iva} mono />
+            )}
           </div>
         </div>
       )}
@@ -506,21 +513,34 @@ export function AccountClient({
               </div>
             </div>
             {fiscal.ha_partita_iva && (
-              <div>
-                <p className="text-xs font-medium text-gray-700 mb-1.5">Regime</p>
-                <select
-                  value={fiscal.regime_fiscale === 'notula' ? 'forfettario' : fiscal.regime_fiscale}
-                  onChange={e => setFiscal(f => ({
-                    ...f,
-                    regime_fiscale: e.target.value as RegimeFiscale,
-                    rivalsa_iva: e.target.value !== 'ordinario' ? false : f.rivalsa_iva,
-                  }))}
-                  className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 focus:outline-none focus:border-[#d64b55] transition-colors bg-white"
-                >
-                  <option value="forfettario">Regime forfettario</option>
-                  <option value="ordinario">Regime ordinario</option>
-                </select>
-              </div>
+              <>
+                <div>
+                  <p className="text-xs font-medium text-gray-700 mb-1">Numero Partita IVA</p>
+                  <input
+                    type="text"
+                    value={fiscal.partita_iva ?? ''}
+                    onChange={e => setFiscal(f => ({ ...f, partita_iva: e.target.value.replace(/\D/g, '').slice(0, 11) }))}
+                    placeholder="12345678901"
+                    maxLength={11}
+                    className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 focus:outline-none focus:border-[#d64b55] transition-colors font-mono"
+                  />
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-gray-700 mb-1.5">Regime</p>
+                  <select
+                    value={fiscal.regime_fiscale === 'notula' ? 'forfettario' : fiscal.regime_fiscale}
+                    onChange={e => setFiscal(f => ({
+                      ...f,
+                      regime_fiscale: e.target.value as RegimeFiscale,
+                      rivalsa_iva: e.target.value !== 'ordinario' ? false : f.rivalsa_iva,
+                    }))}
+                    className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 focus:outline-none focus:border-[#d64b55] transition-colors bg-white"
+                  >
+                    <option value="forfettario">Regime forfettario</option>
+                    <option value="ordinario">Regime ordinario</option>
+                  </select>
+                </div>
+              </>
             )}
             {fiscal.ha_partita_iva && fiscal.regime_fiscale === 'ordinario' && (
               <label className="flex items-center gap-2.5 cursor-pointer">

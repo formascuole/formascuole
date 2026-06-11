@@ -43,6 +43,9 @@ export async function PATCH(
   if ('rivalsa_iva' in body) {
     updates.rivalsa_iva = !!body.rivalsa_iva
   }
+  if ('partita_iva' in body) {
+    updates.partita_iva = body.partita_iva?.trim() || null
+  }
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: 'Nessun campo da aggiornare' }, { status: 400 })
@@ -53,7 +56,7 @@ export async function PATCH(
     .from('profiles')
     .update(updates)
     .eq('id', targetId)
-    .select('id, tariffa_oraria_formatore, tariffa_oraria_tutor, ha_partita_iva, regime_fiscale, rivalsa_iva')
+    .select('id, tariffa_oraria_formatore, tariffa_oraria_tutor, ha_partita_iva, regime_fiscale, rivalsa_iva, partita_iva')
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
