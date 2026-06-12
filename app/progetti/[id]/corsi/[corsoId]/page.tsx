@@ -2,7 +2,7 @@ import { redirect, notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { CorsoDetailClient } from './CorsoDetailClient'
-import { Profile } from '@/lib/types'
+import { Profile, Indisponibilita } from '@/lib/types'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getUnreadNotificheCount } from '@/lib/notifiche-utils'
 
@@ -66,7 +66,7 @@ export default async function CorsoDetailPage({
 
   const { data: progetto } = await supabase
     .from('progetti')
-    .select('school_name,anno_scolastico,ref_name,ref_email,ref_tel,finanziamento_id')
+    .select('school_name,anno_scolastico,ref_name,ref_email,ref_tel,finanziamento_id,address')
     .eq('id', id)
     .single()
 
@@ -104,6 +104,31 @@ export default async function CorsoDetailPage({
     }
   }
 
+  const adminQ = createAdminClient()
+
+  // Formatori scoring data (admin only, loaded once)
+  let formatoriSkills: Record<string, string[]> = {}
+  let formatoriIndisponibilita: Indisponibilita[] = []
+  let tassoAccettazioneMap: Record<string, number | null> = {}
+  if (isAdmin && formatori.length > 0) {
+    const fIds = formatori.map(f => f.id)
+    const [{ data: skillsRaw }, { data: indispRaw }, { data: corsiStats }] = await Promise.all([
+      adminQ.from('formatori_skills').select('formatore_id, tag_id').in('formatore_id', fIds),
+      adminQ.from('indisponibilita').select('*').in('formatore_id', fIds),
+      adminQ.from('corsi').select('formatore_id, stato_assegnazione').in('formatore_id', fIds),
+    ])
+    for (const r of (skillsRaw || [])) {
+      if (!formatoriSkills[r.formatore_id]) formatoriSkills[r.formatore_id] = []
+      formatoriSkills[r.formatore_id].push(r.tag_id)
+    }
+    formatoriIndisponibilita = (indispRaw || []) as Indisponibilita[]
+    for (const f of formatori) {
+      const fCorsi = (corsiStats || []).filter(c => c.formatore_id === f.id)
+      const nAccettati = fCorsi.filter(c => c.stato_assegnazione === 'accettato').length
+      tassoAccettazioneMap[f.id] = fCorsi.length > 0 ? Math.round((nAccettati / fCorsi.length) * 100) : null
+    }
+  }
+
   const { data: referenti } = await supabase
     .from('referenti_progetto')
     .select('*')
@@ -119,7 +144,6 @@ export default async function CorsoDetailPage({
   const notifiche = isAdmin ? await getUnreadNotificheCount(supabase, user.id) : 0
 
   // Candidature (admin only)
-  const adminQ = createAdminClient()
   const { data: candidature } = isAdmin
     ? await adminQ
         .from('candidature_corsi')
@@ -196,6 +220,10 @@ export default async function CorsoDetailPage({
         finanziamentoNome={finanziamentoNome}
         corsoTags={corsoTags}
         allTags={allTags}
+        formatoriSkills={formatoriSkills}
+        formatoriIndisponibilita={formatoriIndisponibilita}
+        tassoAccettazioneMap={tassoAccettazioneMap}
+        progettoAddress={(progetto as any)?.address ?? null}
       />
     </AppLayout>
   )

@@ -1,8 +1,9 @@
 'use client'
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { CorsoConOre, Sessione, Profile, Progetto, NotaCorso, Referente, QuestionarioRisultato, Candidatura, Tag } from '@/lib/types'
+import { CorsoConOre, Sessione, Profile, Progetto, NotaCorso, Referente, QuestionarioRisultato, Candidatura, Tag, Indisponibilita } from '@/lib/types'
+import { PROVINCE_TO_REGION, extractProvincia } from '@/lib/geo-utils'
 import { OreCounter } from '@/components/ui/OreCounter'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { Button } from '@/components/ui/Button'
@@ -30,12 +31,138 @@ interface CorsoDetailClientProps {
   progettoId: string
   currentUserId: string
   isAdmin: boolean
-  /** True if the current user can confirm sessions (admin or the assigned formatore) */
   canConfirmSessions: boolean
   isSuperAdmin?: boolean
   corsoTags: Tag[]
   allTags: Tag[]
+  formatoriSkills?: Record<string, string[]>         // formatore_id → tag_id[]
+  formatoriIndisponibilita?: Indisponibilita[]
+  tassoAccettazioneMap?: Record<string, number | null>
+  progettoAddress?: string | null
 }
+
+// ── Formatore picker card ─────────────────────────────────────────────────────
+function ScoreBadge({ label, active, na }: { label: string; active?: boolean; na?: boolean }) {
+  if (na) return (
+    <span className="inline-flex items-center text-xs px-2 py-0.5 rounded-full bg-gray-50 text-gray-400 border border-gray-100">
+      {label}
+    </span>
+  )
+  return (
+    <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border ${
+      active ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-600 border-red-200'
+    }`}>
+      {active ? (
+        <svg width="9" height="9" fill="none" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/></svg>
+      ) : (
+        <svg width="9" height="9" fill="none" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/></svg>
+      )}
+      {label}
+    </span>
+  )
+}
+
+interface FormatorePickerCardProps {
+  f: Profile
+  score: number
+  skillScore: number
+  availScore: number
+  regionScore: number
+  skillMatches: number
+  totalCorsoTags: number
+  isAvailable: boolean
+  sameRegion: boolean | null
+  isCurrent: boolean
+  isDualRole: boolean
+  isAssigning: boolean
+  tasso: number | null
+  modalita: string | null
+  showScore: boolean
+  onClick: () => void
+}
+
+function FormatorePickerCard({
+  f, score, skillMatches, totalCorsoTags, isAvailable, sameRegion,
+  isCurrent, isDualRole, isAssigning, tasso, modalita, showScore, onClick,
+}: FormatorePickerCardProps) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={isAssigning || isCurrent}
+      className="w-full flex flex-col gap-2 p-3 rounded-[7px] border text-left transition-all hover:border-[#d64b55] hover:bg-[#fbeced] disabled:cursor-not-allowed"
+      style={{
+        borderColor: isCurrent ? '#d64b55' : '#e5e5e5',
+        backgroundColor: isCurrent ? '#fbeced' : 'white',
+        opacity: isAssigning ? 0.6 : 1,
+      }}
+    >
+      {/* Row 1: avatar + name + current/assigning */}
+      <div className="flex items-center gap-3">
+        <Avatar nome={f.nome} id={f.id} initials={f.avatar_initials} size="md" />
+        <div className="flex-1 min-w-0">
+          <div className="font-medium text-sm text-gray-900 flex items-center gap-2 flex-wrap">
+            {f.nome}
+            {isDualRole && <span className="text-xs font-normal px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700">Formatore + Tutor</span>}
+            {isCurrent && <span className="text-xs text-[#d64b55] font-medium">Corrente</span>}
+          </div>
+          <div className="text-xs text-gray-400">{f.email}</div>
+        </div>
+        {isAssigning && (
+          <svg className="animate-spin h-4 w-4 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+          </svg>
+        )}
+        {showScore && (
+          <div className="shrink-0 text-right">
+            <span className="text-sm font-bold" style={{ color: score >= 70 ? '#16a34a' : score >= 40 ? '#d97706' : '#dc2626' }}>
+              {score}%
+            </span>
+            <div className="text-xs text-gray-400">match</div>
+          </div>
+        )}
+        {tasso != null && (
+          <div className="shrink-0 text-right">
+            <span className="text-xs text-gray-500">{tasso}%</span>
+            <div className="text-xs text-gray-400">accetta</div>
+          </div>
+        )}
+      </div>
+
+      {/* Row 2: score bar + badges */}
+      <div className="flex flex-col gap-1.5 pl-11">
+        {showScore && (
+          <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all"
+              style={{
+                width: `${score}%`,
+                backgroundColor: score >= 70 ? '#16a34a' : score >= 40 ? '#d97706' : '#dc2626',
+              }}
+            />
+          </div>
+        )}
+        <div className="flex flex-wrap gap-1">
+          {totalCorsoTags > 0 ? (
+            <ScoreBadge
+              label={skillMatches > 0 ? `${skillMatches}/${totalCorsoTags} skill` : 'Nessuna skill'}
+              active={skillMatches > 0}
+            />
+          ) : (
+            <ScoreBadge label="Nessun tag corso" na />
+          )}
+          <ScoreBadge label={isAvailable ? 'Disponibile' : 'Conflitti date'} active={isAvailable} />
+          {modalita === 'presenza' && sameRegion !== null ? (
+            <ScoreBadge label={sameRegion ? 'Stessa regione' : 'Regione diversa'} active={sameRegion} />
+          ) : (
+            <ScoreBadge label="Regione N/A" na />
+          )}
+        </div>
+      </div>
+    </button>
+  )
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 export function CorsoDetailClient({
   corso,
@@ -56,6 +183,10 @@ export function CorsoDetailClient({
   finanziamentoNome,
   corsoTags,
   allTags,
+  formatoriSkills = {},
+  formatoriIndisponibilita = [],
+  tassoAccettazioneMap = {},
+  progettoAddress,
 }: CorsoDetailClientProps) {
   const router = useRouter()
   const [sessioni, setSessioni] = useState<Sessione[]>(initialSessioni)
@@ -106,6 +237,68 @@ export function CorsoDetailClient({
     if (!res.ok) { const j = await res.json(); throw new Error(j.error || 'Errore') }
     return res.json()
   }
+
+  // ── Formatore scoring ────────────────────────────────────────────────────────
+  interface FormatoreScore {
+    formatore: Profile
+    score: number      // 0-100
+    skillScore: number // 0-40
+    availScore: number // 0-35
+    regionScore: number // 0-25
+    skillMatches: number
+    totalCorsoTags: number
+    isAvailable: boolean
+    sameRegion: boolean | null  // null = not applicable
+  }
+
+  const formatoriScores = useMemo((): FormatoreScore[] => {
+    const sessioniDates = sessioni.filter(s => s.data).map(s => s.data.substring(0, 10))
+    const schoolProvincia = extractProvincia(progettoAddress)
+
+    return formatori.map(f => {
+      // 1. Skill match (40pts)
+      const skillTagIds = new Set(formatoriSkills[f.id] || [])
+      const totalCorsoTags = localCorsoTags.length
+      const skillMatches = localCorsoTags.filter(t => skillTagIds.has(t.id)).length
+      const skillScore = totalCorsoTags > 0 ? Math.round((skillMatches / totalCorsoTags) * 40) : 0
+
+      // 2. Availability (35pts)
+      const fIndisp = formatoriIndisponibilita.filter(i => i.formatore_id === f.id)
+      let availScore = 35
+      let isAvailable = true
+      if (sessioniDates.length > 0 && fIndisp.length > 0) {
+        const indispDates = new Set(fIndisp.map(i => i.data.substring(0, 10)))
+        const conflictCount = sessioniDates.filter(d => indispDates.has(d)).length
+        availScore = Math.round(((sessioniDates.length - conflictCount) / sessioniDates.length) * 35)
+        isAvailable = conflictCount === 0
+      }
+
+      // 3. Region (25pts) — only for corsi in presenza
+      let regionScore = 25
+      let sameRegion: boolean | null = null
+      if (corso.modalita === 'presenza' && schoolProvincia && f.indirizzo_provincia) {
+        const schoolRegione = PROVINCE_TO_REGION[schoolProvincia]
+        const fRegione = PROVINCE_TO_REGION[f.indirizzo_provincia.toUpperCase()]
+        if (schoolRegione && fRegione) {
+          sameRegion = schoolRegione === fRegione
+          regionScore = sameRegion ? 25 : 0
+        }
+      }
+
+      return {
+        formatore: f,
+        score: skillScore + availScore + regionScore,
+        skillScore, availScore, regionScore,
+        skillMatches, totalCorsoTags,
+        isAvailable, sameRegion,
+      }
+    }).sort((a, b) => b.score - a.score)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formatori, localCorsoTags, formatoriSkills, formatoriIndisponibilita, sessioni, progettoAddress, corso.modalita])
+
+  const suggestedScores = formatoriScores.filter(s => s.score > 0)
+  const otherScores = formatoriScores.filter(s => s.score === 0)
+  // ─────────────────────────────────────────────────────────────────────────────
 
   const handleOpenQuestionario = () => {
     const nowIso = new Date().toISOString()
@@ -1908,48 +2101,85 @@ export function CorsoDetailClient({
         open={formatorePickerOpen}
         onClose={() => { setFormatorePickerOpen(false); setAssignError(null) }}
         title="Seleziona Formatore"
-        size="md"
+        size="lg"
       >
         {assignError && (
           <div className="mb-3 bg-red-50 border border-red-200 rounded-[7px] px-3 py-2 text-sm text-red-700">
             {assignError}
           </div>
         )}
-        <div className="grid grid-cols-1 gap-3">
-          {formatori.map((f) => (
-            <button
-              key={f.id}
-              onClick={() => handleAssignFormatore(f)}
-              disabled={assigningId === f.id || f.id === corso.formatore_id}
-              className="flex items-center gap-3 p-3 rounded-[7px] border text-left transition-all hover:border-[#d64b55] hover:bg-[#fbeced] disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{
-                borderColor: f.id === corso.formatore_id ? '#d64b55' : '#e5e5e5',
-                backgroundColor: f.id === corso.formatore_id ? '#fbeced' : 'white',
-              }}
-            >
-              <Avatar nome={f.nome} id={f.id} initials={f.avatar_initials} size="md" />
-              <div className="flex-1 min-w-0">
-                <div className="font-medium text-sm text-gray-900 flex items-center gap-2">
-                  {f.nome}
-                  {dualRoleIds.includes(f.id) && (
-                    <span className="text-xs font-normal px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700">Formatore + Tutor</span>
-                  )}
+        {formatori.length === 0 ? (
+          <p className="text-sm text-gray-400 text-center py-4">Nessun formatore disponibile.</p>
+        ) : (
+          <div className="space-y-5">
+            {suggestedScores.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <svg width="13" height="13" fill="none" viewBox="0 0 24 24" className="text-amber-500">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="currentColor"/>
+                  </svg>
+                  <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Formatori suggeriti</span>
                 </div>
-                <div className="text-xs text-gray-400">{f.email}</div>
+                <div className="space-y-2">
+                  {suggestedScores.map(({ formatore: f, score, skillScore, availScore, regionScore, skillMatches, totalCorsoTags, isAvailable, sameRegion }) => (
+                    <FormatorePickerCard
+                      key={f.id}
+                      f={f}
+                      score={score}
+                      skillScore={skillScore}
+                      availScore={availScore}
+                      regionScore={regionScore}
+                      skillMatches={skillMatches}
+                      totalCorsoTags={totalCorsoTags}
+                      isAvailable={isAvailable}
+                      sameRegion={sameRegion}
+                      isCurrent={f.id === corso.formatore_id}
+                      isDualRole={dualRoleIds.includes(f.id)}
+                      isAssigning={assigningId === f.id}
+                      tasso={tassoAccettazioneMap[f.id] ?? null}
+                      modalita={corso.modalita ?? null}
+                      showScore
+                      onClick={() => handleAssignFormatore(f)}
+                    />
+                  ))}
+                </div>
               </div>
-              {f.id === corso.formatore_id && <span className="text-xs text-[#d64b55] font-medium">Corrente</span>}
-              {assigningId === f.id && (
-                <svg className="animate-spin h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                </svg>
-              )}
-            </button>
-          ))}
-          {formatori.length === 0 && (
-            <p className="text-sm text-gray-400 text-center py-4">Nessun formatore disponibile.</p>
-          )}
-        </div>
+            )}
+
+            {otherScores.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                    {suggestedScores.length > 0 ? 'Altri formatori' : 'Formatori'}
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {otherScores.map(({ formatore: f, score, skillScore, availScore, regionScore, skillMatches, totalCorsoTags, isAvailable, sameRegion }) => (
+                    <FormatorePickerCard
+                      key={f.id}
+                      f={f}
+                      score={score}
+                      skillScore={skillScore}
+                      availScore={availScore}
+                      regionScore={regionScore}
+                      skillMatches={skillMatches}
+                      totalCorsoTags={totalCorsoTags}
+                      isAvailable={isAvailable}
+                      sameRegion={sameRegion}
+                      isCurrent={f.id === corso.formatore_id}
+                      isDualRole={dualRoleIds.includes(f.id)}
+                      isAssigning={assigningId === f.id}
+                      tasso={tassoAccettazioneMap[f.id] ?? null}
+                      modalita={corso.modalita ?? null}
+                      showScore={false}
+                      onClick={() => handleAssignFormatore(f)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </Modal>
 
       {/* Tutor Picker Modal */}
