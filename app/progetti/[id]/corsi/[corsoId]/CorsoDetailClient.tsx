@@ -1641,8 +1641,8 @@ export function CorsoDetailClient({
         </div>
       )}
 
-      {/* Notula section — solo formatore quando corso completato */}
-      {!isAdmin && corsoCompletatoLocal && (
+      {/* Notula section — solo il formatore assegnato, quando ha completato il corso o ha già una notula */}
+      {!isAdmin && corso.formatore_id === currentUserId && (corsoCompletatoLocal || notulaStato !== 'non_generata') && (
         <div className="bg-white rounded-xl p-6 mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
           <h3 className="text-sm font-semibold text-gray-700 mb-4">
             {corso.formatore?.regime_fiscale === 'notula' ? 'Notula' : 'Ricevuta / Fattura'}
@@ -1670,52 +1670,81 @@ export function CorsoDetailClient({
           {notulaStato === 'bozza' && (
             <div className="space-y-3">
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-md bg-yellow-100 text-yellow-700">Bozza generata</span>
-                <span className="text-xs text-gray-400">n. {notulaNr}</span>
+                <span className="inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-md bg-yellow-100 text-yellow-700">Notula generata</span>
+                {notulaNr && <span className="text-xs text-gray-400">n. {notulaNr}</span>}
               </div>
               <div className="flex flex-wrap gap-2">
                 {notulaPdfUrl && (
                   <a href={notulaPdfUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-gray-900 border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded-[7px] transition-colors">
                     <svg width="13" height="13" fill="none" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" strokeWidth="1.5"/><polyline points="14 2 14 8 20 8" stroke="currentColor" strokeWidth="1.5"/></svg>
-                    Visualizza PDF
+                    Visualizza notula
                   </a>
                 )}
                 <Button onClick={handleInviaNotula} loading={notulaInviando}>Invia per accettazione</Button>
-                <button onClick={() => { setNotulaStato('non_generata'); setNotulaNr(''); setNotulaError(null) }} className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1.5">Rigenera</button>
               </div>
             </div>
           )}
           {notulaStato === 'inviata' && (
-            <div className="space-y-2">
-              <span className="inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-md bg-blue-100 text-blue-700">In attesa di accettazione</span>
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-md bg-blue-100 text-blue-700">In attesa di accettazione</span>
+                {notulaNr && <span className="text-xs text-gray-400">n. {notulaNr}</span>}
+              </div>
               {notulaInviataAt && <p className="text-xs text-gray-400">Inviata il {new Date(notulaInviataAt).toLocaleDateString('it-IT')}</p>}
               {notulaPdfUrl && (
-                <a href={notulaPdfUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-gray-900 border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded-[7px] transition-colors">Visualizza PDF</a>
+                <a href={notulaPdfUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-gray-900 border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded-[7px] transition-colors">
+                  <svg width="13" height="13" fill="none" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" strokeWidth="1.5"/><polyline points="14 2 14 8 20 8" stroke="currentColor" strokeWidth="1.5"/></svg>
+                  Visualizza notula
+                </a>
               )}
             </div>
           )}
           {notulaStato === 'accettata' && (
             <div className="space-y-3">
-              <span className="inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-md bg-green-100 text-green-700">&#10003; Accettata</span>
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-md bg-green-100 text-green-700">
+                  <svg width="10" height="10" fill="none" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>
+                  Accettata
+                </span>
+                {notulaNr && <span className="text-xs text-gray-400">n. {notulaNr}</span>}
+              </div>
               {notulaRispostaAt && <p className="text-xs text-gray-400">Accettata il {new Date(notulaRispostaAt).toLocaleDateString('it-IT')}</p>}
               {notulaPdfUrl && (
-                <a href={notulaPdfUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-gray-900 border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded-[7px] transition-colors">Visualizza PDF</a>
+                <a href={notulaPdfUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-gray-900 border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded-[7px] transition-colors">
+                  <svg width="13" height="13" fill="none" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" strokeWidth="1.5"/><polyline points="14 2 14 8 20 8" stroke="currentColor" strokeWidth="1.5"/></svg>
+                  Visualizza notula
+                </a>
+              )}
+              {corso.formatore?.regime_fiscale === 'notula' && (corso.tariffa_oraria ?? corso.formatore?.tariffa_oraria_formatore) != null && oreErogate * Number(corso.tariffa_oraria ?? corso.formatore?.tariffa_oraria_formatore) > 77.47 && (
+                <div className="bg-amber-50 border border-amber-200 rounded-[7px] px-4 py-3 text-sm text-amber-800">
+                  <div className="font-semibold mb-1">Marca da bollo richiesta</div>
+                  <div className="text-xs">Applica una marca da bollo da € 2,00 sull&apos;originale cartaceo della ricevuta. Annullala con data e firma.</div>
+                </div>
               )}
             </div>
           )}
           {notulaStato === 'rifiutata' && (
             <div className="space-y-3">
-              <span className="inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-md bg-red-100 text-red-700">Rifiutata</span>
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-md bg-red-100 text-red-700">Rifiutata</span>
+                {notulaNr && <span className="text-xs text-gray-400">n. {notulaNr}</span>}
+              </div>
               {notulaMotivazioneRifiuto && (
                 <div className="bg-red-50 border border-red-200 rounded-[7px] px-3 py-2 text-sm text-red-800">{notulaMotivazioneRifiuto}</div>
               )}
               <div className="flex flex-wrap gap-2">
+                {notulaPdfUrl && (
+                  <a href={notulaPdfUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-gray-900 border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded-[7px] transition-colors">
+                    <svg width="13" height="13" fill="none" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" strokeWidth="1.5"/><polyline points="14 2 14 8 20 8" stroke="currentColor" strokeWidth="1.5"/></svg>
+                    Visualizza notula
+                  </a>
+                )}
                 <button
                   onClick={() => { setNotulaStato('non_generata'); setNotulaNr(''); setNotulaError(null); setNotulaMotivazioneRifiuto(null) }}
                   className="inline-flex items-center gap-1.5 text-xs font-medium text-white px-3 py-1.5 rounded-[7px] transition-colors"
                   style={{ backgroundColor: '#d64b55' }}
                 >
-                  Rigenera con nuovo numero
+                  Genera nuova notula
                 </button>
               </div>
             </div>
