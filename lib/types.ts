@@ -132,13 +132,8 @@ export interface Corso {
   tariffa_oraria_tutor?: number | null
   questionario_generato_at?: string | null
   questionario_generato_count?: number
-  // Notula fields
-  notula_numero?: string | null
-  notula_stato?: 'non_generata' | 'bozza' | 'inviata' | 'accettata' | 'rifiutata' | null
-  notula_inviata_at?: string | null
-  notula_risposta_at?: string | null
-  notula_motivazione_rifiuto?: string | null
-  notula_pdf_url?: string | null
+  // Notula FK
+  notula_id?: string | null
 }
 
 export interface Candidatura {
@@ -211,6 +206,36 @@ export interface Indisponibilita {
   note?: string | null
   created_at: string
   formatore?: Pick<Profile, 'id' | 'nome'> | null
+}
+
+export interface Notula {
+  id: string
+  numero: string
+  formatore_id: string
+  stato: 'bozza' | 'inviata' | 'accettata' | 'rifiutata'
+  tipo: 'singola' | 'cumulativa'
+  importo_totale: number | null
+  ritenuta: number | null
+  iva: number
+  netto: number | null
+  pdf_url: string | null
+  token: string | null
+  inviata_at: string | null
+  risposta_at: string | null
+  motivazione_rifiuto: string | null
+  created_at: string
+  // joined
+  corsi?: NotuleCorso[]
+}
+
+export interface NotuleCorso {
+  notula_id: string
+  corso_id: string
+  importo: number | null
+  ore_erogate: number | null
+  tariffa_oraria: number | null
+  // joined
+  corso?: Pick<Corso, 'id' | 'title' | 'project_id'> & { school_name?: string }
 }
 
 export interface QuestionarioRisultato {

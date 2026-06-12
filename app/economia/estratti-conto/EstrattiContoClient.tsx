@@ -55,21 +55,6 @@ async function exportEstrattiConto(rows: FormatorRow[], anno: string) {
   XLSX.writeFile(wb, `Economia_${anno}.xlsx`)
 }
 
-const NOTULA_STATO_BADGE: Record<string, string> = {
-  non_generata: 'bg-gray-100 text-gray-500',
-  bozza: 'bg-yellow-100 text-yellow-700',
-  inviata: 'bg-blue-100 text-blue-700',
-  accettata: 'bg-green-100 text-green-700',
-  rifiutata: 'bg-red-100 text-red-700',
-}
-
-const NOTULA_STATO_LABEL: Record<string, string> = {
-  non_generata: 'Non generata',
-  bozza: 'Bozza',
-  inviata: 'In attesa',
-  accettata: 'Accettata',
-  rifiutata: 'Rifiutata',
-}
 
 export function EstrattiContoClient({ items, formatori }: Props) {
   const currentYear = String(new Date().getFullYear())
@@ -270,29 +255,30 @@ export function EstrattiContoClient({ items, formatori }: Props) {
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-gray-100">
-                                {formatoreCorsi.map(ci => {
-                                  const stato = ci.notula_stato ?? 'non_generata'
-                                  return (
-                                    <tr key={ci.corso_id}>
-                                      <td className="py-2 pr-4 text-gray-800 font-medium">{ci.title}</td>
-                                      <td className="py-2 pr-4 text-gray-500">{ci.school_name}</td>
-                                      <td className="py-2 pr-4 text-center text-gray-600">{ci.ore_erogate}h</td>
-                                      <td className="py-2 pr-4 text-right font-mono text-gray-700">
-                                        {ci.netto > 0 ? fmtCur(ci.netto) : <span className="text-gray-300">—</span>}
-                                      </td>
-                                      <td className="py-2">
-                                        <div className="flex items-center gap-1.5">
-                                          <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md ${NOTULA_STATO_BADGE[stato] ?? 'bg-gray-100 text-gray-500'}`}>
-                                            {NOTULA_STATO_LABEL[stato] ?? stato}
-                                          </span>
-                                          {ci.notula_numero && (
-                                            <span className="text-gray-400">n. {ci.notula_numero}</span>
-                                          )}
-                                        </div>
-                                      </td>
-                                    </tr>
-                                  )
-                                })}
+                                {formatoreCorsi.map(ci => (
+                                  <tr key={ci.corso_id}>
+                                    <td className="py-2 pr-4 text-gray-800 font-medium">{ci.title}</td>
+                                    <td className="py-2 pr-4 text-gray-500">{ci.school_name}</td>
+                                    <td className="py-2 pr-4 text-center text-gray-600">{ci.ore_erogate}h</td>
+                                    <td className="py-2 pr-4 text-right font-mono text-gray-700">
+                                      {ci.netto > 0 ? fmtCur(ci.netto) : <span className="text-gray-300">—</span>}
+                                    </td>
+                                    <td className="py-2">
+                                      {ci.notula_id ? (
+                                        <Link
+                                          href="/economia/notule"
+                                          className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md bg-green-100 text-green-700 hover:bg-green-200 transition-colors"
+                                        >
+                                          Notula emessa
+                                        </Link>
+                                      ) : (
+                                        <span className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md bg-gray-100 text-gray-500">
+                                          Nessuna notula
+                                        </span>
+                                      )}
+                                    </td>
+                                  </tr>
+                                ))}
                               </tbody>
                             </table>
                           </div>

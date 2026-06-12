@@ -311,35 +311,6 @@ export function CorsoDetailClient({
       .catch(() => {})
   }
 
-  const handleGeneraNotula = async () => {
-    if (!notulaNumeroInput.trim()) { setNotulaError('Inserisci il numero ricevuta'); return }
-    setNotulaGenerating(true); setNotulaError(null)
-    try {
-      const res = await fetch(`/api/corsi/${corso.id}/notula/genera`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ numero: notulaNumeroInput.trim() }),
-      })
-      const j = await res.json()
-      if (!res.ok) { setNotulaError(j.error || 'Errore'); return }
-      setNotulaStato('bozza')
-      setNotulaNr(notulaNumeroInput.trim())
-      setNotulaPdfUrl(j.pdf_url)
-      router.refresh()
-    } finally { setNotulaGenerating(false) }
-  }
-
-  const handleInviaNotula = async () => {
-    setNotulaInviando(true); setNotulaError(null)
-    try {
-      const res = await fetch(`/api/corsi/${corso.id}/notula/invia`, { method: 'POST' })
-      const j = await res.json()
-      if (!res.ok) { setNotulaError(j.error || 'Errore'); return }
-      setNotulaStato('inviata')
-      setNotulaInviataAt(new Date().toISOString())
-      router.refresh()
-    } finally { setNotulaInviando(false) }
-  }
-
   // Edit session state
   type LogEntry = {
     id: string; sessione_id: string | null; corso_id: string; utente_id: string
@@ -402,18 +373,6 @@ export function CorsoDetailClient({
   const [completamentoError, setCompletamentoError] = useState<string | null>(null)
   const [corsoCompletatoLocal, setCorsoCompletatoLocal] = useState(corso.corso_completato ?? false)
   const [corsoCompletatoAtLocal, setCorsoCompletatoAtLocal] = useState(corso.corso_completato_at ?? null)
-
-  // Notula state
-  const [notulaStato, setNotulaStato] = useState(corso.notula_stato ?? 'non_generata')
-  const [notulaNr, setNotulaNr] = useState(corso.notula_numero ?? '')
-  const [notulaPdfUrl, setNotulaPdfUrl] = useState(corso.notula_pdf_url ?? null)
-  const [notulaInviataAt, setNotulaInviataAt] = useState(corso.notula_inviata_at ?? null)
-  const [notulaRispostaAt, setNotulaRispostaAt] = useState(corso.notula_risposta_at ?? null)
-  const [notulaMotivazioneRifiuto, setNotulaMotivazioneRifiuto] = useState(corso.notula_motivazione_rifiuto ?? null)
-  const [notulaNumeroInput, setNotulaNumeroInput] = useState(corso.notula_numero ?? '')
-  const [notulaGenerating, setNotulaGenerating] = useState(false)
-  const [notulaInviando, setNotulaInviando] = useState(false)
-  const [notulaError, setNotulaError] = useState<string | null>(null)
 
   // Tariffa oraria (admin edit)
   const [tariffaModalOpen, setTariffaModalOpen] = useState(false)
@@ -888,17 +847,6 @@ export function CorsoDetailClient({
                     il {new Date(corsoCompletatoAtLocal).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' })}
                   </span>
                 )}
-              </span>
-            )}
-            {isAdmin && notulaStato && notulaStato !== 'non_generata' && (
-              <span className={`inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-md ${
-                notulaStato === 'bozza' ? 'bg-yellow-100 text-yellow-700' :
-                notulaStato === 'inviata' ? 'bg-blue-100 text-blue-700' :
-                notulaStato === 'accettata' ? 'bg-green-100 text-green-700' :
-                'bg-red-100 text-red-700'
-              }`}>
-                Notula: {notulaStato === 'bozza' ? 'Bozza' : notulaStato === 'inviata' ? 'In attesa' : notulaStato === 'accettata' ? 'Accettata' : 'Rifiutata'}
-                {notulaNr && <span className="ml-1 font-normal">n. {notulaNr}</span>}
               </span>
             )}
             {isAdmin && (
@@ -1641,114 +1589,16 @@ export function CorsoDetailClient({
         </div>
       )}
 
-      {/* Notula section — solo il formatore assegnato, quando ha completato il corso o ha già una notula */}
-      {!isAdmin && corso.formatore_id === currentUserId && (corsoCompletatoLocal || notulaStato !== 'non_generata') && (
-        <div className="bg-white rounded-xl p-6 mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
-          <h3 className="text-sm font-semibold text-gray-700 mb-4">
-            {corso.formatore?.regime_fiscale === 'notula' ? 'Notula' : 'Ricevuta / Fattura'}
-          </h3>
-          {notulaError && (
-            <div className="mb-3 bg-red-50 border border-red-200 rounded-[7px] px-3 py-2 text-sm text-red-700">{notulaError}</div>
-          )}
-          {notulaStato === 'non_generata' && (
-            <div className="flex gap-2 items-end">
-              <div className="flex-1">
-                <label className="block text-xs text-gray-500 mb-1">Numero ricevuta</label>
-                <input
-                  type="text"
-                  value={notulaNumeroInput}
-                  onChange={e => setNotulaNumeroInput(e.target.value)}
-                  placeholder="Es. 001/2025"
-                  className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 focus:outline-none focus:border-[#d64b55]"
-                />
-              </div>
-              <Button onClick={handleGeneraNotula} loading={notulaGenerating} disabled={!notulaNumeroInput.trim()}>
-                Genera notula
-              </Button>
-            </div>
-          )}
-          {notulaStato === 'bozza' && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-md bg-yellow-100 text-yellow-700">Notula generata</span>
-                {notulaNr && <span className="text-xs text-gray-400">n. {notulaNr}</span>}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {notulaPdfUrl && (
-                  <a href={notulaPdfUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-gray-900 border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded-[7px] transition-colors">
-                    <svg width="13" height="13" fill="none" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" strokeWidth="1.5"/><polyline points="14 2 14 8 20 8" stroke="currentColor" strokeWidth="1.5"/></svg>
-                    Visualizza notula
-                  </a>
-                )}
-                <Button onClick={handleInviaNotula} loading={notulaInviando}>Invia per accettazione</Button>
-              </div>
-            </div>
-          )}
-          {notulaStato === 'inviata' && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-md bg-blue-100 text-blue-700">In attesa di accettazione</span>
-                {notulaNr && <span className="text-xs text-gray-400">n. {notulaNr}</span>}
-              </div>
-              {notulaInviataAt && <p className="text-xs text-gray-400">Inviata il {new Date(notulaInviataAt).toLocaleDateString('it-IT')}</p>}
-              {notulaPdfUrl && (
-                <a href={notulaPdfUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-gray-900 border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded-[7px] transition-colors">
-                  <svg width="13" height="13" fill="none" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" strokeWidth="1.5"/><polyline points="14 2 14 8 20 8" stroke="currentColor" strokeWidth="1.5"/></svg>
-                  Visualizza notula
-                </a>
-              )}
-            </div>
-          )}
-          {notulaStato === 'accettata' && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-md bg-green-100 text-green-700">
-                  <svg width="10" height="10" fill="none" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>
-                  Accettata
-                </span>
-                {notulaNr && <span className="text-xs text-gray-400">n. {notulaNr}</span>}
-              </div>
-              {notulaRispostaAt && <p className="text-xs text-gray-400">Accettata il {new Date(notulaRispostaAt).toLocaleDateString('it-IT')}</p>}
-              {notulaPdfUrl && (
-                <a href={notulaPdfUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-gray-900 border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded-[7px] transition-colors">
-                  <svg width="13" height="13" fill="none" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" strokeWidth="1.5"/><polyline points="14 2 14 8 20 8" stroke="currentColor" strokeWidth="1.5"/></svg>
-                  Visualizza notula
-                </a>
-              )}
-              {corso.formatore?.regime_fiscale === 'notula' && (corso.tariffa_oraria ?? corso.formatore?.tariffa_oraria_formatore) != null && oreErogate * Number(corso.tariffa_oraria ?? corso.formatore?.tariffa_oraria_formatore) > 77.47 && (
-                <div className="bg-amber-50 border border-amber-200 rounded-[7px] px-4 py-3 text-sm text-amber-800">
-                  <div className="font-semibold mb-1">Marca da bollo richiesta</div>
-                  <div className="text-xs">Applica una marca da bollo da € 2,00 sull&apos;originale cartaceo della ricevuta. Annullala con data e firma.</div>
-                </div>
-              )}
-            </div>
-          )}
-          {notulaStato === 'rifiutata' && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-md bg-red-100 text-red-700">Rifiutata</span>
-                {notulaNr && <span className="text-xs text-gray-400">n. {notulaNr}</span>}
-              </div>
-              {notulaMotivazioneRifiuto && (
-                <div className="bg-red-50 border border-red-200 rounded-[7px] px-3 py-2 text-sm text-red-800">{notulaMotivazioneRifiuto}</div>
-              )}
-              <div className="flex flex-wrap gap-2">
-                {notulaPdfUrl && (
-                  <a href={notulaPdfUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-gray-900 border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded-[7px] transition-colors">
-                    <svg width="13" height="13" fill="none" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" strokeWidth="1.5"/><polyline points="14 2 14 8 20 8" stroke="currentColor" strokeWidth="1.5"/></svg>
-                    Visualizza notula
-                  </a>
-                )}
-                <button
-                  onClick={() => { setNotulaStato('non_generata'); setNotulaNr(''); setNotulaError(null); setNotulaMotivazioneRifiuto(null) }}
-                  className="inline-flex items-center gap-1.5 text-xs font-medium text-white px-3 py-1.5 rounded-[7px] transition-colors"
-                  style={{ backgroundColor: '#d64b55' }}
-                >
-                  Genera nuova notula
-                </button>
-              </div>
-            </div>
-          )}
+      {/* Notula note — solo formatore assegnato quando corso completato */}
+      {!isAdmin && corso.formatore_id === currentUserId && corsoCompletatoLocal && (
+        <div className="bg-gray-50 rounded-xl p-5 mb-4 border border-gray-200">
+          <p className="text-sm text-gray-600">
+            Corso completato. Vai a{' '}
+            <Link href="/formatore/notule" className="text-[#d64b55] hover:underline font-medium">
+              Le mie notule
+            </Link>{' '}
+            per generare la ricevuta di pagamento.
+          </p>
         </div>
       )}
 

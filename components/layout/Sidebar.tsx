@@ -83,6 +83,7 @@ const adminNav: NavEntry[] = [
     items: [
       { href: '/economia/estratti-conto', label: 'Estratti conto' },
       { href: '/economia/corsi-completati', label: 'Corsi completati' },
+      { href: '/economia/notule', label: 'Notule' },
     ],
   } as NavGroup,
   {
@@ -179,6 +180,18 @@ const formatoreNav: NavItem[] = [
     icon: (
       <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
         <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    ),
+  },
+  {
+    href: '/formatore/notule',
+    label: 'Le mie notule',
+    icon: (
+      <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
+        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" strokeWidth="1.5"/>
+        <polyline points="14 2 14 8 20 8" stroke="currentColor" strokeWidth="1.5"/>
+        <line x1="9" y1="13" x2="15" y2="13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+        <line x1="9" y1="17" x2="13" y2="17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
       </svg>
     ),
   },
