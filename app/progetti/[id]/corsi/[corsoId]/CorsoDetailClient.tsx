@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { CorsoConOre, Sessione, Profile, Progetto, NotaCorso, Referente, QuestionarioRisultato, Candidatura } from '@/lib/types'
+import { CorsoConOre, Sessione, Profile, Progetto, NotaCorso, Referente, QuestionarioRisultato, Candidatura, Tag } from '@/lib/types'
 import { OreCounter } from '@/components/ui/OreCounter'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { Button } from '@/components/ui/Button'
@@ -13,6 +13,7 @@ import { formatDate, telHref } from '@/lib/utils'
 import { DeleteConfirmModal } from '@/components/ui/DeleteConfirmModal'
 import { QuestionariBlock } from '@/components/ui/QuestionariBlock'
 import { QuestionarioModal, buildQuestionarioUrl } from '@/components/ui/QuestionarioModal'
+import { TagsSection } from '@/components/ui/TagsSection'
 
 interface CorsoDetailClientProps {
   corso: CorsoConOre & { formatore?: Profile; tutor?: Profile; referente?: Referente }
@@ -32,6 +33,8 @@ interface CorsoDetailClientProps {
   /** True if the current user can confirm sessions (admin or the assigned formatore) */
   canConfirmSessions: boolean
   isSuperAdmin?: boolean
+  corsoTags: Tag[]
+  allTags: Tag[]
 }
 
 export function CorsoDetailClient({
@@ -51,6 +54,8 @@ export function CorsoDetailClient({
   canConfirmSessions,
   isSuperAdmin,
   finanziamentoNome,
+  corsoTags,
+  allTags,
 }: CorsoDetailClientProps) {
   const router = useRouter()
   const [sessioni, setSessioni] = useState<Sessione[]>(initialSessioni)
@@ -83,6 +88,24 @@ export function CorsoDetailClient({
   const [questionarioOpen, setQuestionarioOpen] = useState(false)
   const [localQCount, setLocalQCount] = useState(corso.questionario_generato_count ?? 0)
   const [localQAt, setLocalQAt] = useState<string | null>(corso.questionario_generato_at ?? null)
+
+  // Tags state
+  const [localCorsoTags, setLocalCorsoTags] = useState<Tag[]>(corsoTags)
+
+  const handleAddCorsoTag = async (tagId: string) => {
+    await fetch(`/api/corsi/${corso.id}/tags`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ tag_id: tagId }) })
+    const tag = allTags.find(t => t.id === tagId)
+    if (tag) setLocalCorsoTags(prev => [...prev, tag])
+  }
+  const handleRemoveCorsoTag = async (tagId: string) => {
+    await fetch(`/api/corsi/${corso.id}/tags`, { method: 'DELETE', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ tag_id: tagId }) })
+    setLocalCorsoTags(prev => prev.filter(t => t.id !== tagId))
+  }
+  const handleCreateTag = async (nome: string, colore: string): Promise<Tag> => {
+    const res = await fetch('/api/tags', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ nome, colore }) })
+    if (!res.ok) { const j = await res.json(); throw new Error(j.error || 'Errore') }
+    return res.json()
+  }
 
   const handleOpenQuestionario = () => {
     const nowIso = new Date().toISOString()
@@ -698,6 +721,19 @@ export function CorsoDetailClient({
           oreErogate={oreErogate}
           sessioniCompletate={sessioniCompletate}
           sessioniTotali={sessioni.length}
+        />
+      </div>
+
+      {/* Tags */}
+      <div className="bg-white rounded-xl p-6 mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
+        <TagsSection
+          tags={localCorsoTags}
+          allTags={allTags}
+          isAdmin={isAdmin}
+          onAddTag={handleAddCorsoTag}
+          onRemoveTag={handleRemoveCorsoTag}
+          onCreateTag={handleCreateTag}
+          label="Tag"
         />
       </div>
 

@@ -147,6 +147,14 @@ export default async function UtenteDetailPage({ params }: { params: Promise<{ i
       }, 0) / globalTot
     : null
 
+  // Fetch formatore skills and all tags
+  const [{ data: skillsData }, { data: allTagsData }] = await Promise.all([
+    adminQ.from('formatori_skills').select('tag:tags(id,nome,colore)').eq('formatore_id', id),
+    adminQ.from('tags').select('*').order('nome'),
+  ])
+  const skills = ((skillsData || []) as any[]).map(r => r.tag).filter(Boolean) as import('@/lib/types').Tag[]
+  const allTags = (allTagsData || []) as import('@/lib/types').Tag[]
+
   return (
     <AppLayout
       role={currentProfile.role}
@@ -171,6 +179,8 @@ export default async function UtenteDetailPage({ params }: { params: Promise<{ i
         oreErogatePerCorsoTutor={oreErogatePerCorsoTutor}
         isAdmin={['admin', 'super_admin'].includes(currentProfile.role)}
         sessionDatesByCorso={sessionDatesByCorso}
+        skills={skills}
+        allTags={allTags}
       />
     </AppLayout>
   )

@@ -1,6 +1,7 @@
 'use client'
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { CatalogoCorso } from '@/lib/types'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
@@ -155,12 +156,24 @@ export function CatalogoClient({ initialCorsi, isSuperAdmin }: Props) {
           <h1 className="text-xl font-bold text-gray-900">Catalogo corsi</h1>
           <p className="text-sm text-gray-500 mt-0.5">Template riutilizzabili per i corsi dei progetti</p>
         </div>
-        <Button onClick={() => { setAddForm(emptyForm); setAddError(''); setAddOpen(true) }}>
-          <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
-            <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-          </svg>
-          Aggiungi corso
-        </Button>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/catalogo-corsi/tag"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-gray-900 border border-gray-200 hover:bg-gray-50 px-3 py-2 rounded-[7px] transition-colors"
+          >
+            <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
+              <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              <line x1="7" y1="7" x2="7.01" y2="7" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+            Gestione tag
+          </Link>
+          <Button onClick={() => { setAddForm(emptyForm); setAddError(''); setAddOpen(true) }}>
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
+              <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+            Aggiungi corso
+          </Button>
+        </div>
       </div>
 
       {/* Search */}

@@ -2,7 +2,7 @@
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Profile, CorsoConOre, UserRole, QuestionarioRisultato } from '@/lib/types'
+import { Profile, CorsoConOre, UserRole, QuestionarioRisultato, Tag } from '@/lib/types'
 import { QuestionariBlock, QuestionariMiniCard } from '@/components/ui/QuestionariBlock'
 import { Avatar } from '@/components/ui/Avatar'
 import { StatusBadge } from '@/components/ui/StatusBadge'
@@ -14,6 +14,7 @@ import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
 import { ROLE_LABELS, ROLE_COLORS } from '@/lib/auth'
 import { formatDate } from '@/lib/utils'
+import { TagsSection } from '@/components/ui/TagsSection'
 
 type CorsoConProgetto = CorsoConOre & {
   project?: { id: string; school_name: string; anno_scolastico: string } | null
@@ -35,6 +36,8 @@ interface UtenteDetailClientProps {
   oreErogatePerCorsoTutor?: Record<string, number>
   isAdmin: boolean
   sessionDatesByCorso?: Record<string, { prima: string; ultima: string }>
+  skills?: Tag[]
+  allTags?: Tag[]
 }
 
 function corsoStato(c: CorsoConOre, oreErogate: number): { label: string; color: string } {
@@ -116,9 +119,27 @@ function CorsiTable({ corsi, oreErogateMap = {} }: { corsi: CorsoConProgetto[]; 
   )
 }
 
-export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSuperAdmin, currentUserId, nRifiutati = 0, tassoAccettazione = null, questionari = [], mediaGlobale = null, oreErogateFormatore = 0, oreErogateTutor = 0, oreErogatePerCorsoFormatore = {}, oreErogatePerCorsoTutor = {}, isAdmin, sessionDatesByCorso = {} }: UtenteDetailClientProps) {
+export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSuperAdmin, currentUserId, nRifiutati = 0, tassoAccettazione = null, questionari = [], mediaGlobale = null, oreErogateFormatore = 0, oreErogateTutor = 0, oreErogatePerCorsoFormatore = {}, oreErogatePerCorsoTutor = {}, isAdmin, sessionDatesByCorso = {}, skills = [], allTags = [] }: UtenteDetailClientProps) {
   const router = useRouter()
   const [deleteOpen, setDeleteOpen] = useState(false)
+
+  // Skills state
+  const [localSkills, setLocalSkills] = useState<Tag[]>(skills)
+
+  const handleAddSkill = async (tagId: string) => {
+    await fetch(`/api/utenti/${profile.id}/skills`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ tag_id: tagId }) })
+    const tag = allTags.find(t => t.id === tagId)
+    if (tag) setLocalSkills(prev => [...prev, tag])
+  }
+  const handleRemoveSkill = async (tagId: string) => {
+    await fetch(`/api/utenti/${profile.id}/skills`, { method: 'DELETE', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ tag_id: tagId }) })
+    setLocalSkills(prev => prev.filter(t => t.id !== tagId))
+  }
+  const handleCreateTag = async (nome: string, colore: string): Promise<Tag> => {
+    const res = await fetch('/api/tags', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ nome, colore }) })
+    if (!res.ok) { const j = await res.json(); throw new Error(j.error || 'Errore') }
+    return res.json()
+  }
 
   type RegimeFiscale = 'forfettario' | 'ordinario' | 'notula'
   const REGIME_LABELS: Record<RegimeFiscale, string> = {
@@ -250,6 +271,21 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
           </div>
         </div>
       </div>
+
+      {/* Competenze */}
+      {(isFormatore || isTutor) && (
+        <div className="bg-white rounded-xl p-6 mb-6" style={{ border: '0.5px solid #e5e5e5' }}>
+          <TagsSection
+            tags={localSkills}
+            allTags={allTags}
+            isAdmin={isAdmin}
+            onAddTag={handleAddSkill}
+            onRemoveTag={handleRemoveSkill}
+            onCreateTag={handleCreateTag}
+            label="Competenze"
+          />
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">

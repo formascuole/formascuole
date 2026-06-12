@@ -157,6 +157,14 @@ export default async function CorsoDetailPage({
     .filter(q => { if (seenQ.has(q.id)) return false; seenQ.add(q.id); return true })
     .sort((a, b) => b.created_at.localeCompare(a.created_at))
 
+  // Fetch corso tags and all tags
+  const [{ data: corsoTagsData }, { data: allTagsData }] = await Promise.all([
+    supabase.from('corsi_tags').select('tag:tags(id,nome,colore)').eq('corso_id', corsoId),
+    supabase.from('tags').select('*').order('nome'),
+  ])
+  const corsoTags = ((corsoTagsData || []) as any[]).map(r => r.tag).filter(Boolean) as import('@/lib/types').Tag[]
+  const allTags = (allTagsData || []) as import('@/lib/types').Tag[]
+
   // Il formatore assegnato può confermare le sessioni
   const canConfirmSessions = isAdmin || corsoData.formatore_id === user.id
 
@@ -186,6 +194,8 @@ export default async function CorsoDetailPage({
         canConfirmSessions={canConfirmSessions}
         isSuperAdmin={isSuperAdmin}
         finanziamentoNome={finanziamentoNome}
+        corsoTags={corsoTags}
+        allTags={allTags}
       />
     </AppLayout>
   )

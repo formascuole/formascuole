@@ -46,6 +46,13 @@ export interface Finanziamento {
   created_at: string
 }
 
+export interface Tag {
+  id: string
+  nome: string
+  colore: string
+  created_at: string
+}
+
 export interface Progetto {
   id: string
   school_name: string
