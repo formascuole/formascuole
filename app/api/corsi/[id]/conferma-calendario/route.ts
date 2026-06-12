@@ -46,9 +46,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       .order('data')
 
     let formatore_nome: string | null = null
+    let formatore_email: string | null = null
+    let formatore_tel: string | null = null
     if (corso.formatore_id) {
-      const { data: fmt } = await admin.from('profiles').select('nome').eq('id', corso.formatore_id).single()
+      const { data: fmt } = await admin.from('profiles').select('nome, email, telefono').eq('id', corso.formatore_id).single()
       formatore_nome = fmt?.nome || null
+      formatore_email = fmt?.email || null
+      formatore_tel = fmt?.telefono || null
     }
 
     const corsoUrl = `${process.env.NEXT_PUBLIC_APP_URL}/progetti/${corso.project_id}/corsi/${id}`
@@ -84,6 +88,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           corso_title: corso.title,
           school_name: progetto.school_name,
           referente_nome: toNome,
+          formatore_nome,
+          formatore_email,
+          formatore_tel,
           sessioni: sessioni || [],
         })
         sendEmail({ to: toEmail, subject: scuolaSubject, body: scuolaBody, htmlBody: scuolaHtmlBody }).catch(console.error)

@@ -741,7 +741,7 @@ function buildSessioniTable(
     const giorno = GIORNI_IT[new Date(Number(yStr), Number(mStr) - 1, Number(dStr)).getDay()]
     const orario = s.ora_inizio && s.ora_fine
       ? `${s.ora_inizio.substring(0, 5)}–${s.ora_fine.substring(0, 5)}`
-      : 'Da definire'
+      : `${s.ore}h`
     return `        <tr>
           <td style="padding:8px; border:1px solid #ddd;">${dateStr}</td>
           <td style="padding:8px; border:1px solid #ddd;">${giorno}</td>
@@ -872,7 +872,23 @@ interface InvioCalendarioParams {
   school_name: string
   referente_nome: string
   formatore_nome?: string | null
+  formatore_email?: string | null
+  formatore_tel?: string | null
+  accetta_url?: string | null
   sessioni: Array<{ data: string; ora_inizio?: string | null; ora_fine?: string | null; ore: number }>
+}
+
+function buildFormatoreContacts(nome?: string | null, email?: string | null, tel?: string | null): { text: string; html: string } {
+  if (!nome && !email) return { text: '', html: '' }
+  const lines = [nome, email ? `Email: ${email}` : null, tel ? `Tel: ${tel}` : null].filter(Boolean).join('\n')
+  const text = `\nPer comunicazioni con il formatore:\n${lines}`
+  const html = `<div style="margin-top:20px;padding:12px 16px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;">
+  <p style="margin:0 0 6px;font-weight:600;font-size:14px;color:#111;">Per comunicazioni con il formatore:</p>
+  ${nome ? `<p style="margin:0;font-size:14px;">${nome}</p>` : ''}
+  ${email ? `<p style="margin:4px 0 0;font-size:14px;">📧 <a href="mailto:${email}" style="color:#2563eb;">${email}</a></p>` : ''}
+  ${tel ? `<p style="margin:4px 0 0;font-size:14px;">📞 ${tel}</p>` : ''}
+</div>`
+  return { text, html }
 }
 
 export function generateInvioCalendarioEmail(p: InvioCalendarioParams): { subject: string; body: string; htmlBody: string } {
@@ -889,13 +905,19 @@ export function generateInvioCalendarioEmail(p: InvioCalendarioParams): { subjec
     })
     .join('\n')
 
+  const contacts = buildFormatoreContacts(p.formatore_nome, p.formatore_email, p.formatore_tel)
+
+  const confermaText = p.formatore_nome
+    ? `La preghiamo di confermare la ricezione e l'approvazione del calendario cliccando il link qui sotto o contattando il formatore:\n\n${p.formatore_nome}${p.formatore_email ? `\nEmail: ${p.formatore_email}` : ''}${p.formatore_tel ? `\nTel: ${p.formatore_tel}` : ''}${p.accetta_url ? `\n\nACCETTA CALENDARIO: ${p.accetta_url}` : ''}`
+    : `La preghiamo di confermare la ricezione e l'approvazione del calendario rispondendo a questa email.`
+
   const body = `Gentile ${p.referente_nome},
 
 in riferimento al corso "${p.corso_title}" in programma presso la vostra scuola, le trasmettiamo il calendario delle sessioni concordato${p.formatore_nome ? ` con il formatore ${p.formatore_nome}` : ''}:
 
 ${sessioniList}
 
-La preghiamo di confermare la ricezione e l'approvazione del calendario rispondendo a questa email o contattando il nostro ufficio.
+${confermaText}
 
 In caso di necessità di modifiche, siamo a disposizione per concordare le variazioni necessarie.
 
@@ -905,8 +927,10 @@ Il team Formascuole`
   const htmlBody = `<p>Gentile ${p.referente_nome},</p>
 <p>in riferimento al corso <strong>"${p.corso_title}"</strong> in programma presso la vostra scuola, le trasmettiamo il calendario delle sessioni concordato${p.formatore_nome ? ` con il formatore ${p.formatore_nome}` : ''}:</p>
 ${buildSessioniTable(p.sessioni)}
-<p style="margin-top:16px;">La preghiamo di confermare la ricezione e l'approvazione del calendario rispondendo a questa email o contattando il nostro ufficio.</p>
-<p>In caso di necessità di modifiche, siamo a disposizione per concordare le variazioni necessarie.</p>
+<p style="margin-top:16px;">La preghiamo di confermare la ricezione e l'approvazione del calendario cliccando il pulsante qui sotto o contattando il formatore:</p>
+${p.accetta_url ? `<div style="margin:20px 0;"><a href="${p.accetta_url}" style="display:inline-block;padding:12px 28px;background:#16a34a;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:15px;">ACCETTA CALENDARIO</a></div>` : ''}
+${contacts.html}
+<p style="margin-top:16px;">In caso di necessità di modifiche, siamo a disposizione per concordare le variazioni necessarie.</p>
 <p>Cordiali saluti,<br/>Il team Formascuole</p>`
 
   return { subject, body, htmlBody }
@@ -933,6 +957,9 @@ interface CalendarioConfermatoScuolaParams {
   corso_title: string
   school_name: string
   referente_nome: string
+  formatore_nome?: string | null
+  formatore_email?: string | null
+  formatore_tel?: string | null
   sessioni: Array<{ data: string; ora_inizio?: string | null; ora_fine?: string | null; ore: number }>
 }
 
@@ -950,6 +977,8 @@ export function generateCalendarioConfermatoScuolaEmail(p: CalendarioConfermatoS
     })
     .join('\n')
 
+  const contacts = buildFormatoreContacts(p.formatore_nome, p.formatore_email, p.formatore_tel)
+
   const body = `Gentile ${p.referente_nome},
 
 confermiamo la ricezione dell'approvazione del calendario per il corso "${p.corso_title}".
@@ -957,6 +986,7 @@ confermiamo la ricezione dell'approvazione del calendario per il corso "${p.cors
 Riepilogo sessioni confermate:
 
 ${sessioniList}
+${contacts.text}
 
 Conservi questa email come ricevuta di conferma.
 
@@ -967,6 +997,7 @@ Il team Formascuole`
 <p>confermiamo la ricezione dell'approvazione del calendario per il corso <strong>"${p.corso_title}"</strong>.</p>
 <p>Riepilogo sessioni confermate:</p>
 ${buildSessioniTable(p.sessioni)}
+${contacts.html}
 <p style="margin-top:16px;">Conservi questa email come ricevuta di conferma.</p>
 <p>Cordiali saluti,<br/>Il team Formascuole</p>`
 

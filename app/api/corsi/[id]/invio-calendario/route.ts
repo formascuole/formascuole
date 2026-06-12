@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { generateInvioCalendarioEmail, sendEmail } from '@/lib/email'
+import { randomUUID } from 'crypto'
 
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -22,7 +23,6 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
   if (!corso) return NextResponse.json({ error: 'Corso non trovato' }, { status: 404 })
 
-  // Admin or the assigned formatore can send the calendar
   if (!isAdmin && corso.formatore_id !== user.id) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
@@ -38,7 +38,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
   if (!progetto) return NextResponse.json({ error: 'Progetto non trovato' }, { status: 404 })
 
-  // Determine destination email priority: referente_corso_email > corso referente > progetto ref
+  // Destination email: referente_corso_email > referente progetto > ref progetto
   let toEmail: string | null = corso.referente_corso_email || null
   let toNome: string = corso.referente_corso_nome || progetto.ref_name
 
@@ -63,17 +63,34 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     .eq('corso_id', id)
     .order('data')
 
+  // Fetch formatore contacts
   let formatore_nome: string | null = null
+  let formatore_email: string | null = null
+  let formatore_tel: string | null = null
   if (corso.formatore_id) {
-    const { data: fmt } = await admin.from('profiles').select('nome').eq('id', corso.formatore_id).single()
+    const { data: fmt } = await admin
+      .from('profiles')
+      .select('nome, email, telefono')
+      .eq('id', corso.formatore_id)
+      .single()
     formatore_nome = fmt?.nome || null
+    formatore_email = fmt?.email || null
+    formatore_tel = fmt?.telefono || null
   }
+
+  // Generate token for one-click acceptance
+  const token = randomUUID()
+  const base = process.env.NEXT_PUBLIC_APP_URL || 'https://app.formascuole.it'
+  const accetta_url = `${base}/api/corsi/${id}/calendario/accetta-scuola?token=${token}`
 
   const { subject, body, htmlBody } = generateInvioCalendarioEmail({
     corso_title: corso.title,
     school_name: progetto.school_name,
     referente_nome: toNome,
     formatore_nome,
+    formatore_email,
+    formatore_tel,
+    accetta_url,
     sessioni: sessioni || [],
   })
 
@@ -83,7 +100,10 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
   await admin
     .from('corsi')
-    .update({ calendario_inviato_at: new Date().toISOString() })
+    .update({
+      calendario_inviato_at: new Date().toISOString(),
+      calendario_token: token,
+    })
     .eq('id', id)
 
   await admin.from('solleciti_log').insert({
