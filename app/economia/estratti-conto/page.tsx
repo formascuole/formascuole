@@ -23,6 +23,8 @@ export interface CorsoECItem {
   imponibile: number
   ritenuteIva: number
   netto: number
+  notula_stato?: string | null
+  notula_numero?: string | null
 }
 
 export default async function EstrattiContoPage() {
@@ -45,7 +47,7 @@ export default async function EstrattiContoPage() {
     { data: sessioniRaw },
   ] = await Promise.all([
     admin.from('profiles').select('id, nome, tariffa_oraria_formatore, regime_fiscale, rivalsa_iva').in('role', ['formatore', 'admin', 'super_admin']),
-    admin.from('corsi').select('id, project_id, title, formatore_id, corso_completato, corso_completato_at, tariffa_oraria').eq('corso_completato', true).not('formatore_id', 'is', null),
+    admin.from('corsi').select('id, project_id, title, formatore_id, corso_completato, corso_completato_at, tariffa_oraria, notula_stato, notula_numero').eq('corso_completato', true).not('formatore_id', 'is', null),
     admin.from('progetti').select('id, school_name'),
     admin.from('sessioni').select('corso_id, ore, data').eq('completata', true),
   ])
@@ -94,6 +96,8 @@ export default async function EstrattiContoPage() {
       anno,
       prima_sessione: agg.prima,
       ultima_sessione: agg.ultima,
+      notula_stato: (c.notula_stato as string | null) ?? null,
+      notula_numero: (c.notula_numero as string | null) ?? null,
       ...fin,
     }
   })

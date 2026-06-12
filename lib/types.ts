@@ -132,6 +132,13 @@ export interface Corso {
   tariffa_oraria_tutor?: number | null
   questionario_generato_at?: string | null
   questionario_generato_count?: number
+  // Notula fields
+  notula_numero?: string | null
+  notula_stato?: 'non_generata' | 'bozza' | 'inviata' | 'accettata' | 'rifiutata' | null
+  notula_inviata_at?: string | null
+  notula_risposta_at?: string | null
+  notula_motivazione_rifiuto?: string | null
+  notula_pdf_url?: string | null
 }
 
 export interface Candidatura {

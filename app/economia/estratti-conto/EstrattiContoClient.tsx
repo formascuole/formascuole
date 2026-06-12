@@ -55,11 +55,28 @@ async function exportEstrattiConto(rows: FormatorRow[], anno: string) {
   XLSX.writeFile(wb, `Economia_${anno}.xlsx`)
 }
 
+const NOTULA_STATO_BADGE: Record<string, string> = {
+  non_generata: 'bg-gray-100 text-gray-500',
+  bozza: 'bg-yellow-100 text-yellow-700',
+  inviata: 'bg-blue-100 text-blue-700',
+  accettata: 'bg-green-100 text-green-700',
+  rifiutata: 'bg-red-100 text-red-700',
+}
+
+const NOTULA_STATO_LABEL: Record<string, string> = {
+  non_generata: 'Non generata',
+  bozza: 'Bozza',
+  inviata: 'In attesa',
+  accettata: 'Accettata',
+  rifiutata: 'Rifiutata',
+}
+
 export function EstrattiContoClient({ items, formatori }: Props) {
   const currentYear = String(new Date().getFullYear())
   const [filterAnno, setFilterAnno] = useState(currentYear)
   const [filterFormatore, setFilterFormatore] = useState('')
   const [filterRegime, setFilterRegime] = useState<'' | RegimeFiscale>('')
+  const [expanded, setExpanded] = useState<string | null>(null)
 
   const anni = useMemo(() => {
     const s = new Set<string>()
@@ -189,38 +206,102 @@ export function EstrattiContoClient({ items, formatori }: Props) {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {rows.map(r => (
-                <tr key={r.formatore_id} className="hover:bg-gray-50">
-                  <td className="px-5 py-3 font-medium text-gray-900">{r.formatore_nome}</td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md ${REGIME_BADGE[r.regime_fiscale]}`}>
-                      {REGIME_LABELS[r.regime_fiscale]}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-center text-gray-700">{r.n_corsi}</td>
-                  <td className="px-4 py-3 text-center text-gray-700">{r.ore_totali}h</td>
-                  <td className="px-4 py-3 text-right font-mono text-gray-700">
-                    {r.imponibile > 0 ? fmtCur(r.imponibile) : <span className="text-gray-300">—</span>}
-                  </td>
-                  <td className="px-4 py-3 text-right text-xs">
-                    <RitIvaCell v={r.ritenuteIva} />
-                  </td>
-                  <td className="px-5 py-3 text-right font-mono font-semibold text-gray-900">
-                    {r.netto > 0 ? fmtCur(r.netto) : <span className="text-gray-300 font-normal">—</span>}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <Link
-                      href={`/utenti/${r.formatore_id}`}
-                      className="inline-flex items-center gap-1 text-xs font-medium text-[#d64b55] hover:underline"
+              {rows.map(r => {
+                const isExpanded = expanded === r.formatore_id
+                const formatoreCorsi = filtered.filter(i => i.formatore_id === r.formatore_id)
+                return (
+                  <>
+                    <tr
+                      key={r.formatore_id}
+                      className="hover:bg-gray-50 cursor-pointer"
+                      onClick={() => setExpanded(isExpanded ? null : r.formatore_id)}
                     >
-                      Dettaglio
-                      <svg width="11" height="11" fill="none" viewBox="0 0 24 24">
-                        <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                    </Link>
-                  </td>
-                </tr>
-              ))}
+                      <td className="px-5 py-3 font-medium text-gray-900">
+                        <div className="flex items-center gap-2">
+                          <svg
+                            width="12" height="12" fill="none" viewBox="0 0 24 24"
+                            className={`transition-transform ${isExpanded ? 'rotate-90' : ''} text-gray-400`}
+                          >
+                            <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                          {r.formatore_nome}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md ${REGIME_BADGE[r.regime_fiscale]}`}>
+                          {REGIME_LABELS[r.regime_fiscale]}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-center text-gray-700">{r.n_corsi}</td>
+                      <td className="px-4 py-3 text-center text-gray-700">{r.ore_totali}h</td>
+                      <td className="px-4 py-3 text-right font-mono text-gray-700">
+                        {r.imponibile > 0 ? fmtCur(r.imponibile) : <span className="text-gray-300">—</span>}
+                      </td>
+                      <td className="px-4 py-3 text-right text-xs">
+                        <RitIvaCell v={r.ritenuteIva} />
+                      </td>
+                      <td className="px-5 py-3 text-right font-mono font-semibold text-gray-900">
+                        {r.netto > 0 ? fmtCur(r.netto) : <span className="text-gray-300 font-normal">—</span>}
+                      </td>
+                      <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
+                        <Link
+                          href={`/utenti/${r.formatore_id}`}
+                          className="inline-flex items-center gap-1 text-xs font-medium text-[#d64b55] hover:underline"
+                        >
+                          Dettaglio
+                          <svg width="11" height="11" fill="none" viewBox="0 0 24 24">
+                            <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        </Link>
+                      </td>
+                    </tr>
+                    {isExpanded && (
+                      <tr key={`${r.formatore_id}-detail`}>
+                        <td colSpan={8} className="px-0 py-0 bg-gray-50/80">
+                          <div className="px-8 py-3">
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="border-b border-gray-200">
+                                  <th className="text-left font-medium text-gray-400 pb-2 pr-4">CORSO</th>
+                                  <th className="text-left font-medium text-gray-400 pb-2 pr-4">SCUOLA</th>
+                                  <th className="text-center font-medium text-gray-400 pb-2 pr-4">ORE</th>
+                                  <th className="text-right font-medium text-gray-400 pb-2 pr-4">NETTO</th>
+                                  <th className="text-left font-medium text-gray-400 pb-2">NOTULA</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-100">
+                                {formatoreCorsi.map(ci => {
+                                  const stato = ci.notula_stato ?? 'non_generata'
+                                  return (
+                                    <tr key={ci.corso_id}>
+                                      <td className="py-2 pr-4 text-gray-800 font-medium">{ci.title}</td>
+                                      <td className="py-2 pr-4 text-gray-500">{ci.school_name}</td>
+                                      <td className="py-2 pr-4 text-center text-gray-600">{ci.ore_erogate}h</td>
+                                      <td className="py-2 pr-4 text-right font-mono text-gray-700">
+                                        {ci.netto > 0 ? fmtCur(ci.netto) : <span className="text-gray-300">—</span>}
+                                      </td>
+                                      <td className="py-2">
+                                        <div className="flex items-center gap-1.5">
+                                          <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md ${NOTULA_STATO_BADGE[stato] ?? 'bg-gray-100 text-gray-500'}`}>
+                                            {NOTULA_STATO_LABEL[stato] ?? stato}
+                                          </span>
+                                          {ci.notula_numero && (
+                                            <span className="text-gray-400">n. {ci.notula_numero}</span>
+                                          )}
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  )
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </>
+                )
+              })}
             </tbody>
             <tfoot>
               <tr className="border-t border-gray-200 bg-gray-50">
