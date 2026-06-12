@@ -62,6 +62,7 @@ export default async function FormatoreNotulePage() {
       nome={profile.nome}
       email={profile.email}
       avatarInitials={profile.avatar_initials}
+      regimeFiscale={profile.regime_fiscale}
     >
       <NotuleClient
         corsiFatturabili={corsiFatturabili}

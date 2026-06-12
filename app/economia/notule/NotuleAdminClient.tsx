@@ -1,6 +1,6 @@
 'use client'
 import { useState, useMemo } from 'react'
-import type { NotuleAdminItem } from './page'
+import type { NotuleAdminItem } from '../documenti-contabili/page'
 
 interface Props {
   notule: NotuleAdminItem[]

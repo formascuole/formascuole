@@ -162,7 +162,7 @@ export default async function FormatorePage() {
     : null
 
   return (
-    <AppLayout role="formatore" nome={profile.nome} email={profile.email} avatarInitials={profile.avatar_initials}>
+    <AppLayout role="formatore" nome={profile.nome} email={profile.email} avatarInitials={profile.avatar_initials} regimeFiscale={profile.regime_fiscale}>
       <FormatoreClient
         corsi={corsiConReferente}
         profile={profile}

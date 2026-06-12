@@ -134,6 +134,9 @@ export interface Corso {
   questionario_generato_count?: number
   // Notula FK
   notula_id?: string | null
+  // Fattura P.IVA
+  fattura_ricevuta?: boolean
+  fattura_ricevuta_at?: string | null
 }
 
 export interface Candidatura {

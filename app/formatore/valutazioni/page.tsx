@@ -63,7 +63,7 @@ export default async function ValutazioniFormatorePage() {
     .sort((a, b) => b.created_at.localeCompare(a.created_at))
 
   return (
-    <AppLayout role="formatore" nome={profile.nome} email={profile.email} avatarInitials={profile.avatar_initials}>
+    <AppLayout role="formatore" nome={profile.nome} email={profile.email} avatarInitials={profile.avatar_initials} regimeFiscale={profile.regime_fiscale}>
       <ValutazioniFormatoreClient
         questionari={questionari || []}
         corsi={corsiConScuola}

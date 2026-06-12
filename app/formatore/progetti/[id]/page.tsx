@@ -56,7 +56,7 @@ export default async function ProgettoFormatorePage({ params }: { params: Promis
   const { data: finanziamenti } = await supabase.from('finanziamenti').select('id,nome').order('nome')
 
   return (
-    <AppLayout role="formatore" nome={profile.nome} email={profile.email} avatarInitials={profile.avatar_initials}>
+    <AppLayout role="formatore" nome={profile.nome} email={profile.email} avatarInitials={profile.avatar_initials} regimeFiscale={profile.regime_fiscale}>
       <ProgettoFormatoreClient
         progetto={progetto}
         corsi={corsiConReferente}

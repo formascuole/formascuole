@@ -76,6 +76,7 @@ export default async function CalendarioFormatorePage() {
       nome={profile.nome}
       email={profile.email}
       avatarInitials={profile.avatar_initials}
+      regimeFiscale={profile.regime_fiscale}
     >
       <CalendarioFormatoreClient
         initialSessioni={sessioni}

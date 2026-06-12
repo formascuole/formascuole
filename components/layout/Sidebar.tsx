@@ -83,7 +83,7 @@ const adminNav: NavEntry[] = [
     items: [
       { href: '/economia/estratti-conto', label: 'Estratti conto' },
       { href: '/economia/corsi-completati', label: 'Corsi completati' },
-      { href: '/economia/notule', label: 'Notule' },
+      { href: '/economia/documenti-contabili', label: 'Documenti contabili' },
     ],
   } as NavGroup,
   {
@@ -117,7 +117,7 @@ const adminNav: NavEntry[] = [
   },
 ]
 
-const tutorNav: NavItem[] = [
+const tutorStaticNav: NavItem[] = [
   {
     href: '/tutor',
     label: 'I miei corsi',
@@ -142,7 +142,7 @@ const tutorNav: NavItem[] = [
   },
 ]
 
-const formatoreNav: NavItem[] = [
+const formatoreStaticNav: NavItem[] = [
   {
     href: '/formatore/progetti',
     label: 'Progetti',
@@ -184,18 +184,6 @@ const formatoreNav: NavItem[] = [
     ),
   },
   {
-    href: '/formatore/notule',
-    label: 'Le mie notule',
-    icon: (
-      <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
-        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" strokeWidth="1.5"/>
-        <polyline points="14 2 14 8 20 8" stroke="currentColor" strokeWidth="1.5"/>
-        <line x1="9" y1="13" x2="15" y2="13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-        <line x1="9" y1="17" x2="13" y2="17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-      </svg>
-    ),
-  },
-  {
     href: '/account',
     label: 'Il mio account',
     icon: (
@@ -206,6 +194,45 @@ const formatoreNav: NavItem[] = [
     ),
   },
 ]
+
+const notuleNavItem: NavItem = {
+  href: '/formatore/notule',
+  label: 'Le mie notule',
+  icon: (
+    <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
+      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" strokeWidth="1.5"/>
+      <polyline points="14 2 14 8 20 8" stroke="currentColor" strokeWidth="1.5"/>
+      <line x1="9" y1="13" x2="15" y2="13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      <line x1="9" y1="17" x2="13" y2="17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+    </svg>
+  ),
+}
+
+const creditiNavItem: NavItem = {
+  href: '/formatore/crediti',
+  label: 'I miei crediti',
+  icon: (
+    <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm3 0h1.5m-1.5 0h-1.5m-7.5 0h-1.5m1.5 0H9" stroke="currentColor" strokeWidth="1.5"/>
+    </svg>
+  ),
+}
+
+function buildFormatoreNav(regimeFiscale?: string): NavItem[] {
+  const docItem = !regimeFiscale || regimeFiscale === 'notula' ? notuleNavItem : creditiNavItem
+  // Insert before the last item (account)
+  const base = [...formatoreStaticNav]
+  base.splice(base.length - 1, 0, docItem)
+  return base
+}
+
+function buildTutorNav(regimeFiscale?: string): NavItem[] {
+  const docItem = !regimeFiscale || regimeFiscale === 'notula' ? notuleNavItem : creditiNavItem
+  // Insert between "I miei corsi" and "Il mio account"
+  const base = [...tutorStaticNav]
+  base.splice(1, 0, docItem)
+  return base
+}
 
 const finanziamentiNavItem: NavItem = {
   href: '/finanziamenti',
@@ -228,13 +255,23 @@ interface SidebarProps {
   isSuperAdmin?: boolean
   isMobileOpen?: boolean
   onMobileClose?: () => void
+  regimeFiscale?: string
 }
 
-export function Sidebar({ role, nome, email, avatarInitials, notificheBadge, isSuperAdmin, isMobileOpen = false, onMobileClose }: SidebarProps) {
+export function Sidebar({ role, nome, email, avatarInitials, notificheBadge, isSuperAdmin, isMobileOpen = false, onMobileClose, regimeFiscale }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const isSA = isSuperAdmin ?? role === 'super_admin'
-  const baseNav = role === 'admin' || role === 'super_admin' ? adminNav : role === 'tutor' ? tutorNav : formatoreNav
+
+  let baseNav: NavEntry[]
+  if (role === 'admin' || role === 'super_admin') {
+    baseNav = adminNav
+  } else if (role === 'tutor') {
+    baseNav = buildTutorNav(regimeFiscale)
+  } else {
+    baseNav = buildFormatoreNav(regimeFiscale)
+  }
+
   const nav: NavEntry[] = isSA ? [...baseNav, finanziamentiNavItem] : baseNav
 
   // Close sidebar on route change (mobile)

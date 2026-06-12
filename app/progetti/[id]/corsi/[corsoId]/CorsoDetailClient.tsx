@@ -191,6 +191,8 @@ export function CorsoDetailClient({
   const router = useRouter()
   const [sessioni, setSessioni] = useState<Sessione[]>(initialSessioni)
   useEffect(() => { setSessioni(initialSessioni) }, [initialSessioni])
+  const [fatturaRicevuta, setFatturaRicevuta] = useState(corso.fattura_ricevuta ?? false)
+  const [fatturaRicevutaAt, setFatturaRicevutaAt] = useState<string | null>(corso.fattura_ricevuta_at ?? null)
   const [deleteCorsoOpen, setDeleteCorsoOpen] = useState(false)
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
   const [calendarOpen, setCalendarOpen] = useState(false)
@@ -1521,6 +1523,40 @@ export function CorsoDetailClient({
                     {corso.tariffa_oraria_tutor != null ? 'Modifica' : 'Imposta'}
                   </Button>
                 </div>
+              </div>
+            )}
+
+            {/* Fattura ricevuta toggle — solo per formatori P.IVA */}
+            {corso.formatore?.ha_partita_iva && corso.formatore?.regime_fiscale !== 'notula' && oreErogate > 0 && (
+              <div className="mt-4 flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={fatturaRicevuta}
+                    onChange={async (e) => {
+                      const val = e.target.checked
+                      setFatturaRicevuta(val)
+                      if (val) {
+                        setFatturaRicevutaAt(new Date().toISOString())
+                      } else {
+                        setFatturaRicevutaAt(null)
+                      }
+                      await fetch(`/api/corsi/${corso.id}/fattura-ricevuta`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ fattura_ricevuta: val }),
+                      })
+                      router.refresh()
+                    }}
+                    className="w-4 h-4 rounded border-gray-300 text-green-600"
+                  />
+                  <span className="text-sm font-medium text-gray-700">Fattura ricevuta</span>
+                </label>
+                {fatturaRicevuta && fatturaRicevutaAt && (
+                  <span className="text-xs text-gray-500">
+                    {new Date(fatturaRicevutaAt).toLocaleDateString('it-IT')}
+                  </span>
+                )}
               </div>
             )}
           </div>

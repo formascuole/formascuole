@@ -101,6 +101,7 @@ export default async function TutorPage() {
       nome={profile.nome}
       email={profile.email}
       avatarInitials={profile.avatar_initials}
+      regimeFiscale={profile.regime_fiscale}
     >
       <TutorClient
         corsi={corsiConReferente}
