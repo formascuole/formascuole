@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
 import { generateAvatarColor } from '@/lib/utils'
 import { UserRole } from '@/lib/types'
+import { REGIONI } from '@/lib/geo-data'
 
 type RegimeFiscale = 'forfettario' | 'ordinario' | 'notula'
 
@@ -32,6 +33,7 @@ interface AccountClientProps {
   rivalsa_iva: boolean
   partita_iva?: string | null
   telefono?: string | null
+  regione?: string | null
 }
 
 const ROLE_BADGES: Record<UserRole, { label: string; cls: string }> = {
@@ -61,7 +63,7 @@ export function AccountClient({
   indirizzo_via, indirizzo_cap, indirizzo_citta, indirizzo_provincia,
   iban, banca, intestatario_conto,
   tariffa_oraria_formatore, tariffa_oraria_tutor,
-  ha_partita_iva, regime_fiscale, rivalsa_iva, partita_iva, telefono,
+  ha_partita_iva, regime_fiscale, rivalsa_iva, partita_iva, telefono, regione,
 }: AccountClientProps) {
   // Password change state
   const [pwdModalOpen, setPwdModalOpen] = useState(false)
@@ -93,13 +95,14 @@ export function AccountClient({
     rivalsa_iva,
     partita_iva: partita_iva ?? '',
     telefono: telefono ?? '',
+    regione: regione ?? '',
   })
   // Track saved values to display
   const [savedFiscal, setSavedFiscal] = useState({
     luogo_nascita, data_nascita, codice_fiscale,
     indirizzo_via, indirizzo_cap, indirizzo_citta, indirizzo_provincia,
     iban, banca, intestatario_conto,
-    ha_partita_iva, regime_fiscale, rivalsa_iva, partita_iva, telefono,
+    ha_partita_iva, regime_fiscale, rivalsa_iva, partita_iva, telefono, regione,
   })
 
   const isFiscalRole = role === 'formatore' || role === 'tutor'
@@ -176,6 +179,7 @@ export function AccountClient({
         rivalsa_iva: json.rivalsa_iva ?? false,
         partita_iva: json.partita_iva ?? null,
         telefono: json.telefono ?? null,
+        regione: json.regione ?? null,
       })
       setFiscalSuccess(true)
       setTimeout(() => { setFiscalModalOpen(false); setFiscalSuccess(false) }, 1200)
@@ -264,6 +268,7 @@ export function AccountClient({
                 rivalsa_iva:         savedFiscal.rivalsa_iva,
                 partita_iva:         savedFiscal.partita_iva ?? '',
                 telefono:            savedFiscal.telefono ?? '',
+                regione:             savedFiscal.regione ?? '',
               })
               setFiscalError('')
               setFiscalSuccess(false)
@@ -285,6 +290,7 @@ export function AccountClient({
             } />
             <FiscalRow label="Codice fiscale" value={savedFiscal.codice_fiscale} mono />
             <FiscalRow label="Indirizzo" value={[savedFiscal.indirizzo_via, savedFiscal.indirizzo_cap, savedFiscal.indirizzo_citta, savedFiscal.indirizzo_provincia].filter(Boolean).join(', ') || null} />
+            <FiscalRow label="Regione" value={savedFiscal.regione ?? null} />
             <FiscalRow label="IBAN" value={savedFiscal.iban} mono />
             <FiscalRow label="Banca" value={savedFiscal.banca} />
             <FiscalRow label="Intestatario conto" value={savedFiscal.intestatario_conto} />
@@ -477,6 +483,17 @@ export function AccountClient({
               />
             </div>
 
+            <div>
+              <p className="text-xs font-medium text-gray-700 mb-1">Regione</p>
+              <select
+                value={fiscal.regione ?? ''}
+                onChange={e => setFiscal(f => ({ ...f, regione: e.target.value }))}
+                className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 focus:outline-none focus:border-[#d64b55] transition-colors bg-white"
+              >
+                <option value="">Seleziona regione...</option>
+                {REGIONI.map(r => <option key={r} value={r}>{r}</option>)}
+              </select>
+            </div>
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide pt-2">Dati bancari</p>
             <Input
               label="IBAN"

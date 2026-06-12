@@ -4,7 +4,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ProgettoConStats, CorsoConOre, Profile, ChatMessaggio, Referente, Finanziamento, CatalogoCorso, QuestionarioRisultato } from '@/lib/types'
 import { QuestionariBlock } from '@/components/ui/QuestionariBlock'
-import { getFinanziamentoColor } from '@/app/progetti/ProgettiClient'
+import { getFinanziamentoColor, formatAddress } from '@/app/progetti/ProgettiClient'
+import { GeoSelect } from '@/components/GeoSelect'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { DualProgressBar } from '@/components/ui/DualProgressBar'
 import { StatusBadge } from '@/components/ui/StatusBadge'
@@ -36,6 +37,9 @@ type EditScuolaForm = {
   anno_scolastico: string
   finanziamento_id: string
   status: string
+  regione: string
+  provincia: string
+  citta: string
 }
 
 type ReferenteForm = { nome: string; email: string; tel: string }
@@ -78,6 +82,9 @@ export function ProgettoDetailClient({
     anno_scolastico: progetto.anno_scolastico || '',
     finanziamento_id: (progetto as ProgettoConStats & { finanziamento_id?: string | null }).finanziamento_id || '',
     status: progetto.status,
+    regione: progetto.regione ?? '',
+    provincia: progetto.provincia ?? '',
+    citta: progetto.citta ?? '',
   })
   const [savingScuola, setSavingScuola] = useState(false)
   const [scuolaError, setScuolaError] = useState('')
@@ -279,7 +286,7 @@ export function ProgettoDetailClient({
               <StatusBadge variant={progetto.status} />
             </div>
             <div className="flex items-center flex-wrap gap-2 mt-0.5">
-              <p className="text-sm text-gray-500">{progetto.address}</p>
+              <p className="text-sm text-gray-500">{formatAddress(progetto)}</p>
               {(() => {
                 const finId = (progetto as ProgettoConStats & { finanziamento_id?: string | null }).finanziamento_id
                 const fin = finId ? finanziamenti.find(f => f.id === finId) : null
@@ -307,6 +314,9 @@ export function ProgettoDetailClient({
                   anno_scolastico: progetto.anno_scolastico || '',
                   finanziamento_id: (progetto as ProgettoConStats & { finanziamento_id?: string | null }).finanziamento_id || '',
                   status: progetto.status,
+                  regione: progetto.regione ?? '',
+                  provincia: progetto.provincia ?? '',
+                  citta: progetto.citta ?? '',
                 })
                 setEditScuolaOpen(true)
               }}
@@ -554,7 +564,7 @@ export function ProgettoDetailClient({
             <Button
               onClick={handleSaveScuola}
               loading={savingScuola}
-              disabled={!editScuolaForm.school_name.trim() || !editScuolaForm.address.trim()}
+              disabled={!editScuolaForm.school_name.trim()}
             >
               Salva modifiche
             </Button>
@@ -568,9 +578,17 @@ export function ProgettoDetailClient({
             onChange={e => setEditScuolaForm(f => ({ ...f, school_name: e.target.value }))}
           />
           <Input
-            label="Indirizzo *"
+            label="Via e civico"
             value={editScuolaForm.address}
             onChange={e => setEditScuolaForm(f => ({ ...f, address: e.target.value }))}
+          />
+          <GeoSelect
+            regione={editScuolaForm.regione}
+            provincia={editScuolaForm.provincia}
+            citta={editScuolaForm.citta}
+            onRegioneChange={v => setEditScuolaForm(f => ({ ...f, regione: v }))}
+            onProvinciaChange={v => setEditScuolaForm(f => ({ ...f, provincia: v }))}
+            onCittaChange={v => setEditScuolaForm(f => ({ ...f, citta: v }))}
           />
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Finanziamento</label>

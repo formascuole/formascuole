@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { REGIONI } from '@/lib/geo-data'
 
 interface ProfileData {
   telefono: string
@@ -19,6 +20,7 @@ interface ProfileData {
   regime_fiscale: 'forfettario' | 'ordinario' | 'notula'
   rivalsa_iva: boolean
   partita_iva: string
+  regione: string
 }
 
 interface OnboardingClientProps {
@@ -55,6 +57,7 @@ export function OnboardingClient({ nome, email, initialStep, profile, redirectTo
     regime_fiscale: 'notula',
     rivalsa_iva: false,
     partita_iva: '',
+    regione: (profile as ProfileData).regione ?? '',
   })
   const [pivaSelected, setPivaSelected] = useState(false)
   const [step2Loading, setStep2Loading] = useState(false)
@@ -297,6 +300,19 @@ export function OnboardingClient({ nome, email, initialStep, profile, redirectTo
                     className={`w-full text-sm border rounded-[7px] px-3 py-2 focus:outline-none focus:border-[#d64b55] transition-colors uppercase ${provinciaError ? 'border-red-300' : 'border-gray-200'}`} />
                   {provinciaError && <p className="text-xs text-red-500 mt-1">{provinciaError}</p>}
                 </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Regione <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={form.regione}
+                  onChange={e => setForm(f => ({ ...f, regione: e.target.value }))}
+                  className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 focus:outline-none focus:border-[#d64b55] transition-colors bg-white"
+                >
+                  <option value="">Seleziona regione...</option>
+                  {REGIONI.map(r => <option key={r} value={r}>{r}</option>)}
+                </select>
               </div>
             </div>
 

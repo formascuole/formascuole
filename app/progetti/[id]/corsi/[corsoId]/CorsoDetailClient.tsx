@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { CorsoConOre, Sessione, Profile, Progetto, NotaCorso, Referente, QuestionarioRisultato, Candidatura, Tag, Indisponibilita } from '@/lib/types'
-import { PROVINCE_TO_REGION, extractProvincia } from '@/lib/geo-utils'
+import { PROVINCE_TO_REGION, extractProvincia, getRegioneFormatore, getRegioneProgetto } from '@/lib/geo-utils'
 import { OreCounter } from '@/components/ui/OreCounter'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { Button } from '@/components/ui/Button'
@@ -39,6 +39,7 @@ interface CorsoDetailClientProps {
   formatoriIndisponibilita?: Indisponibilita[]
   tassoAccettazioneMap?: Record<string, number | null>
   progettoAddress?: string | null
+  progettoRegione?: string | null
 }
 
 // ── Formatore picker card ─────────────────────────────────────────────────────
@@ -187,6 +188,7 @@ export function CorsoDetailClient({
   formatoriIndisponibilita = [],
   tassoAccettazioneMap = {},
   progettoAddress,
+  progettoRegione,
 }: CorsoDetailClientProps) {
   const router = useRouter()
   const [sessioni, setSessioni] = useState<Sessione[]>(initialSessioni)
@@ -255,7 +257,7 @@ export function CorsoDetailClient({
 
   const formatoriScores = useMemo((): FormatoreScore[] => {
     const sessioniDates = sessioni.filter(s => s.data).map(s => s.data.substring(0, 10))
-    const schoolProvincia = extractProvincia(progettoAddress)
+    const schoolRegione = progettoRegione ?? getRegioneProgetto({ regione: progettoRegione, address: progettoAddress })
 
     return formatori.map(f => {
       // 1. Skill match (40pts)
@@ -279,9 +281,8 @@ export function CorsoDetailClient({
       const regioneRilevante = corso.modalita === 'presenza' || corso.tipo === 'Lab'
       let regionScore = 25
       let sameRegion: boolean | null = null
-      if (regioneRilevante && schoolProvincia && f.indirizzo_provincia) {
-        const schoolRegione = PROVINCE_TO_REGION[schoolProvincia]
-        const fRegione = PROVINCE_TO_REGION[f.indirizzo_provincia.toUpperCase()]
+      if (regioneRilevante) {
+        const fRegione = getRegioneFormatore(f)
         if (schoolRegione && fRegione) {
           sameRegion = schoolRegione === fRegione
           regionScore = sameRegion ? 25 : 0

@@ -56,6 +56,7 @@ export default async function AccountPage() {
         rivalsa_iva={profile.rivalsa_iva ?? false}
         partita_iva={profile.partita_iva ?? null}
         telefono={profile.telefono ?? null}
+        regione={profile.regione ?? null}
       />
     </AppLayout>
   )

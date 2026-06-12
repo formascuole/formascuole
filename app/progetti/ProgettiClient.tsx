@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
+import { GeoSelect } from '@/components/GeoSelect'
 
 // Palette colori per badge finanziamento
 const BADGE_PALETTE = [
@@ -27,6 +28,18 @@ export function getFinanziamentoColor(nome: string) {
   return BADGE_PALETTE[hash % BADGE_PALETTE.length]
 }
 
+/** Format a project address from its geographic components. */
+export function formatAddress(p: {
+  address?: string | null
+  citta?: string | null
+  provincia?: string | null
+}): string {
+  const parts: string[] = []
+  if (p.address) parts.push(p.address)
+  if (p.citta) parts.push(p.provincia ? `${p.citta} (${p.provincia})` : p.citta)
+  return parts.join(', ') || '—'
+}
+
 interface ProgettiClientProps {
   progetti: ProgettoConStats[]
   finanziamenti: Finanziamento[]
@@ -43,6 +56,9 @@ export function ProgettiClient({ progetti, finanziamenti, inAttesaProjectIds }: 
   const [form, setForm] = useState({
     school_name: '',
     address: '',
+    regione: '',
+    provincia: '',
+    citta: '',
     finanziamento_id: '',
     ref_name: '',
     ref_email: '',
@@ -70,10 +86,16 @@ export function ProgettiClient({ progetti, finanziamenti, inAttesaProjectIds }: 
     return list.filter(p =>
       p.school_name.toLowerCase().includes(q) ||
       p.address.toLowerCase().includes(q) ||
+      (p.citta ?? '').toLowerCase().includes(q) ||
       (p.anno_scolastico || '').includes(q) ||
       p.ref_name.toLowerCase().includes(q)
     )
   }, [progetti, search, filterFinId, inAttesaSet])
+
+  const resetForm = () => setForm({
+    school_name: '', address: '', regione: '', provincia: '', citta: '',
+    finanziamento_id: '', ref_name: '', ref_email: '', ref_tel: '', status: 'active',
+  })
 
   const handleSave = async () => {
     setSaving(true)
@@ -85,6 +107,9 @@ export function ProgettiClient({ progetti, finanziamenti, inAttesaProjectIds }: 
         body: JSON.stringify({
           ...form,
           finanziamento_id: form.finanziamento_id || null,
+          regione: form.regione || null,
+          provincia: form.provincia || null,
+          citta: form.citta || null,
         }),
       })
       const json = await res.json()
@@ -94,7 +119,7 @@ export function ProgettiClient({ progetti, finanziamenti, inAttesaProjectIds }: 
       }
       setModalOpen(false)
       setSaveError('')
-      setForm({ school_name: '', address: '', finanziamento_id: '', ref_name: '', ref_email: '', ref_tel: '', status: 'active' })
+      resetForm()
       router.refresh()
     } finally {
       setSaving(false)
@@ -187,7 +212,7 @@ export function ProgettiClient({ progetti, finanziamenti, inAttesaProjectIds }: 
         footer={
           <>
             <Button variant="secondary" onClick={() => setModalOpen(false)}>Annulla</Button>
-            <Button onClick={handleSave} loading={saving} disabled={!form.school_name || !form.address || !form.ref_name || !form.ref_email}>
+            <Button onClick={handleSave} loading={saving} disabled={!form.school_name || !form.ref_name || !form.ref_email}>
               Crea Progetto
             </Button>
           </>
@@ -195,7 +220,15 @@ export function ProgettiClient({ progetti, finanziamenti, inAttesaProjectIds }: 
       >
         <div className="space-y-4">
           <Input label="Nome scuola *" value={form.school_name} onChange={e => setForm(f => ({ ...f, school_name: e.target.value }))} placeholder="Es. ITIS G. Marconi" />
-          <Input label="Indirizzo *" value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} placeholder="Via Roma 1, Milano" />
+          <Input label="Via e civico" value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} placeholder="Via Roma 1" />
+          <GeoSelect
+            regione={form.regione}
+            provincia={form.provincia}
+            citta={form.citta}
+            onRegioneChange={v => setForm(f => ({ ...f, regione: v }))}
+            onProvinciaChange={v => setForm(f => ({ ...f, provincia: v }))}
+            onCittaChange={v => setForm(f => ({ ...f, citta: v }))}
+          />
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Finanziamento</label>
             <select
@@ -248,7 +281,7 @@ function ProjectCard({ progetto: p, finanziamenti }: { progetto: ProgettoConStat
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1 min-w-0">
           <h3 className="font-semibold text-gray-900 text-sm truncate">{p.school_name}</h3>
-          <p className="text-xs text-gray-400 mt-0.5 truncate">{p.address}</p>
+          <p className="text-xs text-gray-400 mt-0.5 truncate">{formatAddress(p)}</p>
         </div>
         <StatusBadge variant={p.status} size="sm" />
       </div>

@@ -49,6 +49,7 @@ export default async function OnboardingPage({
         iban: profile.iban ?? '',
         banca: profile.banca ?? '',
         intestatario_conto: profile.intestatario_conto ?? '',
+        regione: profile.regione ?? '',
       }}
       redirectTo={profile.role === 'tutor' ? '/tutor' : '/formatore'}
     />

@@ -36,6 +36,7 @@ export interface Profile {
   rivalsa_iva?: boolean
   partita_iva?: string | null
   telefono?: string | null
+  regione?: string | null
 }
 
 export interface Finanziamento {
@@ -65,6 +66,11 @@ export interface Progetto {
   finanziamento_id?: string | null
   created_at: string
   created_by?: string
+  // Geographic columns (new)
+  regione?: string | null
+  provincia?: string | null  // 2-letter code
+  citta?: string | null
+  // 'address' remains for backward compatibility but now means via e civico
 }
 
 export interface ProgettoConStats extends Progetto {

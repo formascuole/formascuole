@@ -224,6 +224,7 @@ export default async function CorsoDetailPage({
         formatoriIndisponibilita={formatoriIndisponibilita}
         tassoAccettazioneMap={tassoAccettazioneMap}
         progettoAddress={(progetto as any)?.address ?? null}
+        progettoRegione={(progetto as any)?.regione ?? null}
       />
     </AppLayout>
   )

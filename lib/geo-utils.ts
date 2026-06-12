@@ -63,3 +63,26 @@ export function getRegione(provincia: string | null | undefined): string | null 
   if (!provincia) return null
   return PROVINCE_TO_REGION[provincia.toUpperCase()] ?? null
 }
+
+/** Get the regione for a formatore profile, preferring the explicit regione field. */
+export function getRegioneFormatore(profile: {
+  regione?: string | null
+  indirizzo_provincia?: string | null
+}): string | null {
+  if (profile.regione) return profile.regione
+  if (profile.indirizzo_provincia) return getRegione(profile.indirizzo_provincia)
+  return null
+}
+
+/** Get the regione for a progetto, preferring the explicit regione field. */
+export function getRegioneProgetto(progetto: {
+  regione?: string | null
+  address?: string | null
+}): string | null {
+  if (progetto.regione) return progetto.regione
+  if (progetto.address) {
+    const prov = extractProvincia(progetto.address)
+    if (prov) return getRegione(prov)
+  }
+  return null
+}
