@@ -76,14 +76,14 @@ interface FormatorePickerCardProps {
   isDualRole: boolean
   isAssigning: boolean
   tasso: number | null
-  modalita: string | null
+  regioneRilevante: boolean
   showScore: boolean
   onClick: () => void
 }
 
 function FormatorePickerCard({
   f, score, skillMatches, totalCorsoTags, isAvailable, sameRegion,
-  isCurrent, isDualRole, isAssigning, tasso, modalita, showScore, onClick,
+  isCurrent, isDualRole, isAssigning, tasso, regioneRilevante, showScore, onClick,
 }: FormatorePickerCardProps) {
   return (
     <button
@@ -152,7 +152,7 @@ function FormatorePickerCard({
             <ScoreBadge label="Nessun tag corso" na />
           )}
           <ScoreBadge label={isAvailable ? 'Disponibile' : 'Conflitti date'} active={isAvailable} />
-          {modalita === 'presenza' && sameRegion !== null ? (
+          {regioneRilevante && sameRegion !== null ? (
             <ScoreBadge label={sameRegion ? 'Stessa regione' : 'Regione diversa'} active={sameRegion} />
           ) : (
             <ScoreBadge label="Regione N/A" na />
@@ -273,10 +273,11 @@ export function CorsoDetailClient({
         isAvailable = conflictCount === 0
       }
 
-      // 3. Region (25pts) — only for corsi in presenza
+      // 3. Region (25pts) — applies for corsi in presenza OR tipo Lab (always on-site)
+      const regioneRilevante = corso.modalita === 'presenza' || corso.tipo === 'Lab'
       let regionScore = 25
       let sameRegion: boolean | null = null
-      if (corso.modalita === 'presenza' && schoolProvincia && f.indirizzo_provincia) {
+      if (regioneRilevante && schoolProvincia && f.indirizzo_provincia) {
         const schoolRegione = PROVINCE_TO_REGION[schoolProvincia]
         const fRegione = PROVINCE_TO_REGION[f.indirizzo_provincia.toUpperCase()]
         if (schoolRegione && fRegione) {
@@ -2137,7 +2138,7 @@ export function CorsoDetailClient({
                       isDualRole={dualRoleIds.includes(f.id)}
                       isAssigning={assigningId === f.id}
                       tasso={tassoAccettazioneMap[f.id] ?? null}
-                      modalita={corso.modalita ?? null}
+                      regioneRilevante={corso.modalita === 'presenza' || corso.tipo === 'Lab'}
                       showScore
                       onClick={() => handleAssignFormatore(f)}
                     />
@@ -2170,7 +2171,7 @@ export function CorsoDetailClient({
                       isDualRole={dualRoleIds.includes(f.id)}
                       isAssigning={assigningId === f.id}
                       tasso={tassoAccettazioneMap[f.id] ?? null}
-                      modalita={corso.modalita ?? null}
+                      regioneRilevante={corso.modalita === 'presenza' || corso.tipo === 'Lab'}
                       showScore={false}
                       onClick={() => handleAssignFormatore(f)}
                     />
