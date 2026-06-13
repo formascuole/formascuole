@@ -300,7 +300,7 @@ export function CatalogoClient({ initialCorsi, isSuperAdmin }: Props) {
           onClose={() => setDeletingCorso(null)}
           title={`Elimina — ${deletingCorso.titolo}`}
           description={`Sei sicuro di voler eliminare "${deletingCorso.titolo}" dal catalogo? Questa azione è irreversibile.`}
-          confirmName={deletingCorso.titolo}
+          confirmName="CANCELLA"
           onConfirm={handleDelete}
         />
       )}
