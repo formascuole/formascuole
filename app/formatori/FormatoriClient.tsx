@@ -646,7 +646,7 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
         onClose={() => setDeleteTarget(null)}
         title={`Elimina utente — ${deleteTarget?.nome ?? ''}`}
         description={`Sei sicuro di voler eliminare ${deleteTarget?.nome}? Questa azione è irreversibile. I corsi assegnati a questo utente rimarranno ma perderanno il riferimento al formatore/tutor.`}
-        confirmName={deleteTarget?.nome ?? ''}
+        confirmName="CANCELLA"
         onConfirm={async () => {
           const res = await fetch(`/api/formatori/${deleteTarget!.id}`, { method: 'DELETE' })
           if (!res.ok) {

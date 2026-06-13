@@ -590,7 +590,7 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
         onClose={() => setDeleteOpen(false)}
         title={`Elimina utente — ${profile.nome}`}
         description={`Sei sicuro di voler eliminare ${profile.nome}? Questa azione è irreversibile. I corsi assegnati a questo utente rimarranno ma perderanno il riferimento al formatore/tutor.`}
-        confirmName={profile.nome}
+        confirmName="CANCELLA"
         onConfirm={async () => {
           const res = await fetch(`/api/formatori/${profile.id}`, { method: 'DELETE' })
           if (!res.ok) {

@@ -2394,7 +2394,7 @@ export function CorsoDetailClient({
         onClose={() => setDeleteCorsoOpen(false)}
         title={`Elimina corso — ${corso.title}`}
         description={`Sei sicuro di voler eliminare il corso "${corso.title}"? Questa azione è irreversibile. Tutte le sessioni e le note correlate verranno eliminate definitivamente.`}
-        confirmName={corso.title}
+        confirmName="CANCELLA"
         onConfirm={async () => {
           const res = await fetch(`/api/corsi/${corso.id}`, { method: 'DELETE' })
           if (!res.ok) {

@@ -678,7 +678,7 @@ export function ProgettoDetailClient({
         onClose={() => setDeleteProgettoOpen(false)}
         title={`Elimina progetto — ${progetto.school_name}`}
         description={`Sei sicuro di voler eliminare il progetto di ${progetto.school_name}? Questa azione è irreversibile. Tutti i corsi, sessioni e messaggi correlati verranno eliminati definitivamente.`}
-        confirmName={progetto.school_name}
+        confirmName="CANCELLA"
         onConfirm={async () => {
           const res = await fetch(`/api/progetti/${progetto.id}`, { method: 'DELETE' })
           if (!res.ok) {
