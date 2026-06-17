@@ -99,6 +99,12 @@ export function ProgettoDetailClient({
   const [editRefForm, setEditRefForm] = useState(emptyReferenteForm)
   const [savingEditRef, setSavingEditRef] = useState(false)
   const [editRefError, setEditRefError] = useState('')
+  // ── Edit referente principale ────────────────────────────────
+  const [mainRef, setMainRef] = useState({ nome: progetto.ref_name, email: progetto.ref_email, tel: progetto.ref_tel || '' })
+  const [editMainRefOpen, setEditMainRefOpen] = useState(false)
+  const [editMainRefForm, setEditMainRefForm] = useState(emptyReferenteForm)
+  const [savingMainRef, setSavingMainRef] = useState(false)
+  const [mainRefError, setMainRefError] = useState('')
   const [deletingRefId, setDeletingRefId] = useState<string | null>(null)
 
   // ── Chat ────────────────────────────────────────────────────
@@ -235,6 +241,25 @@ export function ProgettoDetailClient({
       setEditRef(null)
     } finally {
       setSavingEditRef(false)
+    }
+  }
+
+  const handleSaveMainRef = async () => {
+    if (!editMainRefForm.nome.trim() || !editMainRefForm.email.trim()) return
+    setMainRefError('')
+    setSavingMainRef(true)
+    try {
+      const res = await fetch(`/api/progetti/${progetto.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ref_name: editMainRefForm.nome.trim(), ref_email: editMainRefForm.email.trim(), ref_tel: editMainRefForm.tel.trim() }),
+      })
+      const json = await res.json()
+      if (!res.ok) { setMainRefError(json.error || 'Errore'); return }
+      setMainRef({ nome: json.ref_name, email: json.ref_email, tel: json.ref_tel || '' })
+      setEditMainRefOpen(false)
+    } finally {
+      setSavingMainRef(false)
     }
   }
 
@@ -419,14 +444,24 @@ export function ProgettoDetailClient({
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-900">{progetto.ref_name}</span>
+                <span className="text-sm font-medium text-gray-900">{mainRef.nome}</span>
                 <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-blue-100 text-blue-700">Principale</span>
               </div>
               <div className="flex items-center gap-3 text-xs text-gray-400 mt-0.5">
-                <a href={`mailto:${progetto.ref_email}`} className="hover:text-blue-600">{progetto.ref_email}</a>
-                {progetto.ref_tel && <a href={`tel:${telHref(progetto.ref_tel)}`} className="hover:text-blue-600">{progetto.ref_tel}</a>}
+                <a href={`mailto:${mainRef.email}`} className="hover:text-blue-600">{mainRef.email}</a>
+                {mainRef.tel && <a href={`tel:${telHref(mainRef.tel)}`} className="hover:text-blue-600">{mainRef.tel}</a>}
               </div>
             </div>
+            <button
+              onClick={() => { setEditMainRefForm({ nome: mainRef.nome, email: mainRef.email, tel: mainRef.tel }); setMainRefError(''); setEditMainRefOpen(true) }}
+              className="text-xs text-gray-400 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100 shrink-0"
+              title="Modifica referente principale"
+            >
+              <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/>
+                <path d="M19.5 7.125L16.875 4.5"/>
+              </svg>
+            </button>
           </div>
           {/* Additional referenti */}
           {referenti.map(r => (
@@ -670,6 +705,33 @@ export function ProgettoDetailClient({
           <Input label="Email *" type="email" value={editRefForm.email} onChange={e => setEditRefForm(f => ({ ...f, email: e.target.value }))} />
           <Input label="Telefono" value={editRefForm.tel} onChange={e => setEditRefForm(f => ({ ...f, tel: e.target.value }))} />
           {editRefError && <p className="text-sm text-red-600">{editRefError}</p>}
+        </div>
+      </Modal>
+
+      {/* ── Modal: Modifica referente principale ────────────────── */}
+      <Modal
+        open={editMainRefOpen}
+        onClose={() => setEditMainRefOpen(false)}
+        title="Modifica referente principale"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setEditMainRefOpen(false)}>Annulla</Button>
+            <Button
+              onClick={handleSaveMainRef}
+              loading={savingMainRef}
+              disabled={!editMainRefForm.nome.trim() || !editMainRefForm.email.trim()}
+            >
+              Salva
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <Input label="Nome *" value={editMainRefForm.nome} onChange={e => setEditMainRefForm(f => ({ ...f, nome: e.target.value }))} placeholder="Es. Prof. Mario Rossi" />
+          <Input label="Email *" type="email" value={editMainRefForm.email} onChange={e => setEditMainRefForm(f => ({ ...f, email: e.target.value }))} placeholder="mario.rossi@scuola.it" />
+          <Input label="Telefono" value={editMainRefForm.tel} onChange={e => setEditMainRefForm(f => ({ ...f, tel: e.target.value }))} placeholder="Es. 02-12345678" />
+          {mainRefError && <p className="text-sm text-red-600">{mainRefError}</p>}
         </div>
       </Modal>
 
