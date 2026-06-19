@@ -12,6 +12,8 @@ import { Input } from '@/components/ui/Input'
 import { Avatar } from '@/components/ui/Avatar'
 import { formatDate, telHref } from '@/lib/utils'
 import { DeleteConfirmModal } from '@/components/ui/DeleteConfirmModal'
+import { RUOLI_REFERENTE } from '@/lib/ruolo-referente'
+import { RuoloBadge } from '@/components/ui/RuoloBadge'
 import { QuestionariBlock } from '@/components/ui/QuestionariBlock'
 import { QuestionarioModal, buildQuestionarioUrl } from '@/components/ui/QuestionarioModal'
 import { TagsSection } from '@/components/ui/TagsSection'
@@ -360,6 +362,7 @@ export function CorsoDetailClient({
     referente_corso_nome: corso.referente_corso_nome || '',
     referente_corso_email: corso.referente_corso_email || '',
     referente_corso_telefono: corso.referente_corso_telefono || '',
+    referente_corso_ruolo: corso.referente_corso_ruolo || '',
   })
   const [savingReferenteCorso, setSavingReferenteCorso] = useState(false)
 
@@ -1246,7 +1249,7 @@ export function CorsoDetailClient({
                 </div>
                 {corso.referente_corso_nome || corso.referente_corso_email ? (
                   <div className="pl-0.5">
-                    {corso.referente_corso_nome && <div className="font-medium text-gray-900 text-sm">{corso.referente_corso_nome}</div>}
+                    {corso.referente_corso_nome && <div className="flex items-center gap-2 font-medium text-gray-900 text-sm">{corso.referente_corso_nome}<RuoloBadge ruolo={corso.referente_corso_ruolo} /></div>}
                     {corso.referente_corso_email && (
                       <a href={`mailto:${corso.referente_corso_email}`} className="text-sm text-blue-600 hover:underline">{corso.referente_corso_email}</a>
                     )}
@@ -1266,6 +1269,7 @@ export function CorsoDetailClient({
                     referente_corso_nome: corso.referente_corso_nome || '',
                     referente_corso_email: corso.referente_corso_email || '',
                     referente_corso_telefono: corso.referente_corso_telefono || '',
+                    referente_corso_ruolo: corso.referente_corso_ruolo || '',
                   })
                   setReferenteCorsoEditOpen(true)
                 }}
@@ -2386,6 +2390,17 @@ export function CorsoDetailClient({
             onChange={e => setReferenteCorsoForm(f => ({ ...f, referente_corso_telefono: e.target.value }))}
             placeholder="+39 000 0000000"
           />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Ruolo</label>
+            <select
+              value={referenteCorsoForm.referente_corso_ruolo}
+              onChange={e => setReferenteCorsoForm(f => ({ ...f, referente_corso_ruolo: e.target.value }))}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">— Seleziona ruolo —</option>
+              {RUOLI_REFERENTE.map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </div>
         </div>
       </Modal>
 

@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
   if (!['admin','super_admin'].includes(profile?.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const body = await request.json()
-  const { school_name, address, anno_scolastico, finanziamento_id, ref_name, ref_email, ref_tel, status, regione, provincia, citta } = body
+  const { school_name, address, anno_scolastico, finanziamento_id, ref_name, ref_email, ref_tel, ref_ruolo, status, regione, provincia, citta } = body
 
   if (!school_name || !ref_name || !ref_email) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -40,6 +40,7 @@ export async function POST(request: NextRequest) {
       ref_name,
       ref_email,
       ref_tel,
+      ref_ruolo: ref_ruolo || null,
       status: status || 'active',
       created_by: user.id,
       regione: regione || null,

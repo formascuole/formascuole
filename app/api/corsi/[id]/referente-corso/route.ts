@@ -30,6 +30,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   if ('referente_corso_nome' in body) updates.referente_corso_nome = body.referente_corso_nome?.trim() || null
   if ('referente_corso_email' in body) updates.referente_corso_email = body.referente_corso_email?.trim() || null
   if ('referente_corso_telefono' in body) updates.referente_corso_telefono = body.referente_corso_telefono?.trim() || null
+  if ('referente_corso_ruolo' in body) updates.referente_corso_ruolo = body.referente_corso_ruolo?.trim() || null
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: 'Nessun campo da aggiornare' }, { status: 400 })

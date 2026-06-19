@@ -61,6 +61,7 @@ export interface Progetto {
   ref_name: string
   ref_email: string
   ref_tel?: string
+  ref_ruolo?: string | null
   status: ProjectStatus
   anno_scolastico?: string
   finanziamento_id?: string | null
@@ -91,6 +92,7 @@ export interface Referente {
   nome: string
   email: string
   tel?: string
+  ruolo?: string | null
   created_at: string
 }
 
@@ -129,6 +131,7 @@ export interface Corso {
   referente_corso_nome?: string | null
   referente_corso_email?: string | null
   referente_corso_telefono?: string | null
+  referente_corso_ruolo?: string | null
   calendario_inviato_at?: string | null
   calendario_confermato?: boolean
   calendario_confermato_at?: string | null

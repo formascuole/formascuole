@@ -19,14 +19,14 @@ export async function PATCH(
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const { nome, email, tel } = await request.json()
+  const { nome, email, tel, ruolo } = await request.json()
   if (!nome?.trim() || !email?.trim()) {
     return NextResponse.json({ error: 'nome ed email sono obbligatori' }, { status: 400 })
   }
 
   const { data, error } = await supabase
     .from('referenti_progetto')
-    .update({ nome: nome.trim(), email: email.trim(), tel: tel?.trim() || null })
+    .update({ nome: nome.trim(), email: email.trim(), tel: tel?.trim() || null, ruolo: ruolo?.trim() || null })
     .eq('id', id)
     .select()
     .single()

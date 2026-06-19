@@ -29,14 +29,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const { progetto_id, nome, email, tel } = await request.json()
+  const { progetto_id, nome, email, tel, ruolo } = await request.json()
   if (!progetto_id || !nome?.trim() || !email?.trim()) {
     return NextResponse.json({ error: 'progetto_id, nome ed email sono obbligatori' }, { status: 400 })
   }
 
   const { data, error } = await supabase
     .from('referenti_progetto')
-    .insert({ progetto_id, nome: nome.trim(), email: email.trim(), tel: tel?.trim() || null })
+    .insert({ progetto_id, nome: nome.trim(), email: email.trim(), tel: tel?.trim() || null, ruolo: ruolo?.trim() || null })
     .select()
     .single()
 

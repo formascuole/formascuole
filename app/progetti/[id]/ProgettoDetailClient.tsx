@@ -6,6 +6,8 @@ import { ProgettoConStats, CorsoConOre, Profile, ChatMessaggio, Referente, Finan
 import { QuestionariBlock } from '@/components/ui/QuestionariBlock'
 import { getFinanziamentoColor, formatAddress } from '@/app/progetti/ProgettiClient'
 import { GeoSelect } from '@/components/GeoSelect'
+import { RUOLI_REFERENTE } from '@/lib/ruolo-referente'
+import { RuoloBadge } from '@/components/ui/RuoloBadge'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { DualProgressBar } from '@/components/ui/DualProgressBar'
 import { StatusBadge } from '@/components/ui/StatusBadge'
@@ -42,8 +44,8 @@ type EditScuolaForm = {
   citta: string
 }
 
-type ReferenteForm = { nome: string; email: string; tel: string }
-const emptyReferenteForm: ReferenteForm = { nome: '', email: '', tel: '' }
+type ReferenteForm = { nome: string; email: string; tel: string; ruolo: string }
+const emptyReferenteForm: ReferenteForm = { nome: '', email: '', tel: '', ruolo: '' }
 
 export function ProgettoDetailClient({
   progetto,
@@ -100,7 +102,7 @@ export function ProgettoDetailClient({
   const [savingEditRef, setSavingEditRef] = useState(false)
   const [editRefError, setEditRefError] = useState('')
   // ── Edit referente principale ────────────────────────────────
-  const [mainRef, setMainRef] = useState({ nome: progetto.ref_name, email: progetto.ref_email, tel: progetto.ref_tel || '' })
+  const [mainRef, setMainRef] = useState({ nome: progetto.ref_name, email: progetto.ref_email, tel: progetto.ref_tel || '', ruolo: progetto.ref_ruolo || '' })
   const [editMainRefOpen, setEditMainRefOpen] = useState(false)
   const [editMainRefForm, setEditMainRefForm] = useState(emptyReferenteForm)
   const [savingMainRef, setSavingMainRef] = useState(false)
@@ -221,7 +223,7 @@ export function ProgettoDetailClient({
 
   const openEditRef = (r: Referente) => {
     setEditRef(r)
-    setEditRefForm({ nome: r.nome, email: r.email, tel: r.tel || '' })
+    setEditRefForm({ nome: r.nome, email: r.email, tel: r.tel || '', ruolo: r.ruolo || '' })
     setEditRefError('')
   }
 
@@ -252,11 +254,11 @@ export function ProgettoDetailClient({
       const res = await fetch(`/api/progetti/${progetto.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ref_name: editMainRefForm.nome.trim(), ref_email: editMainRefForm.email.trim(), ref_tel: editMainRefForm.tel.trim() }),
+        body: JSON.stringify({ ref_name: editMainRefForm.nome.trim(), ref_email: editMainRefForm.email.trim(), ref_tel: editMainRefForm.tel.trim(), ref_ruolo: editMainRefForm.ruolo || null }),
       })
       const json = await res.json()
       if (!res.ok) { setMainRefError(json.error || 'Errore'); return }
-      setMainRef({ nome: json.ref_name, email: json.ref_email, tel: json.ref_tel || '' })
+      setMainRef({ nome: json.ref_name, email: json.ref_email, tel: json.ref_tel || '', ruolo: json.ref_ruolo || '' })
       setEditMainRefOpen(false)
     } finally {
       setSavingMainRef(false)
@@ -446,6 +448,7 @@ export function ProgettoDetailClient({
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium text-gray-900">{mainRef.nome}</span>
                 <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-blue-100 text-blue-700">Principale</span>
+                <RuoloBadge ruolo={mainRef.ruolo} />
               </div>
               <div className="flex items-center gap-3 text-xs text-gray-400 mt-0.5">
                 <a href={`mailto:${mainRef.email}`} className="hover:text-blue-600">{mainRef.email}</a>
@@ -453,7 +456,7 @@ export function ProgettoDetailClient({
               </div>
             </div>
             <button
-              onClick={() => { setEditMainRefForm({ nome: mainRef.nome, email: mainRef.email, tel: mainRef.tel }); setMainRefError(''); setEditMainRefOpen(true) }}
+              onClick={() => { setEditMainRefForm({ nome: mainRef.nome, email: mainRef.email, tel: mainRef.tel, ruolo: mainRef.ruolo }); setMainRefError(''); setEditMainRefOpen(true) }}
               className="text-xs text-gray-400 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100 shrink-0"
               title="Modifica referente principale"
             >
@@ -473,7 +476,7 @@ export function ProgettoDetailClient({
                 </svg>
               </div>
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium text-gray-900">{r.nome}</div>
+                <div className="flex items-center gap-2 text-sm font-medium text-gray-900">{r.nome}<RuoloBadge ruolo={r.ruolo} /></div>
                 <div className="flex items-center gap-3 text-xs text-gray-400 mt-0.5">
                   <a href={`mailto:${r.email}`} className="hover:text-blue-600">{r.email}</a>
                   {r.tel && <a href={`tel:${telHref(r.tel)}`} className="hover:text-blue-600">{r.tel}</a>}
@@ -677,6 +680,7 @@ export function ProgettoDetailClient({
           <Input label="Nome *" value={addRefForm.nome} onChange={e => setAddRefForm(f => ({ ...f, nome: e.target.value }))} placeholder="Es. Prof. Mario Rossi" />
           <Input label="Email *" type="email" value={addRefForm.email} onChange={e => setAddRefForm(f => ({ ...f, email: e.target.value }))} placeholder="mario.rossi@scuola.it" />
           <Input label="Telefono" value={addRefForm.tel} onChange={e => setAddRefForm(f => ({ ...f, tel: e.target.value }))} placeholder="Es. 02-12345678" />
+          <div><label className="block text-sm font-medium text-gray-700 mb-1">Ruolo</label><select value={addRefForm.ruolo} onChange={e => setAddRefForm(f => ({ ...f, ruolo: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"><option value="">— Seleziona ruolo —</option>{RUOLI_REFERENTE.map(r => <option key={r} value={r}>{r}</option>)}</select></div>
           {refError && <p className="text-sm text-red-600">{refError}</p>}
         </div>
       </Modal>
@@ -704,6 +708,7 @@ export function ProgettoDetailClient({
           <Input label="Nome *" value={editRefForm.nome} onChange={e => setEditRefForm(f => ({ ...f, nome: e.target.value }))} />
           <Input label="Email *" type="email" value={editRefForm.email} onChange={e => setEditRefForm(f => ({ ...f, email: e.target.value }))} />
           <Input label="Telefono" value={editRefForm.tel} onChange={e => setEditRefForm(f => ({ ...f, tel: e.target.value }))} />
+          <div><label className="block text-sm font-medium text-gray-700 mb-1">Ruolo</label><select value={editRefForm.ruolo} onChange={e => setEditRefForm(f => ({ ...f, ruolo: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"><option value="">— Seleziona ruolo —</option>{RUOLI_REFERENTE.map(r => <option key={r} value={r}>{r}</option>)}</select></div>
           {editRefError && <p className="text-sm text-red-600">{editRefError}</p>}
         </div>
       </Modal>
@@ -731,6 +736,7 @@ export function ProgettoDetailClient({
           <Input label="Nome *" value={editMainRefForm.nome} onChange={e => setEditMainRefForm(f => ({ ...f, nome: e.target.value }))} placeholder="Es. Prof. Mario Rossi" />
           <Input label="Email *" type="email" value={editMainRefForm.email} onChange={e => setEditMainRefForm(f => ({ ...f, email: e.target.value }))} placeholder="mario.rossi@scuola.it" />
           <Input label="Telefono" value={editMainRefForm.tel} onChange={e => setEditMainRefForm(f => ({ ...f, tel: e.target.value }))} placeholder="Es. 02-12345678" />
+          <div><label className="block text-sm font-medium text-gray-700 mb-1">Ruolo</label><select value={editMainRefForm.ruolo} onChange={e => setEditMainRefForm(f => ({ ...f, ruolo: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"><option value="">— Seleziona ruolo —</option>{RUOLI_REFERENTE.map(r => <option key={r} value={r}>{r}</option>)}</select></div>
           {mainRefError && <p className="text-sm text-red-600">{mainRefError}</p>}
         </div>
       </Modal>

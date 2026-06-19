@@ -9,6 +9,8 @@ import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { GeoSelect } from '@/components/GeoSelect'
+import { RUOLI_REFERENTE } from '@/lib/ruolo-referente'
+import { RuoloBadge } from '@/components/ui/RuoloBadge'
 
 // Palette colori per badge finanziamento
 const BADGE_PALETTE = [
@@ -63,6 +65,7 @@ export function ProgettiClient({ progetti, finanziamenti, inAttesaProjectIds }: 
     ref_name: '',
     ref_email: '',
     ref_tel: '',
+    ref_ruolo: '',
     status: 'active',
   })
 
@@ -94,7 +97,7 @@ export function ProgettiClient({ progetti, finanziamenti, inAttesaProjectIds }: 
 
   const resetForm = () => setForm({
     school_name: '', address: '', regione: '', provincia: '', citta: '',
-    finanziamento_id: '', ref_name: '', ref_email: '', ref_tel: '', status: 'active',
+    finanziamento_id: '', ref_name: '', ref_email: '', ref_tel: '', ref_ruolo: '', status: 'active',
   })
 
   const handleSave = async () => {
@@ -247,6 +250,13 @@ export function ProgettiClient({ progetti, finanziamenti, inAttesaProjectIds }: 
             <Input label="Email referente *" type="email" value={form.ref_email} onChange={e => setForm(f => ({ ...f, ref_email: e.target.value }))} />
           </div>
           <Input label="Telefono referente" type="tel" value={form.ref_tel} onChange={e => setForm(f => ({ ...f, ref_tel: e.target.value }))} />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Ruolo referente</label>
+            <select value={form.ref_ruolo} onChange={e => setForm(f => ({ ...f, ref_ruolo: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="">— Seleziona ruolo —</option>
+              {RUOLI_REFERENTE.map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </div>
           <Select
             label="Stato"
             value={form.status}
@@ -292,6 +302,7 @@ function ProjectCard({ progetto: p, finanziamenti }: { progetto: ProgettoConStat
             <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z" stroke="currentColor" strokeWidth="1.5"/>
           </svg>
           {p.ref_name}
+          {p.ref_ruolo && <RuoloBadge ruolo={p.ref_ruolo} />}
         </div>
         {finanziamento && color ? (
           <div className="flex items-center gap-1.5">
