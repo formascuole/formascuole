@@ -1296,6 +1296,7 @@ export function CorsoDetailClient({
                   referente_corso_nome: corso.referente_corso_nome || '',
                   referente_corso_email: corso.referente_corso_email || '',
                   referente_corso_telefono: corso.referente_corso_telefono || '',
+                  referente_corso_ruolo: corso.referente_corso_ruolo || '',
                 })
                 setReferenteCorsoEditOpen(true)
               }}
