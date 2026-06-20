@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { CorsoConOre, Sessione, Profile, Progetto, NotaCorso, Referente, QuestionarioRisultato, Candidatura, Tag, Indisponibilita } from '@/lib/types'
+import { CorsoConOre, Sessione, Profile, Progetto, NotaCorso, Referente, QuestionarioRisultato, Candidatura, Tag, Indisponibilita, ModalitaCorso } from '@/lib/types'
 import { PROVINCE_TO_REGION, extractProvincia, getRegioneFormatore, getRegioneProgetto } from '@/lib/geo-utils'
 import { OreCounter } from '@/components/ui/OreCounter'
 import { StatusBadge } from '@/components/ui/StatusBadge'
@@ -2079,7 +2079,7 @@ export function CorsoDetailClient({
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Tipo *</label>
               <select
                 value={corsoEditForm.tipo}
-                onChange={e => setCorsoEditForm(f => ({ ...f, tipo: e.target.value, modalita: e.target.value === 'PF' ? 'presenza' : '', location: '' }))}
+                onChange={e => setCorsoEditForm(f => ({ ...f, tipo: e.target.value, modalita: 'presenza' as ModalitaCorso, location: '' }))}
                 className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 focus:outline-none focus:border-[#d64b55] transition-colors bg-white"
               >
                 <option value="PF">Percorso Formativo (PF)</option>
