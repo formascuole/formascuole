@@ -1,0 +1,2 @@
+ALTER TABLE corsi ADD COLUMN IF NOT EXISTS edizione text;
+ALTER TABLE corsi ADD COLUMN IF NOT EXISTS note text;

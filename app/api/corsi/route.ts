@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
   if (!['admin','super_admin'].includes(profile?.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const body = await request.json()
-  const { project_id, title, tipo, ore_totali, modalita, tutor_previsto, tutor_nome, ore_tutoraggio, descrizione, link_scheda } = body
+  const { project_id, title, tipo, ore_totali, modalita, tutor_previsto, tutor_nome, ore_tutoraggio, descrizione, link_scheda, edizione, note } = body
 
   if (!project_id || !title || !tipo || !ore_totali) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -48,6 +48,8 @@ export async function POST(request: NextRequest) {
   if (tutor_previsto && ore_tutoraggio) insertData.ore_tutoraggio = Number(ore_tutoraggio)
   if (descrizione) insertData.descrizione = descrizione.trim() || null
   if (link_scheda) insertData.link_scheda = link_scheda.trim() || null
+  if (edizione) insertData.edizione = edizione.trim() || null
+  if (note) insertData.note = note.trim() || null
 
   const { data, error } = await supabase
     .from('corsi')

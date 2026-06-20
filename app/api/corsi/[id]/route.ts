@@ -25,6 +25,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const t = body.tariffa_oraria_tutor
     updates.tariffa_oraria_tutor = t !== null && t !== '' ? Number(t) : null
   }
+  if ('edizione' in body) updates.edizione = body.edizione?.trim() || null
+  if ('note' in body) updates.note = body.note?.trim() || null
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: 'Nessun campo da aggiornare' }, { status: 400 })

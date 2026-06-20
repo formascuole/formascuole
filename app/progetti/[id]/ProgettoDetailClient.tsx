@@ -73,7 +73,7 @@ export function ProgettoDetailClient({
   const [corsoForm, setCorsoForm] = useState({
     title: '', tipo: 'PF', ore_totali: '', modalita: 'presenza',
     tutor_previsto: false, tutor_nome: '', ore_tutoraggio: '',
-    descrizione: '', link_scheda: '',
+    descrizione: '', link_scheda: '', edizione: '', note: '',
   })
 
   // ── Edit scuola ─────────────────────────────────────────────
@@ -137,7 +137,7 @@ export function ProgettoDetailClient({
   const resetAddCorso = () => {
     setAddCorsoStep(1)
     setCatalogoSearch('')
-    setCorsoForm({ title: '', tipo: 'PF', ore_totali: '', modalita: 'presenza', tutor_previsto: false, tutor_nome: '', ore_tutoraggio: '', descrizione: '', link_scheda: '' })
+    setCorsoForm({ title: '', tipo: 'PF', ore_totali: '', modalita: 'presenza', tutor_previsto: false, tutor_nome: '', ore_tutoraggio: '', descrizione: '', link_scheda: '', edizione: '', note: '' })
   }
 
   const selectFromCatalogo = (c: CatalogoCorso) => {
@@ -170,6 +170,8 @@ export function ProgettoDetailClient({
           ...(corsoForm.tutor_previsto && corsoForm.ore_tutoraggio && { ore_tutoraggio: Number(corsoForm.ore_tutoraggio) }),
           ...(corsoForm.descrizione && { descrizione: corsoForm.descrizione }),
           ...(corsoForm.link_scheda && { link_scheda: corsoForm.link_scheda }),
+          ...(corsoForm.edizione && { edizione: corsoForm.edizione }),
+          ...(corsoForm.note && { note: corsoForm.note }),
         }),
       })
       if (res.ok) {
@@ -875,6 +877,17 @@ export function ProgettoDetailClient({
                 )}
               </div>
             )}
+            <Input label="Edizione" value={corsoForm.edizione} onChange={e => setCorsoForm(f => ({ ...f, edizione: e.target.value }))} placeholder="Es. 2024-2025" />
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Note</label>
+              <textarea
+                value={corsoForm.note}
+                onChange={e => setCorsoForm(f => ({ ...f, note: e.target.value }))}
+                placeholder="Note aggiuntive sul corso..."
+                rows={3}
+                className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 focus:outline-none focus:border-[#d64b55] transition-colors resize-none"
+              />
+            </div>
           </div>
         )}
       </Modal>
@@ -903,9 +916,14 @@ function CourseRow({ corso, progettoId, oreErogate = 0 }: { corso: CorsoConOre; 
     >
       <div className="flex items-center gap-4">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
             <span className="font-medium text-sm text-gray-900">{corso.title}</span>
             <StatusBadge variant={corso.tipo} size="sm" />
+            {corso.edizione && (
+              <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700">
+                Ed. {corso.edizione}
+              </span>
+            )}
             {isCompletato && (
               <span className="text-xs font-medium text-green-700 bg-green-100 px-2 py-0.5 rounded-md">Completato</span>
             )}

@@ -380,6 +380,13 @@ export function CorsoDetailClient({
   const [corsoCompletatoLocal, setCorsoCompletatoLocal] = useState(corso.corso_completato ?? false)
   const [corsoCompletatoAtLocal, setCorsoCompletatoAtLocal] = useState(corso.corso_completato_at ?? null)
 
+  // Edizione + note corso (admin edit)
+  const [edizioneLocal, setEdizioneLocal] = useState(corso.edizione || '')
+  const [noteCorsoLocal, setNoteCorsoLocal] = useState(corso.note || '')
+  const [corsoInfoEditOpen, setCorsoInfoEditOpen] = useState(false)
+  const [corsoInfoForm, setCorsoInfoForm] = useState({ edizione: corso.edizione || '', note: corso.note || '' })
+  const [savingCorsoInfo, setSavingCorsoInfo] = useState(false)
+
   // Tariffa oraria (admin edit)
   const [tariffaModalOpen, setTariffaModalOpen] = useState(false)
   const [tariffaForm, setTariffaForm] = useState(corso.tariffa_oraria != null ? String(corso.tariffa_oraria) : '')
@@ -775,6 +782,28 @@ export function CorsoDetailClient({
     }
   }
 
+  const handleSaveCorsoInfo = async () => {
+    setSavingCorsoInfo(true)
+    try {
+      const res = await fetch(`/api/corsi/${corso.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          edizione: corsoInfoForm.edizione.trim() || null,
+          note: corsoInfoForm.note.trim() || null,
+        }),
+      })
+      if (res.ok) {
+        setEdizioneLocal(corsoInfoForm.edizione.trim())
+        setNoteCorsoLocal(corsoInfoForm.note.trim())
+        setCorsoInfoEditOpen(false)
+        router.refresh()
+      }
+    } finally {
+      setSavingCorsoInfo(false)
+    }
+  }
+
   // Sessions stats for the counter
   const today = new Date().toISOString().split('T')[0]
   const sessioniCompletate = sessioni.filter(s => s.completata).length
@@ -822,6 +851,11 @@ export function CorsoDetailClient({
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-xl font-bold text-gray-900">{corso.title}</h1>
             <StatusBadge variant={corso.tipo} />
+            {edizioneLocal && (
+              <span className="inline-flex items-center text-xs font-medium text-indigo-700 bg-indigo-100 px-2.5 py-1 rounded-md">
+                Edizione: {edizioneLocal}
+              </span>
+            )}
             {corso.calendario_completo && (
               <span className="inline-flex items-center gap-1 text-xs text-green-700 bg-green-100 px-2.5 py-1 rounded-md font-medium">
                 <svg width="10" height="10" fill="none" viewBox="0 0 24 24">
@@ -1420,6 +1454,28 @@ export function CorsoDetailClient({
         </div>
       )}
 
+      {/* Note corso */}
+      {(isAdmin || noteCorsoLocal) && (
+        <div className="bg-white rounded-xl p-6 mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-semibold text-gray-900">Note corso</h2>
+            {isAdmin && (
+              <button
+                onClick={() => { setCorsoInfoForm({ edizione: edizioneLocal, note: noteCorsoLocal }); setCorsoInfoEditOpen(true) }}
+                className="text-xs text-gray-400 hover:text-gray-700 border border-gray-200 hover:bg-gray-50 px-2.5 py-1.5 rounded-[7px] transition-colors"
+              >
+                {noteCorsoLocal || edizioneLocal ? 'Modifica' : 'Aggiungi'}
+              </button>
+            )}
+          </div>
+          {noteCorsoLocal ? (
+            <p className="text-sm text-gray-600 whitespace-pre-wrap">{noteCorsoLocal}</p>
+          ) : isAdmin ? (
+            <p className="text-sm text-gray-400">Nessuna nota aggiunta.</p>
+          ) : null}
+        </div>
+      )}
+
       {/* Tariffe incarico — admin: entrambe le tariffe + calcolo economico */}
       {isAdmin && (
         <div className="bg-white rounded-xl p-6 mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
@@ -1912,6 +1968,39 @@ export function CorsoDetailClient({
 
       {/* Risultati questionari */}
       <QuestionariBlock questionari={questionari} showTexts={isAdmin} showStorico />
+
+      {/* Edizione + note corso modal */}
+      <Modal
+        open={corsoInfoEditOpen}
+        onClose={() => setCorsoInfoEditOpen(false)}
+        title="Edizione e note corso"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setCorsoInfoEditOpen(false)}>Annulla</Button>
+            <Button onClick={handleSaveCorsoInfo} loading={savingCorsoInfo}>Salva</Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <Input
+            label="Edizione"
+            value={corsoInfoForm.edizione}
+            onChange={e => setCorsoInfoForm(f => ({ ...f, edizione: e.target.value }))}
+            placeholder="Es. 2024-2025"
+          />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Note</label>
+            <textarea
+              value={corsoInfoForm.note}
+              onChange={e => setCorsoInfoForm(f => ({ ...f, note: e.target.value }))}
+              placeholder="Note aggiuntive sul corso..."
+              rows={4}
+              className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 focus:outline-none focus:border-[#d64b55] transition-colors resize-none"
+            />
+          </div>
+        </div>
+      </Modal>
 
       {/* Scheda corso modal */}
       <Modal

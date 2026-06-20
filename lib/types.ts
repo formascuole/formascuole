@@ -146,6 +146,9 @@ export interface Corso {
   // Fattura P.IVA
   fattura_ricevuta?: boolean
   fattura_ricevuta_at?: string | null
+  // Edizione e note
+  edizione?: string | null
+  note?: string | null
 }
 
 export interface Candidatura {
