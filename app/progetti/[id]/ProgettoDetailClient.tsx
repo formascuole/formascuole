@@ -9,6 +9,7 @@ import { GeoSelect } from '@/components/GeoSelect'
 import { RUOLI_REFERENTE } from '@/lib/ruolo-referente'
 import { RuoloBadge } from '@/components/ui/RuoloBadge'
 import { DualProgressBar } from '@/components/ui/DualProgressBar'
+import { ModalitaIcon } from '@/components/ui/ModalitaIcon'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
@@ -142,7 +143,7 @@ export function ProgettoDetailClient({
       ...f,
       title: c.titolo,
       tipo: c.tipo,
-      modalita: c.tipo === 'PF' ? 'presenza' : '',
+      modalita: 'presenza',
       descrizione: c.descrizione || '',
       link_scheda: c.link_scheda || '',
     }))
@@ -161,7 +162,7 @@ export function ProgettoDetailClient({
           title: corsoForm.title,
           tipo: corsoForm.tipo,
           ore_totali: Number(corsoForm.ore_totali),
-          ...(corsoForm.tipo === 'PF' && { modalita: corsoForm.modalita }),
+          modalita: corsoForm.modalita || null,
           tutor_previsto: corsoForm.tutor_previsto,
           ...(corsoForm.tutor_previsto && corsoForm.tutor_nome && { tutor_nome: corsoForm.tutor_nome }),
           ...(corsoForm.tutor_previsto && corsoForm.ore_tutoraggio && { ore_tutoraggio: Number(corsoForm.ore_tutoraggio) }),
@@ -767,7 +768,7 @@ export function ProgettoDetailClient({
               <Button
                 onClick={handleAddCorso}
                 loading={savingCorso}
-                disabled={!corsoForm.title || !corsoForm.ore_totali || (corsoForm.tipo === 'PF' && !corsoForm.modalita) || (corsoForm.tutor_previsto && !corsoForm.tutor_nome) || (['residenziale', 'semi_residenziale'].includes(corsoForm.modalita) && !corsoForm.location.trim())}
+                disabled={!corsoForm.title || !corsoForm.ore_totali || !corsoForm.modalita || (corsoForm.tutor_previsto && !corsoForm.tutor_nome) || (['residenziale', 'semi_residenziale'].includes(corsoForm.modalita) && !corsoForm.location.trim())}
               >
                 Aggiungi corso
               </Button>
@@ -827,7 +828,11 @@ export function ProgettoDetailClient({
               <Select
                 label="Tipo *"
                 value={corsoForm.tipo}
-                onChange={e => setCorsoForm(f => ({ ...f, tipo: e.target.value, modalita: e.target.value === 'PF' ? 'presenza' : '' }))}
+                onChange={e => setCorsoForm(f => {
+                  const newTipo = e.target.value
+                  const shouldReset = newTipo === 'Lab' && ['online', 'ibrido'].includes(f.modalita)
+                  return { ...f, tipo: newTipo, modalita: shouldReset ? 'presenza' : (f.modalita || 'presenza'), location: shouldReset ? '' : f.location }
+                })}
                 options={[
                   { value: 'PF', label: 'Percorso Formativo (PF)' },
                   { value: 'Lab', label: 'Laboratorio sul Campo (Lab)' },
@@ -835,20 +840,22 @@ export function ProgettoDetailClient({
               />
               <Input label="Ore totali *" type="number" min={1} value={corsoForm.ore_totali} onChange={e => setCorsoForm(f => ({ ...f, ore_totali: e.target.value }))} placeholder="Es. 20" />
             </div>
-            {corsoForm.tipo === 'PF' && (
-              <Select
-                label="Modalità erogazione *"
-                value={corsoForm.modalita}
-                onChange={e => setCorsoForm(f => ({ ...f, modalita: e.target.value, location: '' }))}
-                options={[
-                  { value: 'presenza', label: 'In presenza' },
-                  { value: 'online', label: 'Online' },
-                  { value: 'ibrido', label: 'Ibrido (presenza + online)' },
-                  { value: 'residenziale', label: 'Residenziale' },
-                  { value: 'semi_residenziale', label: 'Semi-residenziale' },
-                ]}
-              />
-            )}
+            <Select
+              label="Modalità erogazione *"
+              value={corsoForm.modalita}
+              onChange={e => setCorsoForm(f => ({ ...f, modalita: e.target.value, location: ['residenziale', 'semi_residenziale'].includes(e.target.value) ? f.location : '' }))}
+              options={corsoForm.tipo === 'Lab' ? [
+                { value: 'presenza', label: 'In presenza' },
+                { value: 'residenziale', label: 'Residenziale' },
+                { value: 'semi_residenziale', label: 'Semi-residenziale' },
+              ] : [
+                { value: 'presenza', label: 'In presenza' },
+                { value: 'online', label: 'Online' },
+                { value: 'ibrido', label: 'Ibrido (presenza + online)' },
+                { value: 'residenziale', label: 'Residenziale' },
+                { value: 'semi_residenziale', label: 'Semi-residenziale' },
+              ]}
+            />
             {['residenziale', 'semi_residenziale'].includes(corsoForm.modalita) && (
               <Input
                 label="Location *"
@@ -918,6 +925,7 @@ function CourseRow({ corso, progettoId, oreErogate = 0 }: { corso: CorsoConOre; 
           <div className="flex items-center gap-2 mb-1 flex-wrap">
             <span className="font-medium text-sm text-gray-900">{corso.title}</span>
             <StatusBadge variant={corso.tipo} size="sm" />
+            <ModalitaIcon modalita={corso.modalita} tipo={corso.tipo} size={14} />
             {corso.edizione && (
               <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700">
                 Ed. {corso.edizione}

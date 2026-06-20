@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { CorsoConOre } from '@/lib/types'
 import { OreCounter } from '@/components/ui/OreCounter'
 import { StatusBadge } from '@/components/ui/StatusBadge'
+import { ModalitaIcon } from '@/components/ui/ModalitaIcon'
 import { DualProgressBar } from '@/components/ui/DualProgressBar'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
@@ -312,6 +313,7 @@ export function ProgettoFormatoreClient({ progetto, corsi, finanziamenti, format
                   <div className="flex items-center gap-2 flex-wrap mb-1.5">
                     <h3 className="font-semibold text-gray-900">{corso.title}</h3>
                     <StatusBadge variant={corso.tipo} size="sm" />
+                    <ModalitaIcon modalita={corso.modalita} tipo={corso.tipo} size={14} />
                     <span
                       className="text-xs font-medium px-2 py-0.5 rounded-md"
                       style={{ backgroundColor: stato.bg, color: stato.text }}

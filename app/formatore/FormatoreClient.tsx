@@ -6,6 +6,7 @@ import { QuestionariMiniCard } from '@/components/ui/QuestionariBlock'
 import { OreCounter } from '@/components/ui/OreCounter'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { DualProgressBar } from '@/components/ui/DualProgressBar'
+import { ModalitaIcon } from '@/components/ui/ModalitaIcon'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
@@ -254,13 +255,13 @@ export function FormatoreClient({ corsi, profile, finanziamenti, questionari = [
               const oreRimaste = scadenza
                 ? Math.max(0, Math.round((scadenza.getTime() - Date.now()) / (1000 * 60 * 60)))
                 : null
-              const modalitaEffettiva = corso.tipo === 'Lab' ? 'presenza' : (corso.modalita || 'presenza')
-              const modalitaLabel = corso.tipo === 'Lab' ? 'Solo in presenza' : { presenza: 'In presenza', online: 'Online', ibrido: 'Ibrido' }[modalitaEffettiva] ?? 'In presenza'
-              const modalitaIcon = modalitaEffettiva === 'online'
-                ? <svg width="12" height="12" fill="none" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="1.5"/><path d="M8 21h8M12 17v4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
-                : modalitaEffettiva === 'ibrido'
-                ? <svg width="12" height="12" fill="none" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><rect x="9" y="13" width="6" height="8" rx="1" stroke="currentColor" strokeWidth="1.5"/><circle cx="19" cy="7" r="3" fill="currentColor" opacity=".3" stroke="currentColor" strokeWidth="1"/></svg>
-                : <svg width="12" height="12" fill="none" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M9 22V12h6v10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              const MODALITA_LABELS: Record<string, string> = {
+                presenza: 'In presenza', online: 'Online', ibrido: 'Ibrido',
+                residenziale: 'Residenziale', semi_residenziale: 'Semi-res.',
+              }
+              const modalitaLabel = (corso.tipo === 'Lab' && (!corso.modalita || corso.modalita === 'presenza'))
+                ? 'Laboratorio'
+                : (MODALITA_LABELS[corso.modalita || 'presenza'] ?? 'In presenza')
 
               return (
                 <div key={corso.id} className="bg-white rounded-xl px-5 py-4" style={{ border: '0.5px solid #bfdbfe' }}>
@@ -276,7 +277,7 @@ export function FormatoreClient({ corsi, profile, finanziamenti, questionari = [
                         <span>{corso.ore_totali}h</span>
                         <span>·</span>
                         <span className="flex items-center gap-1">
-                          {modalitaIcon}
+                          <ModalitaIcon modalita={corso.modalita || 'presenza'} tipo={corso.tipo} size={12} showTooltip={false} />
                           {modalitaLabel}
                         </span>
                         {oreRimaste !== null && (

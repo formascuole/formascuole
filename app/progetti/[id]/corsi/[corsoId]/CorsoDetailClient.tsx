@@ -17,6 +17,7 @@ import { RuoloBadge } from '@/components/ui/RuoloBadge'
 import { QuestionariBlock } from '@/components/ui/QuestionariBlock'
 import { QuestionarioModal, buildQuestionarioUrl } from '@/components/ui/QuestionarioModal'
 import { TagsSection } from '@/components/ui/TagsSection'
+import { ModalitaIcon } from '@/components/ui/ModalitaIcon'
 
 interface CorsoDetailClientProps {
   corso: CorsoConOre & { formatore?: Profile; tutor?: Profile; referente?: Referente }
@@ -827,7 +828,7 @@ export function CorsoDetailClient({
         body: JSON.stringify({
           title: corsoEditForm.title.trim(),
           tipo: corsoEditForm.tipo,
-          modalita: corsoEditForm.tipo === 'PF' ? corsoEditForm.modalita : null,
+          modalita: corsoEditForm.modalita || null,
           ore_totali: Number(corsoEditForm.ore_totali),
           edizione: corsoEditForm.edizione.trim() || null,
           note: corsoEditForm.note.trim() || null,
@@ -998,25 +999,14 @@ export function CorsoDetailClient({
             )}
           </div>
         </div>
-        {corso.tipo === 'PF' && (
+        {(corso.tipo === 'Lab' || corso.modalita) && (
           <div className="flex flex-wrap gap-2 mb-4">
-            {corso.modalita && (() => {
-              const isResid = corso.modalita === 'residenziale' || corso.modalita === 'semi_residenziale'
-              const labels: Record<string, string> = {
-                presenza: '🏫 In presenza', online: '💻 Online', ibrido: '🔀 Ibrido',
-                residenziale: '🏨 Residenziale', semi_residenziale: '🏨 Semi-residenziale',
-              }
-              return (
-                <div>
-                  <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-md ${isResid ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'}`}>
-                    {labels[corso.modalita] ?? corso.modalita}
-                  </span>
-                  {corso.location && (
-                    <div className="text-xs text-gray-500 mt-1 pl-0.5">📍 {corso.location}</div>
-                  )}
-                </div>
-              )
-            })()}
+            <div className="flex items-center gap-2">
+              <ModalitaIcon modalita={corso.modalita} tipo={corso.tipo} size={18} />
+              {corso.location && (
+                <span className="text-xs text-gray-500">📍 {corso.location}</span>
+              )}
+            </div>
             {corso.tutor_previsto && (
               <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-md bg-indigo-100 text-indigo-700">
                 👤 Tutor: {corso.tutor_nome || 'Da definire'}
@@ -2094,22 +2084,20 @@ export function CorsoDetailClient({
               onChange={e => setCorsoEditForm(f => ({ ...f, ore_totali: e.target.value }))}
             />
           </div>
-          {corsoEditForm.tipo === 'PF' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Modalità *</label>
-              <select
-                value={corsoEditForm.modalita}
-                onChange={e => setCorsoEditForm(f => ({ ...f, modalita: e.target.value as ModalitaCorso, location: ['residenziale', 'semi_residenziale'].includes(e.target.value) ? f.location : '' }))}
-                className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 focus:outline-none focus:border-[#d64b55] transition-colors bg-white"
-              >
-                <option value="presenza">In presenza</option>
-                <option value="online">Online</option>
-                <option value="ibrido">Ibrido (presenza + online)</option>
-                <option value="residenziale">Residenziale</option>
-                <option value="semi_residenziale">Semi-residenziale</option>
-              </select>
-            </div>
-          )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Modalità *</label>
+            <select
+              value={corsoEditForm.modalita}
+              onChange={e => setCorsoEditForm(f => ({ ...f, modalita: e.target.value as ModalitaCorso, location: ['residenziale', 'semi_residenziale'].includes(e.target.value) ? f.location : '' }))}
+              className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 focus:outline-none focus:border-[#d64b55] transition-colors bg-white"
+            >
+              <option value="presenza">In presenza</option>
+              {corsoEditForm.tipo === 'PF' && <option value="online">Online</option>}
+              {corsoEditForm.tipo === 'PF' && <option value="ibrido">Ibrido (presenza + online)</option>}
+              <option value="residenziale">Residenziale</option>
+              <option value="semi_residenziale">Semi-residenziale</option>
+            </select>
+          </div>
           {['residenziale', 'semi_residenziale'].includes(corsoEditForm.modalita) && (
             <Input
               label="Location *"

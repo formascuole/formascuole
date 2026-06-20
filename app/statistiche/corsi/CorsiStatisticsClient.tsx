@@ -2,6 +2,7 @@
 import { useState, useMemo } from 'react'
 import { StatisticheNav } from '@/components/ui/StatisticheNav'
 import { DualProgressBar } from '@/components/ui/DualProgressBar'
+import { ModalitaIcon } from '@/components/ui/ModalitaIcon'
 import type { CorsoStatRow } from './page'
 
 interface Props {
@@ -224,9 +225,12 @@ export function CorsiStatisticsClient({ corsi, formatori, scuole, finanziamenti 
                     <td className="px-4 py-3 text-sm text-gray-700 max-w-[180px] truncate">{c.school_name}</td>
                     <td className="px-4 py-3 font-medium text-gray-900">{c.title}</td>
                     <td className="px-4 py-3 text-center">
-                      <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md ${c.tipo === 'PF' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
-                        {c.tipo}
-                      </span>
+                      <div className="inline-flex items-center gap-1.5">
+                        <ModalitaIcon modalita={c.modalita} tipo={c.tipo} size={14} />
+                        <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md ${c.tipo === 'PF' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
+                          {c.tipo}
+                        </span>
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">{c.formatore_nome || <span className="text-gray-300">—</span>}</td>
                     <td className="px-4 py-3 text-center text-sm text-gray-700">{c.ore_totali}h</td>

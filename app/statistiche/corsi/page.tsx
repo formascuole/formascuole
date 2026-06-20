@@ -9,6 +9,7 @@ export interface CorsoStatRow {
   id: string
   title: string
   tipo: 'PF' | 'Lab'
+  modalita?: string | null
   ore_totali: number
   school_name: string
   progetto_id: string
@@ -54,7 +55,7 @@ export default async function CorsiStatPage() {
     { data: finanziamentiRaw },
     { data: formatoriFetch },
   ] = await Promise.all([
-    admin.from('corsi').select('id, project_id, title, tipo, ore_totali, formatore_id, stato_assegnazione, calendario_confermato, corso_completato, corso_completato_at, tariffa_oraria').order('created_at', { ascending: false }),
+    admin.from('corsi').select('id, project_id, title, tipo, modalita, ore_totali, formatore_id, stato_assegnazione, calendario_confermato, corso_completato, corso_completato_at, tariffa_oraria').order('created_at', { ascending: false }),
     admin.from('sessioni').select('corso_id, ore, data, completata'),
     admin.from('progetti').select('id, school_name, finanziamento_id'),
     admin.from('finanziamenti').select('id, nome').eq('attivo', true),
@@ -119,6 +120,7 @@ export default async function CorsiStatPage() {
       id: c.id,
       title: c.title,
       tipo: c.tipo as 'PF' | 'Lab',
+      modalita: c.modalita ?? null,
       ore_totali: oreTot,
       school_name: progetto?.school_name ?? '—',
       progetto_id: c.project_id,
