@@ -73,7 +73,7 @@ export function ProgettoDetailClient({
   const [corsoForm, setCorsoForm] = useState({
     title: '', tipo: 'PF', ore_totali: '', modalita: 'presenza',
     tutor_previsto: false, tutor_nome: '', ore_tutoraggio: '',
-    descrizione: '', link_scheda: '', edizione: '', note: '',
+    descrizione: '', link_scheda: '', edizione: '', note: '', location: '',
   })
 
   // ── Edit scuola ─────────────────────────────────────────────
@@ -137,7 +137,7 @@ export function ProgettoDetailClient({
   const resetAddCorso = () => {
     setAddCorsoStep(1)
     setCatalogoSearch('')
-    setCorsoForm({ title: '', tipo: 'PF', ore_totali: '', modalita: 'presenza', tutor_previsto: false, tutor_nome: '', ore_tutoraggio: '', descrizione: '', link_scheda: '', edizione: '', note: '' })
+    setCorsoForm({ title: '', tipo: 'PF', ore_totali: '', modalita: 'presenza', tutor_previsto: false, tutor_nome: '', ore_tutoraggio: '', descrizione: '', link_scheda: '', edizione: '', note: '', location: '' })
   }
 
   const selectFromCatalogo = (c: CatalogoCorso) => {
@@ -172,6 +172,7 @@ export function ProgettoDetailClient({
           ...(corsoForm.link_scheda && { link_scheda: corsoForm.link_scheda }),
           ...(corsoForm.edizione && { edizione: corsoForm.edizione }),
           ...(corsoForm.note && { note: corsoForm.note }),
+          ...(corsoForm.location && { location: corsoForm.location }),
         }),
       })
       if (res.ok) {
@@ -778,7 +779,7 @@ export function ProgettoDetailClient({
               <Button
                 onClick={handleAddCorso}
                 loading={savingCorso}
-                disabled={!corsoForm.title || !corsoForm.ore_totali || (corsoForm.tipo === 'PF' && !corsoForm.modalita) || (corsoForm.tutor_previsto && !corsoForm.tutor_nome)}
+                disabled={!corsoForm.title || !corsoForm.ore_totali || (corsoForm.tipo === 'PF' && !corsoForm.modalita) || (corsoForm.tutor_previsto && !corsoForm.tutor_nome) || (['residenziale', 'semi_residenziale'].includes(corsoForm.modalita) && !corsoForm.location.trim())}
               >
                 Aggiungi corso
               </Button>
@@ -850,12 +851,22 @@ export function ProgettoDetailClient({
               <Select
                 label="Modalità erogazione *"
                 value={corsoForm.modalita}
-                onChange={e => setCorsoForm(f => ({ ...f, modalita: e.target.value }))}
+                onChange={e => setCorsoForm(f => ({ ...f, modalita: e.target.value, location: '' }))}
                 options={[
                   { value: 'presenza', label: 'In presenza' },
                   { value: 'online', label: 'Online' },
                   { value: 'ibrido', label: 'Ibrido (presenza + online)' },
+                  { value: 'residenziale', label: 'Residenziale' },
+                  { value: 'semi_residenziale', label: 'Semi-residenziale' },
                 ]}
+              />
+            )}
+            {['residenziale', 'semi_residenziale'].includes(corsoForm.modalita) && (
+              <Input
+                label="Location *"
+                value={corsoForm.location}
+                onChange={e => setCorsoForm(f => ({ ...f, location: e.target.value }))}
+                placeholder="Nome struttura, indirizzo..."
               />
             )}
             {corsoForm.tipo === 'PF' && (

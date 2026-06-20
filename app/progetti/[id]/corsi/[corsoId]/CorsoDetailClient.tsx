@@ -279,8 +279,8 @@ export function CorsoDetailClient({
         isAvailable = conflictCount === 0
       }
 
-      // 3. Region (25pts) — applies for corsi in presenza OR tipo Lab (always on-site)
-      const regioneRilevante = corso.modalita === 'presenza' || corso.tipo === 'Lab'
+      // 3. Region (25pts) — applies for corsi in presenza/residenziale/semi-residenziale OR tipo Lab (always on-site)
+      const regioneRilevante = corso.modalita === 'presenza' || corso.modalita === 'residenziale' || corso.modalita === 'semi_residenziale' || corso.tipo === 'Lab'
       let regionScore = 25
       let sameRegion: boolean | null = null
       if (regioneRilevante) {
@@ -380,12 +380,25 @@ export function CorsoDetailClient({
   const [corsoCompletatoLocal, setCorsoCompletatoLocal] = useState(corso.corso_completato ?? false)
   const [corsoCompletatoAtLocal, setCorsoCompletatoAtLocal] = useState(corso.corso_completato_at ?? null)
 
-  // Edizione + note corso (admin edit)
+  // Edizione + note corso (admin edit via corsoInfo modal)
   const [edizioneLocal, setEdizioneLocal] = useState(corso.edizione || '')
   const [noteCorsoLocal, setNoteCorsoLocal] = useState(corso.note || '')
   const [corsoInfoEditOpen, setCorsoInfoEditOpen] = useState(false)
   const [corsoInfoForm, setCorsoInfoForm] = useState({ edizione: corso.edizione || '', note: corso.note || '' })
   const [savingCorsoInfo, setSavingCorsoInfo] = useState(false)
+
+  // Modifica corso (admin — titolo, tipo, modalità, ore, edizione, note, location)
+  const [corsoEditOpen, setCorsoEditOpen] = useState(false)
+  const [corsoEditForm, setCorsoEditForm] = useState({
+    title: corso.title,
+    tipo: corso.tipo as string,
+    modalita: corso.modalita || 'presenza',
+    ore_totali: String(corso.ore_totali),
+    edizione: corso.edizione || '',
+    note: corso.note || '',
+    location: corso.location || '',
+  })
+  const [savingCorsoEdit, setSavingCorsoEdit] = useState(false)
 
   // Tariffa oraria (admin edit)
   const [tariffaModalOpen, setTariffaModalOpen] = useState(false)
@@ -804,6 +817,34 @@ export function CorsoDetailClient({
     }
   }
 
+  const handleSaveCorsoEdit = async () => {
+    setSavingCorsoEdit(true)
+    try {
+      const isResidenziale = ['residenziale', 'semi_residenziale'].includes(corsoEditForm.modalita)
+      const res = await fetch(`/api/corsi/${corso.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: corsoEditForm.title.trim(),
+          tipo: corsoEditForm.tipo,
+          modalita: corsoEditForm.tipo === 'PF' ? corsoEditForm.modalita : null,
+          ore_totali: Number(corsoEditForm.ore_totali),
+          edizione: corsoEditForm.edizione.trim() || null,
+          note: corsoEditForm.note.trim() || null,
+          location: isResidenziale ? (corsoEditForm.location.trim() || null) : null,
+        }),
+      })
+      if (res.ok) {
+        setEdizioneLocal(corsoEditForm.edizione.trim())
+        setNoteCorsoLocal(corsoEditForm.note.trim())
+        setCorsoEditOpen(false)
+        router.refresh()
+      }
+    } finally {
+      setSavingCorsoEdit(false)
+    }
+  }
+
   // Sessions stats for the counter
   const today = new Date().toISOString().split('T')[0]
   const sessioniCompletate = sessioni.filter(s => s.completata).length
@@ -910,6 +951,29 @@ export function CorsoDetailClient({
             )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            {isAdmin && (
+              <button
+                onClick={() => {
+                  setCorsoEditForm({
+                    title: corso.title,
+                    tipo: corso.tipo,
+                    modalita: corso.modalita || 'presenza',
+                    ore_totali: String(corso.ore_totali),
+                    edizione: edizioneLocal,
+                    note: noteCorsoLocal,
+                    location: corso.location || '',
+                  })
+                  setCorsoEditOpen(true)
+                }}
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-gray-900 bg-white hover:bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-[7px] transition-colors"
+              >
+                <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
+                  <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                Modifica corso
+              </button>
+            )}
             <button
               onClick={handleOpenQuestionario}
               className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-gray-900 bg-white hover:bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-[7px] transition-colors"
@@ -936,11 +1000,23 @@ export function CorsoDetailClient({
         </div>
         {corso.tipo === 'PF' && (
           <div className="flex flex-wrap gap-2 mb-4">
-            {corso.modalita && (
-              <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-md bg-gray-100 text-gray-600">
-                {corso.modalita === 'presenza' ? '🏫 In presenza' : corso.modalita === 'online' ? '💻 Online' : '🔀 Ibrido'}
-              </span>
-            )}
+            {corso.modalita && (() => {
+              const isResid = corso.modalita === 'residenziale' || corso.modalita === 'semi_residenziale'
+              const labels: Record<string, string> = {
+                presenza: '🏫 In presenza', online: '💻 Online', ibrido: '🔀 Ibrido',
+                residenziale: '🏨 Residenziale', semi_residenziale: '🏨 Semi-residenziale',
+              }
+              return (
+                <div>
+                  <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-md ${isResid ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'}`}>
+                    {labels[corso.modalita] ?? corso.modalita}
+                  </span>
+                  {corso.location && (
+                    <div className="text-xs text-gray-500 mt-1 pl-0.5">📍 {corso.location}</div>
+                  )}
+                </div>
+              )
+            })()}
             {corso.tutor_previsto && (
               <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-md bg-indigo-100 text-indigo-700">
                 👤 Tutor: {corso.tutor_nome || 'Da definire'}
@@ -1969,6 +2045,98 @@ export function CorsoDetailClient({
       {/* Risultati questionari */}
       <QuestionariBlock questionari={questionari} showTexts={isAdmin} showStorico />
 
+      {/* Modifica corso modal (admin only) */}
+      <Modal
+        open={corsoEditOpen}
+        onClose={() => setCorsoEditOpen(false)}
+        title="Modifica corso"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setCorsoEditOpen(false)}>Annulla</Button>
+            <Button
+              onClick={handleSaveCorsoEdit}
+              loading={savingCorsoEdit}
+              disabled={
+                !corsoEditForm.title.trim() ||
+                !corsoEditForm.ore_totali ||
+                (corsoEditForm.tipo === 'PF' && !corsoEditForm.modalita) ||
+                (['residenziale', 'semi_residenziale'].includes(corsoEditForm.modalita) && !corsoEditForm.location.trim())
+              }
+            >
+              Salva modifiche
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <Input
+            label="Titolo corso *"
+            value={corsoEditForm.title}
+            onChange={e => setCorsoEditForm(f => ({ ...f, title: e.target.value }))}
+          />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Tipo *</label>
+              <select
+                value={corsoEditForm.tipo}
+                onChange={e => setCorsoEditForm(f => ({ ...f, tipo: e.target.value, modalita: e.target.value === 'PF' ? 'presenza' : '', location: '' }))}
+                className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 focus:outline-none focus:border-[#d64b55] transition-colors bg-white"
+              >
+                <option value="PF">Percorso Formativo (PF)</option>
+                <option value="Lab">Laboratorio sul Campo (Lab)</option>
+              </select>
+            </div>
+            <Input
+              label="Ore totali *"
+              type="number"
+              min={1}
+              value={corsoEditForm.ore_totali}
+              onChange={e => setCorsoEditForm(f => ({ ...f, ore_totali: e.target.value }))}
+            />
+          </div>
+          {corsoEditForm.tipo === 'PF' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Modalità *</label>
+              <select
+                value={corsoEditForm.modalita}
+                onChange={e => setCorsoEditForm(f => ({ ...f, modalita: e.target.value, location: '' }))}
+                className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 focus:outline-none focus:border-[#d64b55] transition-colors bg-white"
+              >
+                <option value="presenza">In presenza</option>
+                <option value="online">Online</option>
+                <option value="ibrido">Ibrido (presenza + online)</option>
+                <option value="residenziale">Residenziale</option>
+                <option value="semi_residenziale">Semi-residenziale</option>
+              </select>
+            </div>
+          )}
+          {['residenziale', 'semi_residenziale'].includes(corsoEditForm.modalita) && (
+            <Input
+              label="Location *"
+              value={corsoEditForm.location}
+              onChange={e => setCorsoEditForm(f => ({ ...f, location: e.target.value }))}
+              placeholder="Nome struttura, indirizzo..."
+            />
+          )}
+          <Input
+            label="Edizione"
+            value={corsoEditForm.edizione}
+            onChange={e => setCorsoEditForm(f => ({ ...f, edizione: e.target.value }))}
+            placeholder="Es. 2024-2025"
+          />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Note</label>
+            <textarea
+              value={corsoEditForm.note}
+              onChange={e => setCorsoEditForm(f => ({ ...f, note: e.target.value }))}
+              placeholder="Note aggiuntive sul corso..."
+              rows={3}
+              className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 focus:outline-none focus:border-[#d64b55] transition-colors resize-none"
+            />
+          </div>
+        </div>
+      </Modal>
+
       {/* Edizione + note corso modal */}
       <Modal
         open={corsoInfoEditOpen}
@@ -2282,7 +2450,7 @@ export function CorsoDetailClient({
                       isDualRole={dualRoleIds.includes(f.id)}
                       isAssigning={assigningId === f.id}
                       tasso={tassoAccettazioneMap[f.id] ?? null}
-                      regioneRilevante={corso.modalita === 'presenza' || corso.tipo === 'Lab'}
+                      regioneRilevante={corso.modalita === 'presenza' || corso.modalita === 'residenziale' || corso.modalita === 'semi_residenziale' || corso.tipo === 'Lab'}
                       showScore
                       onClick={() => handleAssignFormatore(f)}
                     />
@@ -2315,7 +2483,7 @@ export function CorsoDetailClient({
                       isDualRole={dualRoleIds.includes(f.id)}
                       isAssigning={assigningId === f.id}
                       tasso={tassoAccettazioneMap[f.id] ?? null}
-                      regioneRilevante={corso.modalita === 'presenza' || corso.tipo === 'Lab'}
+                      regioneRilevante={corso.modalita === 'presenza' || corso.modalita === 'residenziale' || corso.modalita === 'semi_residenziale' || corso.tipo === 'Lab'}
                       showScore={false}
                       onClick={() => handleAssignFormatore(f)}
                     />

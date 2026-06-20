@@ -15,6 +15,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   const body = await request.json()
   const updates: Record<string, unknown> = {}
+  if ('title' in body && body.title?.trim()) updates.title = body.title.trim()
+  if ('tipo' in body) updates.tipo = body.tipo
+  if ('modalita' in body) updates.modalita = body.modalita || null
+  if ('ore_totali' in body) { const n = Number(body.ore_totali); if (n > 0) updates.ore_totali = n }
+  if ('location' in body) updates.location = body.location?.trim() || null
   if ('link_scheda' in body) updates.link_scheda = body.link_scheda?.trim() || null
   if ('descrizione' in body) updates.descrizione = body.descrizione?.trim() || null
   if ('tariffa_oraria' in body) {
