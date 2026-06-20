@@ -51,6 +51,17 @@ export async function POST(request: NextRequest) {
   if (edizione) insertData.edizione = edizione.trim() || null
   if (note) insertData.note = note.trim() || null
 
+  // Pre-populate referente corso from the project's main referente
+  const { data: progetto } = await supabase
+    .from('progetti')
+    .select('ref_name, ref_email, ref_tel, ref_ruolo')
+    .eq('id', project_id)
+    .single()
+  if (progetto?.ref_name) insertData.referente_corso_nome = progetto.ref_name
+  if (progetto?.ref_email) insertData.referente_corso_email = progetto.ref_email
+  if (progetto?.ref_tel) insertData.referente_corso_telefono = progetto.ref_tel
+  if (progetto?.ref_ruolo) insertData.referente_corso_ruolo = progetto.ref_ruolo
+
   const { data, error } = await supabase
     .from('corsi')
     .insert(insertData)
