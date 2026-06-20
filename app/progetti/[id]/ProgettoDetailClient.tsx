@@ -8,7 +8,6 @@ import { getFinanziamentoColor, formatAddress } from '@/app/progetti/ProgettiCli
 import { GeoSelect } from '@/components/GeoSelect'
 import { RUOLI_REFERENTE } from '@/lib/ruolo-referente'
 import { RuoloBadge } from '@/components/ui/RuoloBadge'
-import { ProgressBar } from '@/components/ui/ProgressBar'
 import { DualProgressBar } from '@/components/ui/DualProgressBar'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { Button } from '@/components/ui/Button'
@@ -114,8 +113,6 @@ export function ProgettoDetailClient({
   const [newMsg, setNewMsg] = useState('')
   const [sendingMsg, setSendingMsg] = useState(false)
   const chatBottomRef = useRef<HTMLDivElement>(null)
-
-  const pct = Number(progetto.percentuale_completamento)
 
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -390,23 +387,14 @@ export function ProgettoDetailClient({
           </div>
         </div>
 
-        <div className="space-y-1.5">
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-500">Progresso ore complessive</span>
-            <span className="font-semibold text-gray-700">{progetto.ore_pianificate}h / {progetto.ore_totali}h ({pct}%)</span>
-          </div>
-          <ProgressBar value={pct} size="lg" />
-          {(() => {
-            const totErogate = Object.values(oreErogatePerCorso).reduce((s, x) => s + x, 0)
-            if (totErogate === 0) return null
-            const pctErogate = Number(progetto.ore_totali) > 0 ? Math.round((totErogate / Number(progetto.ore_totali)) * 100) : 0
-            return (
-              <div className="flex items-center justify-between text-xs text-gray-400 pt-0.5">
-                <span>Ore erogate (sessioni confermate)</span>
-                <span className="font-medium text-blue-600">{totErogate}h — {pctErogate}%</span>
-              </div>
-            )
-          })()}
+        <div>
+          <div className="text-sm text-gray-500 mb-2">Progresso ore complessive</div>
+          <DualProgressBar
+            oreTotali={Number(progetto.ore_totali)}
+            orePianificate={Number(progetto.ore_pianificate)}
+            oreErogate={Object.values(oreErogatePerCorso).reduce((s, x) => s + x, 0)}
+            size="lg"
+          />
         </div>
       </div>
 

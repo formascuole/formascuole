@@ -1,7 +1,7 @@
 'use client'
 import { useState, useMemo } from 'react'
 import { StatisticheNav } from '@/components/ui/StatisticheNav'
-import { ProgressBar } from '@/components/ui/ProgressBar'
+import { DualProgressBar } from '@/components/ui/DualProgressBar'
 import type { CorsoStatRow } from './page'
 
 interface Props {
@@ -233,7 +233,7 @@ export function CorsiStatisticsClient({ corsi, formatori, scuole, finanziamenti 
                     <td className="px-4 py-3 text-center text-sm text-gray-700">{c.ore_pianificate}h</td>
                     <td className="px-4 py-3 text-center text-sm font-medium text-blue-700">{c.ore_erogate}h</td>
                     <td className="px-4 py-3 min-w-[100px]">
-                      <ProgressBar value={c.pct} size="sm" showLabel />
+                      <DualProgressBar oreTotali={c.ore_totali} orePianificate={c.ore_pianificate} oreErogate={c.ore_erogate} size="sm" />
                     </td>
                     <td className="px-4 py-3 text-center">
                       <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md ${STATO_BADGE[c.stato]}`}>

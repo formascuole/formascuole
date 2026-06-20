@@ -7,6 +7,9 @@ export interface UtenteStats {
   ore_formatore: number
   n_corsi_tutor: number
   ore_tutor: number
+  ore_totale: number
+  ore_pianificate: number
+  ore_erogate: number
   pct: number
   tasso_accettazione: number | null  // null = no data yet
 }
@@ -30,35 +33,37 @@ export async function GET() {
 
   const [{ data: corsi, error: corsiError }, { data: sessioni, error: sessioniError }] = await Promise.all([
     admin.from('corsi').select('id, formatore_id, tutor_id, ore_totali, stato_assegnazione'),
-    admin.from('sessioni').select('corso_id, ore'),
+    admin.from('sessioni').select('corso_id, ore, completata'),
   ])
 
   if (corsiError) return NextResponse.json({ error: corsiError.message }, { status: 500 })
   if (sessioniError) return NextResponse.json({ error: sessioniError.message }, { status: 500 })
 
-  // ore_pianificate per corso
   const orePianMap = new Map<string, number>()
+  const oreErogMap = new Map<string, number>()
   for (const s of sessioni || []) {
     orePianMap.set(s.corso_id, (orePianMap.get(s.corso_id) ?? 0) + Number(s.ore))
+    if (s.completata) oreErogMap.set(s.corso_id, (oreErogMap.get(s.corso_id) ?? 0) + Number(s.ore))
   }
 
   type Accum = {
     n_corsi_formatore: number; ore_formatore: number
     n_corsi_tutor: number; ore_tutor: number
-    tot_ore: number; tot_pian: number
+    tot_ore: number; tot_pian: number; tot_erog: number
     accettati: number; rifiutati: number
   }
   const acc = new Map<string, Accum>()
   const empty = (): Accum => ({
     n_corsi_formatore: 0, ore_formatore: 0,
     n_corsi_tutor: 0, ore_tutor: 0,
-    tot_ore: 0, tot_pian: 0,
+    tot_ore: 0, tot_pian: 0, tot_erog: 0,
     accettati: 0, rifiutati: 0,
   })
 
   for (const c of corsi || []) {
     const oreTot = Number(c.ore_totali)
     const orePian = orePianMap.get(c.id) ?? 0
+    const oreErog = oreErogMap.get(c.id) ?? 0
 
     if (c.formatore_id) {
       const s = acc.get(c.formatore_id) ?? empty()
@@ -66,6 +71,7 @@ export async function GET() {
       s.ore_formatore += oreTot
       s.tot_ore += oreTot
       s.tot_pian += orePian
+      s.tot_erog += oreErog
       if (c.stato_assegnazione === 'accettato') s.accettati++
       acc.set(c.formatore_id, s)
     }
@@ -76,6 +82,7 @@ export async function GET() {
       s.ore_tutor += oreTot
       s.tot_ore += oreTot
       s.tot_pian += orePian
+      s.tot_erog += oreErog
       acc.set(c.tutor_id, s)
     }
   }
@@ -109,6 +116,9 @@ export async function GET() {
       ore_formatore: s.ore_formatore,
       n_corsi_tutor: s.n_corsi_tutor,
       ore_tutor: s.ore_tutor,
+      ore_totale: s.tot_ore,
+      ore_pianificate: s.tot_pian,
+      ore_erogate: s.tot_erog,
       pct: s.tot_ore > 0 ? Math.round((s.tot_pian / s.tot_ore) * 100) : 0,
       tasso_accettazione: totRisposte > 0 ? Math.round((s.accettati / totRisposte) * 100) : null,
     }

@@ -2,7 +2,7 @@
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { ProgettoConStats, Finanziamento } from '@/lib/types'
-import { ProgressBar } from '@/components/ui/ProgressBar'
+import { DualProgressBar } from '@/components/ui/DualProgressBar'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
@@ -276,7 +276,6 @@ export function ProgettiClient({ progetti, finanziamenti, inAttesaProjectIds }: 
 
 function ProjectCard({ progetto: p, finanziamenti }: { progetto: ProgettoConStats; finanziamenti: Finanziamento[] }) {
   const router = useRouter()
-  const pct = Number(p.percentuale_completamento)
   const hasWarning = Number(p.corsi_senza_formatore) > 0 || Number(p.corsi_senza_calendario) > 0
   const fin_id = (p as ProgettoConStats & { finanziamento_id?: string | null }).finanziamento_id
   const finanziamento = fin_id ? finanziamenti.find(f => f.id === fin_id) : null
@@ -330,13 +329,8 @@ function ProjectCard({ progetto: p, finanziamenti }: { progetto: ProgettoConStat
         </div>
       </div>
 
-      <div className="space-y-1.5">
-        <div className="flex justify-between text-xs">
-          <span className="text-gray-400">Ore pianificate</span>
-          <span className="font-medium text-gray-700">{pct}%</span>
-        </div>
-        <ProgressBar value={pct} size="sm" />
-        <div className="text-xs text-gray-400">{p.ore_pianificate}h / {p.ore_totali}h</div>
+      <div>
+        <DualProgressBar oreTotali={Number(p.ore_totali)} orePianificate={Number(p.ore_pianificate)} oreErogate={Number(p.ore_erogate)} size="sm" />
       </div>
 
       {hasWarning && (

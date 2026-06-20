@@ -78,6 +78,7 @@ export interface ProgettoConStats extends Progetto {
   n_corsi: number
   ore_totali: number
   ore_pianificate: number
+  ore_erogate: number
   percentuale_completamento: number
   corsi_senza_formatore: number
   corsi_senza_calendario: number

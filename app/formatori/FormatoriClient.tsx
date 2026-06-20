@@ -3,7 +3,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Avatar } from '@/components/ui/Avatar'
-import { ProgressBar } from '@/components/ui/ProgressBar'
+import { DualProgressBar } from '@/components/ui/DualProgressBar'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
@@ -424,7 +424,7 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
                       </td>
                       <td className="px-3 py-3">
                         {(nF + nT) > 0 ? (
-                          <ProgressBar value={pct} size="sm" showLabel />
+                          <DualProgressBar oreTotali={s?.ore_totale ?? 0} orePianificate={s?.ore_pianificate ?? 0} oreErogate={s?.ore_erogate ?? 0} size="sm" />
                         ) : (
                           <span className="text-xs text-gray-300">—</span>
                         )}
