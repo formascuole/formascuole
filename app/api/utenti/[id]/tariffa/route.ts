@@ -43,6 +43,9 @@ export async function PATCH(
   if ('rivalsa_iva' in body) {
     updates.rivalsa_iva = !!body.rivalsa_iva
   }
+  if ('inps_gestione_separata' in body) {
+    updates.inps_gestione_separata = !!body.inps_gestione_separata
+  }
   if ('partita_iva' in body) {
     updates.partita_iva = body.partita_iva?.trim() || null
   }
@@ -56,7 +59,7 @@ export async function PATCH(
     .from('profiles')
     .update(updates)
     .eq('id', targetId)
-    .select('id, tariffa_oraria_formatore, tariffa_oraria_tutor, ha_partita_iva, regime_fiscale, rivalsa_iva, partita_iva')
+    .select('id, tariffa_oraria_formatore, tariffa_oraria_tutor, ha_partita_iva, regime_fiscale, rivalsa_iva, partita_iva, inps_gestione_separata')
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

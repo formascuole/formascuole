@@ -32,12 +32,18 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json()
-  const { nome, descrizione, attivo } = body
+  const { nome, descrizione, attivo, tariffa_formatore_ora, tariffa_tutor_ora } = body
   if (!nome?.trim()) return NextResponse.json({ error: 'Nome obbligatorio' }, { status: 400 })
 
   const { data, error } = await supabase
     .from('finanziamenti')
-    .insert({ nome: nome.trim(), descrizione: descrizione?.trim() || null, attivo: attivo ?? true })
+    .insert({
+      nome: nome.trim(),
+      descrizione: descrizione?.trim() || null,
+      attivo: attivo ?? true,
+      tariffa_formatore_ora: tariffa_formatore_ora != null ? Number(tariffa_formatore_ora) : null,
+      tariffa_tutor_ora: tariffa_tutor_ora != null ? Number(tariffa_tutor_ora) : null,
+    })
     .select()
     .single()
 

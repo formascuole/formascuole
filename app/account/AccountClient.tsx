@@ -34,6 +34,7 @@ interface AccountClientProps {
   partita_iva?: string | null
   telefono?: string | null
   regione?: string | null
+  inps_gestione_separata?: boolean
 }
 
 const ROLE_BADGES: Record<UserRole, { label: string; cls: string }> = {
@@ -64,6 +65,7 @@ export function AccountClient({
   iban, banca, intestatario_conto,
   tariffa_oraria_formatore, tariffa_oraria_tutor,
   ha_partita_iva, regime_fiscale, rivalsa_iva, partita_iva, telefono, regione,
+  inps_gestione_separata,
 }: AccountClientProps) {
   // Password change state
   const [pwdModalOpen, setPwdModalOpen] = useState(false)
@@ -93,6 +95,7 @@ export function AccountClient({
     ha_partita_iva,
     regime_fiscale,
     rivalsa_iva,
+    inps_gestione_separata: inps_gestione_separata ?? false,
     partita_iva: partita_iva ?? '',
     telefono: telefono ?? '',
     regione: regione ?? '',
@@ -102,7 +105,7 @@ export function AccountClient({
     luogo_nascita, data_nascita, codice_fiscale,
     indirizzo_via, indirizzo_cap, indirizzo_citta, indirizzo_provincia,
     iban, banca, intestatario_conto,
-    ha_partita_iva, regime_fiscale, rivalsa_iva, partita_iva, telefono, regione,
+    ha_partita_iva, regime_fiscale, rivalsa_iva, inps_gestione_separata: inps_gestione_separata ?? false, partita_iva, telefono, regione,
   })
 
   const isFiscalRole = role === 'formatore' || role === 'tutor'
@@ -177,6 +180,7 @@ export function AccountClient({
         ha_partita_iva: json.ha_partita_iva ?? false,
         regime_fiscale: (json.regime_fiscale ?? 'notula') as RegimeFiscale,
         rivalsa_iva: json.rivalsa_iva ?? false,
+        inps_gestione_separata: json.inps_gestione_separata ?? false,
         partita_iva: json.partita_iva ?? null,
         telefono: json.telefono ?? null,
         regione: json.regione ?? null,
@@ -263,10 +267,11 @@ export function AccountClient({
                 iban:                savedFiscal.iban ?? '',
                 banca:               savedFiscal.banca ?? '',
                 intestatario_conto:  savedFiscal.intestatario_conto ?? '',
-                ha_partita_iva:      savedFiscal.ha_partita_iva,
-                regime_fiscale:      savedFiscal.regime_fiscale,
-                rivalsa_iva:         savedFiscal.rivalsa_iva,
-                partita_iva:         savedFiscal.partita_iva ?? '',
+                ha_partita_iva:         savedFiscal.ha_partita_iva,
+                regime_fiscale:         savedFiscal.regime_fiscale,
+                rivalsa_iva:            savedFiscal.rivalsa_iva,
+                inps_gestione_separata: savedFiscal.inps_gestione_separata,
+                partita_iva:            savedFiscal.partita_iva ?? '',
                 telefono:            savedFiscal.telefono ?? '',
                 regione:             savedFiscal.regione ?? '',
               })
@@ -301,6 +306,14 @@ export function AccountClient({
                 {savedFiscal.regime_fiscale === 'ordinario' && savedFiscal.rivalsa_iva && ' + IVA 22%'}
               </span>
             </div>
+            {savedFiscal.ha_partita_iva && (
+              <div className="flex items-center justify-between py-2 border-b border-gray-50">
+                <span className="text-sm text-gray-500">Gestione Separata INPS</span>
+                <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md ${savedFiscal.inps_gestione_separata ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                  {savedFiscal.inps_gestione_separata ? 'Iscritto INPS GS' : 'Non iscritto'}
+                </span>
+              </div>
+            )}
             {savedFiscal.ha_partita_iva && savedFiscal.partita_iva && (
               <FiscalRow label="Partita IVA" value={savedFiscal.partita_iva} mono />
             )}
@@ -581,6 +594,22 @@ export function AccountClient({
                 />
                 <span className="text-sm text-gray-700">Applico rivalsa IVA 22%</span>
               </label>
+            )}
+            {fiscal.ha_partita_iva && (
+              <div>
+                <p className="text-xs font-medium text-gray-700 mb-2">Gestione Separata INPS?</p>
+                <div className="flex gap-2">
+                  <button type="button"
+                    onClick={() => setFiscal(f => ({ ...f, inps_gestione_separata: true }))}
+                    className={`flex-1 py-1.5 rounded-[7px] text-sm font-medium border transition-colors ${fiscal.inps_gestione_separata ? 'bg-[#d64b55] text-white border-[#d64b55]' : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300'}`}
+                  >Sì</button>
+                  <button type="button"
+                    onClick={() => setFiscal(f => ({ ...f, inps_gestione_separata: false }))}
+                    className={`flex-1 py-1.5 rounded-[7px] text-sm font-medium border transition-colors ${!fiscal.inps_gestione_separata ? 'bg-[#d64b55] text-white border-[#d64b55]' : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300'}`}
+                  >No</button>
+                </div>
+                <p className="mt-1.5 text-xs text-gray-400">Se iscritto puoi applicare il contributo integrativo del 4%.</p>
+              </div>
             )}
 
             {fiscalError && (

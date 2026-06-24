@@ -10,8 +10,8 @@ interface FinanziamentiClientProps {
   finanziamenti: Finanziamento[]
 }
 
-type FormState = { nome: string; descrizione: string; attivo: boolean }
-const emptyForm: FormState = { nome: '', descrizione: '', attivo: true }
+type FormState = { nome: string; descrizione: string; attivo: boolean; tariffa_formatore_ora: string; tariffa_tutor_ora: string }
+const emptyForm: FormState = { nome: '', descrizione: '', attivo: true, tariffa_formatore_ora: '', tariffa_tutor_ora: '' }
 
 export function FinanziamentiClient({ finanziamenti: initial }: FinanziamentiClientProps) {
   const router = useRouter()
@@ -34,7 +34,11 @@ export function FinanziamentiClient({ finanziamenti: initial }: FinanziamentiCli
       const res = await fetch('/api/finanziamenti', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(addForm),
+        body: JSON.stringify({
+          ...addForm,
+          tariffa_formatore_ora: addForm.tariffa_formatore_ora.trim() ? Number(addForm.tariffa_formatore_ora) : null,
+          tariffa_tutor_ora: addForm.tariffa_tutor_ora.trim() ? Number(addForm.tariffa_tutor_ora) : null,
+        }),
       })
       const json = await res.json()
       if (!res.ok) { setAddError(json.error || 'Errore'); return }
@@ -49,7 +53,13 @@ export function FinanziamentiClient({ finanziamenti: initial }: FinanziamentiCli
 
   const openEdit = (f: Finanziamento) => {
     setEditTarget(f)
-    setEditForm({ nome: f.nome, descrizione: f.descrizione || '', attivo: f.attivo })
+    setEditForm({
+      nome: f.nome,
+      descrizione: f.descrizione || '',
+      attivo: f.attivo,
+      tariffa_formatore_ora: f.tariffa_formatore_ora != null ? String(f.tariffa_formatore_ora) : '',
+      tariffa_tutor_ora: f.tariffa_tutor_ora != null ? String(f.tariffa_tutor_ora) : '',
+    })
     setEditError('')
   }
 
@@ -61,7 +71,11 @@ export function FinanziamentiClient({ finanziamenti: initial }: FinanziamentiCli
       const res = await fetch(`/api/finanziamenti/${editTarget.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editForm),
+        body: JSON.stringify({
+          ...editForm,
+          tariffa_formatore_ora: editForm.tariffa_formatore_ora.trim() ? Number(editForm.tariffa_formatore_ora) : null,
+          tariffa_tutor_ora: editForm.tariffa_tutor_ora.trim() ? Number(editForm.tariffa_tutor_ora) : null,
+        }),
       })
       const json = await res.json()
       if (!res.ok) { setEditError(json.error || 'Errore'); return }
@@ -131,6 +145,12 @@ export function FinanziamentiClient({ finanziamenti: initial }: FinanziamentiCli
                       {f.attivo ? 'Attivo' : 'Inattivo'}
                     </span>
                   </div>
+                  {(f.tariffa_formatore_ora != null || f.tariffa_tutor_ora != null) && (
+                    <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-400">
+                      {f.tariffa_formatore_ora != null && <span>Formatore: €{Number(f.tariffa_formatore_ora).toFixed(2)}/h</span>}
+                      {f.tariffa_tutor_ora != null && <span>Tutor: €{Number(f.tariffa_tutor_ora).toFixed(2)}/h</span>}
+                    </div>
+                  )}
                   {f.descrizione && (
                     <p className="text-xs text-gray-400 truncate">{f.descrizione}</p>
                   )}
@@ -191,6 +211,28 @@ export function FinanziamentiClient({ finanziamenti: initial }: FinanziamentiCli
             onChange={e => setAddForm(f => ({ ...f, descrizione: e.target.value }))}
             placeholder="Breve descrizione opzionale"
           />
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label="Tariffa formatore/ora (€)"
+              type="number"
+              min={0}
+              step={0.01}
+              value={addForm.tariffa_formatore_ora}
+              onChange={e => setAddForm(f => ({ ...f, tariffa_formatore_ora: e.target.value }))}
+              placeholder="Es. 122.00"
+              hint="Lascia vuoto se non applicabile"
+            />
+            <Input
+              label="Tariffa tutor/ora (€)"
+              type="number"
+              min={0}
+              step={0.01}
+              value={addForm.tariffa_tutor_ora}
+              onChange={e => setAddForm(f => ({ ...f, tariffa_tutor_ora: e.target.value }))}
+              placeholder="Es. 34.00"
+              hint="Lascia vuoto se non applicabile"
+            />
+          </div>
           <label className="flex items-center gap-2.5 cursor-pointer">
             <input
               type="checkbox"
@@ -230,6 +272,28 @@ export function FinanziamentiClient({ finanziamenti: initial }: FinanziamentiCli
             value={editForm.descrizione}
             onChange={e => setEditForm(f => ({ ...f, descrizione: e.target.value }))}
           />
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label="Tariffa formatore/ora (€)"
+              type="number"
+              min={0}
+              step={0.01}
+              value={editForm.tariffa_formatore_ora}
+              onChange={e => setEditForm(f => ({ ...f, tariffa_formatore_ora: e.target.value }))}
+              placeholder="Es. 122.00"
+              hint="Lascia vuoto se non applicabile"
+            />
+            <Input
+              label="Tariffa tutor/ora (€)"
+              type="number"
+              min={0}
+              step={0.01}
+              value={editForm.tariffa_tutor_ora}
+              onChange={e => setEditForm(f => ({ ...f, tariffa_tutor_ora: e.target.value }))}
+              placeholder="Es. 34.00"
+              hint="Lascia vuoto se non applicabile"
+            />
+          </div>
           <label className="flex items-center gap-2.5 cursor-pointer">
             <input
               type="checkbox"

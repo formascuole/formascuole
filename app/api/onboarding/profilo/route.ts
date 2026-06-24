@@ -13,6 +13,7 @@ export async function PATCH(req: NextRequest) {
     indirizzo_via, indirizzo_cap, indirizzo_citta, indirizzo_provincia,
     iban, banca, intestatario_conto,
     ha_partita_iva, regime_fiscale, rivalsa_iva, partita_iva, telefono, regione,
+    inps_gestione_separata,
   } = body
 
   const VALID_REGIMI = ['forfettario', 'ordinario', 'notula']
@@ -42,6 +43,9 @@ export async function PATCH(req: NextRequest) {
   }
   if (rivalsa_iva !== undefined) {
     updates.rivalsa_iva = !!rivalsa_iva
+  }
+  if (body.inps_gestione_separata !== undefined) {
+    updates.inps_gestione_separata = !!body.inps_gestione_separata
   }
 
   const admin = createAdminClient()

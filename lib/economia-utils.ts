@@ -2,21 +2,27 @@ export type RegimeFiscale = 'forfettario' | 'ordinario' | 'notula'
 
 export interface Financials {
   imponibile: number
-  ritenuteIva: number  // negative = ritenuta deducted; positive = IVA added
+  ritenuteIva: number  // backward compat: ritenuta + iva (negative ritenuta + positive iva)
   netto: number
+  ritenuta: number     // -20% if notula (always negative or zero)
+  iva: number          // +22% if ordinario+rivalsa (always positive or zero)
+  inps: number         // +4% if P.IVA+inps_gs (always positive or zero)
 }
 
-export function calcFinancials(ore: number, tariffa: number, regime: RegimeFiscale, rivalsa: boolean): Financials {
+export function calcFinancials(
+  ore: number,
+  tariffa: number,
+  regime: RegimeFiscale,
+  rivalsa: boolean,
+  inps_gestione_separata = false,
+  ha_partita_iva = false,
+): Financials {
   const imponibile = ore * tariffa
-  if (regime === 'notula') {
-    const r = imponibile * 0.2
-    return { imponibile, ritenuteIva: -r, netto: imponibile - r }
-  }
-  if (regime === 'ordinario' && rivalsa) {
-    const iva = imponibile * 0.22
-    return { imponibile, ritenuteIva: iva, netto: imponibile + iva }
-  }
-  return { imponibile, ritenuteIva: 0, netto: imponibile }
+  const ritenuta = regime === 'notula' ? -(imponibile * 0.2) : 0
+  const iva = (regime === 'ordinario' && rivalsa) ? imponibile * 0.22 : 0
+  const inps = (ha_partita_iva && inps_gestione_separata) ? imponibile * 0.04 : 0
+  const netto = imponibile + ritenuta + iva + inps
+  return { imponibile, ritenuta, iva, inps, ritenuteIva: ritenuta + iva, netto }
 }
 
 export function fmtCur(n: number): string {

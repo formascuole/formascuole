@@ -37,6 +37,7 @@ export interface Profile {
   partita_iva?: string | null
   telefono?: string | null
   regione?: string | null
+  inps_gestione_separata?: boolean
 }
 
 export interface Finanziamento {
@@ -44,6 +45,8 @@ export interface Finanziamento {
   nome: string
   descrizione?: string | null
   attivo: boolean
+  tariffa_formatore_ora?: number | null
+  tariffa_tutor_ora?: number | null
   created_at: string
 }
 

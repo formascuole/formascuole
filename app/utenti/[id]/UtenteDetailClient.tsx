@@ -159,6 +159,7 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
     ha_partita_iva: profile.ha_partita_iva ?? false,
     regime_fiscale: (profile.regime_fiscale ?? 'notula') as RegimeFiscale,
     rivalsa_iva: profile.rivalsa_iva ?? false,
+    inps_gestione_separata: profile.inps_gestione_separata ?? false,
     partita_iva: profile.partita_iva ?? '',
   })
   const [tariffaSaving, setTariffaSaving] = useState(false)
@@ -169,6 +170,7 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
     ha_partita_iva: profile.ha_partita_iva ?? false,
     regime_fiscale: (profile.regime_fiscale ?? 'notula') as RegimeFiscale,
     rivalsa_iva: profile.rivalsa_iva ?? false,
+    inps_gestione_separata: profile.inps_gestione_separata ?? false,
     partita_iva: profile.partita_iva ?? null,
   })
 
@@ -185,6 +187,7 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
         ha_partita_iva: tariffaForm.ha_partita_iva,
         regime_fiscale: tariffaForm.ha_partita_iva ? tariffaForm.regime_fiscale : 'notula',
         rivalsa_iva: tariffaForm.ha_partita_iva && tariffaForm.regime_fiscale === 'ordinario' ? tariffaForm.rivalsa_iva : false,
+        inps_gestione_separata: tariffaForm.ha_partita_iva ? tariffaForm.inps_gestione_separata : false,
         partita_iva: tariffaForm.ha_partita_iva ? (tariffaForm.partita_iva.trim() || null) : null,
       }
       if (isFormatore) body.tariffa_oraria_formatore = tariffaForm.tariffa_oraria_formatore.trim() ? Number(tariffaForm.tariffa_oraria_formatore) : null
@@ -202,6 +205,7 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
           ha_partita_iva: data.ha_partita_iva ?? false,
           regime_fiscale: (data.regime_fiscale ?? 'notula') as RegimeFiscale,
           rivalsa_iva: data.rivalsa_iva ?? false,
+          inps_gestione_separata: data.inps_gestione_separata ?? false,
           partita_iva: data.partita_iva ?? null,
         })
         setTariffaModalOpen(false)
@@ -407,6 +411,7 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
                 ha_partita_iva: savedTariffe.ha_partita_iva,
                 regime_fiscale: savedTariffe.regime_fiscale,
                 rivalsa_iva: savedTariffe.rivalsa_iva,
+                inps_gestione_separata: savedTariffe.inps_gestione_separata,
                 partita_iva: savedTariffe.partita_iva ?? '',
               })
               setTariffaModalOpen(true)
@@ -433,6 +438,14 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
                 <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md ${REGIME_BADGE_CLS[savedTariffe.regime_fiscale] ?? REGIME_BADGE_CLS.notula}`}>
                   {REGIME_LABELS[savedTariffe.regime_fiscale] ?? REGIME_LABELS.notula}
                   {savedTariffe.regime_fiscale === 'ordinario' && savedTariffe.rivalsa_iva && ' + IVA 22%'}
+                </span>
+              </div>
+            )}
+            {isFormatore && savedTariffe.ha_partita_iva && (
+              <div className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+                <span className="text-sm text-gray-500">Gestione Separata INPS</span>
+                <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md ${savedTariffe.inps_gestione_separata ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                  {savedTariffe.inps_gestione_separata ? 'Iscritto INPS GS' : 'Non iscritto'}
                 </span>
               </div>
             )}
@@ -579,6 +592,21 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
                   />
                   <span className="text-sm text-gray-700">Applica rivalsa IVA 22%</span>
                 </label>
+              )}
+              {isFormatore && tariffaForm.ha_partita_iva && (
+                <div>
+                  <p className="text-xs font-medium text-gray-700 mb-2">Gestione Separata INPS?</p>
+                  <div className="flex gap-2">
+                    <button type="button"
+                      onClick={() => setTariffaForm(f => ({ ...f, inps_gestione_separata: true }))}
+                      className={`flex-1 py-1.5 rounded-[7px] text-sm font-medium border transition-colors ${tariffaForm.inps_gestione_separata ? 'bg-[#d64b55] text-white border-[#d64b55]' : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300'}`}
+                    >Sì</button>
+                    <button type="button"
+                      onClick={() => setTariffaForm(f => ({ ...f, inps_gestione_separata: false }))}
+                      className={`flex-1 py-1.5 rounded-[7px] text-sm font-medium border transition-colors ${!tariffaForm.inps_gestione_separata ? 'bg-[#d64b55] text-white border-[#d64b55]' : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300'}`}
+                    >No</button>
+                  </div>
+                </div>
               )}
             </>
           )}

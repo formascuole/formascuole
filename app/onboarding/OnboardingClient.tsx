@@ -19,6 +19,7 @@ interface ProfileData {
   ha_partita_iva: boolean
   regime_fiscale: 'forfettario' | 'ordinario' | 'notula'
   rivalsa_iva: boolean
+  inps_gestione_separata: boolean
   partita_iva: string
   regione: string
 }
@@ -56,6 +57,7 @@ export function OnboardingClient({ nome, email, initialStep, profile, redirectTo
     ha_partita_iva: false,
     regime_fiscale: 'notula',
     rivalsa_iva: false,
+    inps_gestione_separata: false,
     partita_iva: '',
     regione: (profile as ProfileData).regione ?? '',
   })
@@ -420,6 +422,32 @@ export function OnboardingClient({ nome, email, initialStep, profile, redirectTo
                   />
                   <span className="text-sm text-gray-700">Applico rivalsa IVA 22%</span>
                 </label>
+              )}
+              {form.ha_partita_iva && pivaSelected && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-2">
+                    Sei iscritto alla Gestione Separata INPS?
+                  </label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setForm(f => ({ ...f, inps_gestione_separata: true }))}
+                      className={`flex-1 py-2 rounded-[7px] text-sm font-medium border transition-colors ${form.inps_gestione_separata ? 'bg-[#d64b55] text-white border-[#d64b55]' : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300'}`}
+                    >
+                      Sì
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setForm(f => ({ ...f, inps_gestione_separata: false }))}
+                      className={`flex-1 py-2 rounded-[7px] text-sm font-medium border transition-colors ${!form.inps_gestione_separata ? 'bg-[#d64b55] text-white border-[#d64b55]' : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300'}`}
+                    >
+                      No
+                    </button>
+                  </div>
+                  <p className="mt-2 text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-[7px] px-3 py-2">
+                    Se iscritto alla Gestione Separata INPS puoi applicare il contributo integrativo del 4% sul compenso.
+                  </p>
+                </div>
               )}
               {!pivaSelected && (
                 <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-[7px] px-3 py-2">

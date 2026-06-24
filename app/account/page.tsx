@@ -57,6 +57,7 @@ export default async function AccountPage() {
         partita_iva={profile.partita_iva ?? null}
         telefono={profile.telefono ?? null}
         regione={profile.regione ?? null}
+        inps_gestione_separata={profile.inps_gestione_separata ?? false}
       />
     </AppLayout>
   )
