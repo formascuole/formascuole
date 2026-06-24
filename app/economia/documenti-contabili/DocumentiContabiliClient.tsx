@@ -6,9 +6,7 @@ import type { RegimeFiscale } from '@/lib/economia-utils'
 
 interface Props {
   notule: NotuleAdminItem[]
-  formatori: { id: string; nome: string }[]
   fattureAttese: FatturaAtteseItem[]
-  riepilogo: RiepilogoItem[]
 }
 
 type Tab = 'notule' | 'fatture' | 'riepilogo'
@@ -19,7 +17,6 @@ const STATO_BADGE: Record<string, string> = {
   accettata: 'bg-green-100 text-green-700',
   rifiutata: 'bg-red-100 text-red-700',
 }
-
 const STATO_LABEL: Record<string, string> = {
   bozza: 'Bozza',
   inviata: 'In attesa',
@@ -89,65 +86,103 @@ async function exportRiepilogo(rows: RiepilogoItem[]) {
   XLSX.writeFile(wb, 'Riepilogo_formatori.xlsx')
 }
 
-export function DocumentiContabiliClient({ notule, formatori, fattureAttese: initialFattureAttese, riepilogo }: Props) {
+export function DocumentiContabiliClient({ notule, fattureAttese: initialFattureAttese }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>('notule')
   const currentYear = String(new Date().getFullYear())
 
-  // Notule filters
+  // ── Shared filters (persist across tabs) ─────────────────────────────────
+  const [filterAnno, setFilterAnno] = useState(currentYear)
+  const [filterFormatore, setFilterFormatore] = useState('')
+  const [filterRegime, setFilterRegime] = useState<'' | RegimeFiscale>('')
+
+  // ── Per-tab stato filters ─────────────────────────────────────────────────
   const [notuleFilterStato, setNotuleFilterStato] = useState('')
-  const [notuleFilterFormatore, setNotuleFilterFormatore] = useState('')
-  const [notuleFilterAnno, setNotuleFilterAnno] = useState(currentYear)
-
-  // Fatture filters
-  const [fattureFilterAnno, setFattureFilterAnno] = useState(currentYear)
-  const [fattureFilterFormatore, setFattureFilterFormatore] = useState('')
   const [fattureFilterStato, setFattureFilterStato] = useState('')
-  const [fattureFilterRegime, setFattureFilterRegime] = useState('')
+  const [riepilogoFilterStato, setRiepilogoFilterStato] = useState('')
 
-  // Optimistic fatture state
+  // ── Optimistic fatture state ──────────────────────────────────────────────
   const [fattureAttese, setFattureAttese] = useState<FatturaAtteseItem[]>(initialFattureAttese)
 
-  const notuleAnni = useMemo(() => {
-    const s = new Set<string>()
+  // ── Derived: unified formatori list (notule + fatture) ───────────────────
+  const formatori = useMemo(() => {
+    const m = new Map<string, { id: string; nome: string; regime: string }>()
     for (const n of notule) {
-      const y = n.created_at.substring(0, 4)
-      if (y) s.add(y)
+      if (!m.has(n.formatore_id)) m.set(n.formatore_id, { id: n.formatore_id, nome: n.formatore_nome, regime: n.formatore_regime })
     }
-    return [...s].sort((a, b) => b.localeCompare(a))
-  }, [notule])
-
-  const fattureAnni = useMemo(() => {
-    const s = new Set<string>()
     for (const f of fattureAttese) {
-      if (f.anno) s.add(f.anno)
+      if (!m.has(f.formatore_id)) m.set(f.formatore_id, { id: f.formatore_id, nome: f.formatore_nome, regime: f.regime })
     }
+    return [...m.values()].sort((a, b) => a.nome.localeCompare(b.nome))
+  }, [notule, fattureAttese])
+
+  // ── Derived: anni from both sources ──────────────────────────────────────
+  const anni = useMemo(() => {
+    const s = new Set<string>()
+    for (const n of notule) { const y = n.created_at.substring(0, 4); if (y) s.add(y) }
+    for (const f of fattureAttese) { if (f.anno) s.add(f.anno) }
     return [...s].sort((a, b) => b.localeCompare(a))
-  }, [fattureAttese])
+  }, [notule, fattureAttese])
 
-  const fattureFormatori = useMemo(() => {
-    const m = new Map<string, string>()
-    for (const f of fattureAttese) m.set(f.formatore_id, f.formatore_nome)
-    return [...m.entries()].map(([id, nome]) => ({ id, nome })).sort((a, b) => a.nome.localeCompare(b.nome))
-  }, [fattureAttese])
-
+  // ── Filtered notule (shared + stato) ─────────────────────────────────────
   const filteredNotule = useMemo(() => notule.filter(n => {
+    if (filterAnno && filterAnno !== 'all' && n.created_at.substring(0, 4) !== filterAnno) return false
+    if (filterFormatore && n.formatore_id !== filterFormatore) return false
+    if (filterRegime && n.formatore_regime !== filterRegime) return false
     if (notuleFilterStato && n.stato !== notuleFilterStato) return false
-    if (notuleFilterFormatore && n.formatore_id !== notuleFilterFormatore) return false
-    if (notuleFilterAnno && notuleFilterAnno !== 'all' && n.created_at.substring(0, 4) !== notuleFilterAnno) return false
     return true
-  }), [notule, notuleFilterStato, notuleFilterFormatore, notuleFilterAnno])
+  }), [notule, filterAnno, filterFormatore, filterRegime, notuleFilterStato])
 
+  // ── Filtered fatture (shared + stato) ────────────────────────────────────
   const filteredFatture = useMemo(() => fattureAttese.filter(f => {
-    if (fattureFilterAnno && fattureFilterAnno !== 'all' && f.anno !== fattureFilterAnno) return false
-    if (fattureFilterFormatore && f.formatore_id !== fattureFilterFormatore) return false
+    if (filterAnno && filterAnno !== 'all' && f.anno !== filterAnno) return false
+    if (filterFormatore && f.formatore_id !== filterFormatore) return false
+    if (filterRegime && f.regime !== filterRegime) return false
     if (fattureFilterStato === 'da_ricevere' && f.fattura_ricevuta) return false
     if (fattureFilterStato === 'ricevuta' && !f.fattura_ricevuta) return false
-    if (fattureFilterRegime && f.regime !== fattureFilterRegime) return false
     return true
-  }), [fattureAttese, fattureFilterAnno, fattureFilterFormatore, fattureFilterStato, fattureFilterRegime])
+  }), [fattureAttese, filterAnno, filterFormatore, filterRegime, fattureFilterStato])
+
+  // ── Riepilogo computed from filtered data ─────────────────────────────────
+  const computedRiepilogo = useMemo((): RiepilogoItem[] => {
+    const notulaMap = new Map<string, { nome: string; n_corsi: number; lordo: number; ritenute: number; iva: number; netto: number; stati: string[] }>()
+    for (const n of filteredNotule) {
+      const ex = notulaMap.get(n.formatore_id) ?? { nome: n.formatore_nome, n_corsi: 0, lordo: 0, ritenute: 0, iva: 0, netto: 0, stati: [] }
+      ex.n_corsi += n.n_corsi
+      ex.lordo += Number(n.importo_totale ?? 0)
+      ex.ritenute += Number(n.ritenuta ?? 0)
+      ex.iva += Number(n.iva ?? 0)
+      ex.netto += Number(n.netto ?? 0)
+      ex.stati.push(n.stato)
+      notulaMap.set(n.formatore_id, ex)
+    }
+    const pivaMap = new Map<string, { nome: string; regime: 'forfettario' | 'ordinario'; n_corsi: number; lordo: number; iva: number; netto: number; all_received: boolean }>()
+    for (const f of filteredFatture) {
+      const ex = pivaMap.get(f.formatore_id) ?? { nome: f.formatore_nome, regime: f.regime, n_corsi: 0, lordo: 0, iva: 0, netto: 0, all_received: true }
+      ex.n_corsi++; ex.lordo += f.imponibile; ex.iva += f.iva; ex.netto += f.netto
+      if (!f.fattura_ricevuta) ex.all_received = false
+      pivaMap.set(f.formatore_id, ex)
+    }
+    return [
+      ...[...notulaMap.entries()].map(([id, v]) => {
+        const stato: 'ok' | 'in_attesa' | 'da_verificare' =
+          v.stati.some(s => s === 'bozza') ? 'da_verificare'
+          : v.stati.some(s => s === 'inviata') ? 'in_attesa' : 'ok'
+        return { formatore_id: id, formatore_nome: v.nome, regime: 'notula' as const, n_corsi: v.n_corsi, totale_lordo: v.lordo, totale_ritenute: v.ritenute, totale_iva: v.iva, totale_netto: v.netto, stato }
+      }),
+      ...[...pivaMap.entries()].map(([id, v]) => ({
+        formatore_id: id, formatore_nome: v.nome, regime: v.regime, n_corsi: v.n_corsi,
+        totale_lordo: v.lordo, totale_ritenute: 0, totale_iva: v.iva, totale_netto: v.netto,
+        stato: (v.all_received ? 'ok' : 'in_attesa') as 'ok' | 'in_attesa' | 'da_verificare',
+      })),
+    ].sort((a, b) => a.formatore_nome.localeCompare(b.formatore_nome))
+  }, [filteredNotule, filteredFatture])
+
+  const filteredRiepilogo = useMemo(() => {
+    if (!riepilogoFilterStato) return computedRiepilogo
+    return computedRiepilogo.filter(r => r.stato === riepilogoFilterStato)
+  }, [computedRiepilogo, riepilogoFilterStato])
 
   const handleToggleFattura = async (corsoId: string, val: boolean) => {
-    // Optimistic update
     setFattureAttese(prev => prev.map(f =>
       f.corso_id === corsoId
         ? { ...f, fattura_ricevuta: val, fattura_ricevuta_at: val ? new Date().toISOString() : null }
@@ -161,55 +196,77 @@ export function DocumentiContabiliClient({ notule, formatori, fattureAttese: ini
   }
 
   const selCls = 'text-sm border border-gray-200 rounded-[7px] px-3 py-1.5 focus:outline-none focus:border-[#d64b55] bg-white'
-
   const tabCls = (tab: Tab) =>
     `px-4 py-2 text-sm font-medium rounded-[7px] transition-colors ${
-      activeTab === tab
-        ? 'text-white'
-        : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'
+      activeTab === tab ? 'text-white' : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'
     }`
+
+  const isDefaultShared = filterAnno === currentYear && !filterFormatore && !filterRegime
 
   return (
     <div className="p-8 max-w-7xl mx-auto">
-      <div className="flex items-start justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Documenti contabili</h1>
-          <p className="text-sm text-gray-500 mt-1">Notule, fatture attese e riepilogo formatori</p>
-        </div>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">Documenti contabili</h1>
+        <p className="text-sm text-gray-500 mt-1">Notule, fatture attese e riepilogo formatori</p>
       </div>
 
-      {/* Tab bar */}
+      {/* ── Shared filter bar ─────────────────────────────────────────────── */}
+      <div className="bg-white rounded-xl p-4 mb-5 flex flex-wrap gap-3 items-end" style={{ border: '0.5px solid #e5e5e5' }}>
+        <div>
+          <div className="text-xs text-gray-400 mb-1">Anno</div>
+          <select value={filterAnno} onChange={e => setFilterAnno(e.target.value)} className={selCls}>
+            <option value="all">Tutti</option>
+            {anni.map(a => <option key={a} value={a}>{a}</option>)}
+          </select>
+        </div>
+        {formatori.length > 0 && (
+          <div>
+            <div className="text-xs text-gray-400 mb-1">Formatore</div>
+            <select value={filterFormatore} onChange={e => setFilterFormatore(e.target.value)} className={selCls}>
+              <option value="">Tutti</option>
+              {formatori.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
+            </select>
+          </div>
+        )}
+        <div>
+          <div className="text-xs text-gray-400 mb-1">Regime fiscale</div>
+          <select value={filterRegime} onChange={e => setFilterRegime(e.target.value as '' | RegimeFiscale)} className={selCls}>
+            <option value="">Tutti</option>
+            <option value="notula">Prestazione occ.</option>
+            <option value="forfettario">Forfettario</option>
+            <option value="ordinario">Ordinario</option>
+          </select>
+        </div>
+        {!isDefaultShared && (
+          <button
+            onClick={() => { setFilterAnno(currentYear); setFilterFormatore(''); setFilterRegime('') }}
+            className="text-xs text-gray-400 hover:text-gray-700 px-2 py-1.5"
+          >
+            Azzera filtri
+          </button>
+        )}
+      </div>
+
+      {/* ── Tab bar ──────────────────────────────────────────────────────── */}
       <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-[10px] w-fit mb-6">
-        <button
-          onClick={() => setActiveTab('notule')}
-          className={tabCls('notule')}
-          style={activeTab === 'notule' ? { backgroundColor: '#d64b55' } : {}}
-        >
+        <button onClick={() => setActiveTab('notule')} className={tabCls('notule')} style={activeTab === 'notule' ? { backgroundColor: '#d64b55' } : {}}>
           Notule ({notule.length})
         </button>
-        <button
-          onClick={() => setActiveTab('fatture')}
-          className={tabCls('fatture')}
-          style={activeTab === 'fatture' ? { backgroundColor: '#d64b55' } : {}}
-        >
+        <button onClick={() => setActiveTab('fatture')} className={tabCls('fatture')} style={activeTab === 'fatture' ? { backgroundColor: '#d64b55' } : {}}>
           Fatture attese ({fattureAttese.length})
         </button>
-        <button
-          onClick={() => setActiveTab('riepilogo')}
-          className={tabCls('riepilogo')}
-          style={activeTab === 'riepilogo' ? { backgroundColor: '#d64b55' } : {}}
-        >
+        <button onClick={() => setActiveTab('riepilogo')} className={tabCls('riepilogo')} style={activeTab === 'riepilogo' ? { backgroundColor: '#d64b55' } : {}}>
           Riepilogo
         </button>
       </div>
 
-      {/* ── TAB 1: NOTULE ─────────────────────────────────────────────────────── */}
+      {/* ── TAB 1: NOTULE ────────────────────────────────────────────────── */}
       {activeTab === 'notule' && (
         <div>
           <div className="flex items-center justify-between mb-4">
             <p className="text-sm text-gray-500">{filteredNotule.length} notul{filteredNotule.length === 1 ? 'a' : 'e'}</p>
             <button
-              onClick={() => exportNotule(filteredNotule, notuleFilterAnno === 'all' ? 'tutti' : notuleFilterAnno)}
+              onClick={() => exportNotule(filteredNotule, filterAnno === 'all' ? 'tutti' : filterAnno)}
               className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-[7px] border border-gray-200 hover:bg-gray-50 text-gray-600 transition-colors"
             >
               <svg width="15" height="15" fill="none" viewBox="0 0 24 24">
@@ -219,14 +276,8 @@ export function DocumentiContabiliClient({ notule, formatori, fattureAttese: ini
             </button>
           </div>
 
-          <div className="bg-white rounded-xl p-4 mb-6 flex flex-wrap gap-3 items-end" style={{ border: '0.5px solid #e5e5e5' }}>
-            <div>
-              <div className="text-xs text-gray-400 mb-1">Anno</div>
-              <select value={notuleFilterAnno} onChange={e => setNotuleFilterAnno(e.target.value)} className={selCls}>
-                <option value="all">Tutti</option>
-                {notuleAnni.map(a => <option key={a} value={a}>{a}</option>)}
-              </select>
-            </div>
+          {/* Stato filter (per-tab) */}
+          <div className="flex items-end gap-3 mb-4">
             <div>
               <div className="text-xs text-gray-400 mb-1">Stato</div>
               <select value={notuleFilterStato} onChange={e => setNotuleFilterStato(e.target.value)} className={selCls}>
@@ -237,18 +288,9 @@ export function DocumentiContabiliClient({ notule, formatori, fattureAttese: ini
                 <option value="rifiutata">Rifiutata</option>
               </select>
             </div>
-            {formatori.length > 0 && (
-              <div>
-                <div className="text-xs text-gray-400 mb-1">Formatore</div>
-                <select value={notuleFilterFormatore} onChange={e => setNotuleFilterFormatore(e.target.value)} className={selCls}>
-                  <option value="">Tutti</option>
-                  {formatori.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
-                </select>
-              </div>
-            )}
-            {(notuleFilterAnno !== currentYear || notuleFilterStato || notuleFilterFormatore) && (
-              <button onClick={() => { setNotuleFilterAnno(currentYear); setNotuleFilterStato(''); setNotuleFilterFormatore('') }} className="text-xs text-gray-400 hover:text-gray-700 px-2 py-1.5">
-                Azzera filtri
+            {notuleFilterStato && (
+              <button onClick={() => setNotuleFilterStato('')} className="text-xs text-gray-400 hover:text-gray-700 px-2 py-1.5">
+                Azzera
               </button>
             )}
           </div>
@@ -264,6 +306,7 @@ export function DocumentiContabiliClient({ notule, formatori, fattureAttese: ini
                   <tr className="border-b border-gray-100">
                     <th className="text-left text-xs font-medium text-gray-400 px-5 py-3">#</th>
                     <th className="text-left text-xs font-medium text-gray-400 px-4 py-3">FORMATORE</th>
+                    <th className="text-left text-xs font-medium text-gray-400 px-4 py-3">REGIME</th>
                     <th className="text-left text-xs font-medium text-gray-400 px-4 py-3">TIPO</th>
                     <th className="text-center text-xs font-medium text-gray-400 px-4 py-3">CORSI</th>
                     <th className="text-right text-xs font-medium text-gray-400 px-4 py-3">IMPORTO</th>
@@ -280,6 +323,11 @@ export function DocumentiContabiliClient({ notule, formatori, fattureAttese: ini
                       <td className="px-4 py-3">
                         <div className="font-medium text-gray-900">{n.formatore_nome}</div>
                         <div className="text-xs text-gray-400">{n.formatore_email}</div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md ${REGIME_BADGE[n.formatore_regime] ?? 'bg-gray-100 text-gray-600'}`}>
+                          {REGIME_LABELS[n.formatore_regime] ?? n.formatore_regime}
+                        </span>
                       </td>
                       <td className="px-4 py-3">
                         <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md ${n.tipo === 'cumulativa' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'}`}>
@@ -325,13 +373,13 @@ export function DocumentiContabiliClient({ notule, formatori, fattureAttese: ini
         </div>
       )}
 
-      {/* ── TAB 2: FATTURE ATTESE ─────────────────────────────────────────────── */}
+      {/* ── TAB 2: FATTURE ATTESE ─────────────────────────────────────────── */}
       {activeTab === 'fatture' && (
         <div>
           <div className="flex items-center justify-between mb-4">
             <p className="text-sm text-gray-500">{filteredFatture.length} cors{filteredFatture.length === 1 ? 'o' : 'i'}</p>
             <button
-              onClick={() => exportFatture(filteredFatture, fattureFilterAnno === 'all' ? 'tutti' : fattureFilterAnno)}
+              onClick={() => exportFatture(filteredFatture, filterAnno === 'all' ? 'tutti' : filterAnno)}
               className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-[7px] border border-gray-200 hover:bg-gray-50 text-gray-600 transition-colors"
             >
               <svg width="15" height="15" fill="none" viewBox="0 0 24 24">
@@ -341,40 +389,19 @@ export function DocumentiContabiliClient({ notule, formatori, fattureAttese: ini
             </button>
           </div>
 
-          <div className="bg-white rounded-xl p-4 mb-6 flex flex-wrap gap-3 items-end" style={{ border: '0.5px solid #e5e5e5' }}>
+          {/* Stato filter (per-tab) */}
+          <div className="flex items-end gap-3 mb-4">
             <div>
-              <div className="text-xs text-gray-400 mb-1">Anno</div>
-              <select value={fattureFilterAnno} onChange={e => setFattureFilterAnno(e.target.value)} className={selCls}>
-                <option value="all">Tutti</option>
-                {fattureAnni.map(a => <option key={a} value={a}>{a}</option>)}
-              </select>
-            </div>
-            <div>
-              <div className="text-xs text-gray-400 mb-1">Formatore</div>
-              <select value={fattureFilterFormatore} onChange={e => setFattureFilterFormatore(e.target.value)} className={selCls}>
-                <option value="">Tutti</option>
-                {fattureFormatori.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
-              </select>
-            </div>
-            <div>
-              <div className="text-xs text-gray-400 mb-1">Stato</div>
+              <div className="text-xs text-gray-400 mb-1">Stato fattura</div>
               <select value={fattureFilterStato} onChange={e => setFattureFilterStato(e.target.value)} className={selCls}>
                 <option value="">Tutti</option>
                 <option value="da_ricevere">Da ricevere</option>
                 <option value="ricevuta">Ricevuta</option>
               </select>
             </div>
-            <div>
-              <div className="text-xs text-gray-400 mb-1">Regime</div>
-              <select value={fattureFilterRegime} onChange={e => setFattureFilterRegime(e.target.value)} className={selCls}>
-                <option value="">Tutti</option>
-                <option value="forfettario">Forfettario</option>
-                <option value="ordinario">Ordinario</option>
-              </select>
-            </div>
-            {(fattureFilterAnno !== currentYear || fattureFilterFormatore || fattureFilterStato || fattureFilterRegime) && (
-              <button onClick={() => { setFattureFilterAnno(currentYear); setFattureFilterFormatore(''); setFattureFilterStato(''); setFattureFilterRegime('') }} className="text-xs text-gray-400 hover:text-gray-700 px-2 py-1.5">
-                Azzera filtri
+            {fattureFilterStato && (
+              <button onClick={() => setFattureFilterStato('')} className="text-xs text-gray-400 hover:text-gray-700 px-2 py-1.5">
+                Azzera
               </button>
             )}
           </div>
@@ -420,19 +447,13 @@ export function DocumentiContabiliClient({ notule, formatori, fattureAttese: ini
                       <td className="px-4 py-3">
                         {f.fattura_ricevuta ? (
                           <div>
-                            <span className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md bg-green-100 text-green-700">
-                              Ricevuta
-                            </span>
+                            <span className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md bg-green-100 text-green-700">Ricevuta</span>
                             {f.fattura_ricevuta_at && (
-                              <div className="text-xs text-gray-400 mt-0.5">
-                                {new Date(f.fattura_ricevuta_at).toLocaleDateString('it-IT')}
-                              </div>
+                              <div className="text-xs text-gray-400 mt-0.5">{new Date(f.fattura_ricevuta_at).toLocaleDateString('it-IT')}</div>
                             )}
                           </div>
                         ) : (
-                          <span className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md bg-orange-100 text-orange-700">
-                            Da ricevere
-                          </span>
+                          <span className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md bg-orange-100 text-orange-700">Da ricevere</span>
                         )}
                       </td>
                       <td className="px-4 py-3">
@@ -455,13 +476,13 @@ export function DocumentiContabiliClient({ notule, formatori, fattureAttese: ini
         </div>
       )}
 
-      {/* ── TAB 3: RIEPILOGO ──────────────────────────────────────────────────── */}
+      {/* ── TAB 3: RIEPILOGO ─────────────────────────────────────────────── */}
       {activeTab === 'riepilogo' && (
         <div>
           <div className="flex items-center justify-between mb-4">
-            <p className="text-sm text-gray-500">{riepilogo.length} formator{riepilogo.length === 1 ? 'e' : 'i'}</p>
+            <p className="text-sm text-gray-500">{filteredRiepilogo.length} formator{filteredRiepilogo.length === 1 ? 'e' : 'i'}</p>
             <button
-              onClick={() => exportRiepilogo(riepilogo)}
+              onClick={() => exportRiepilogo(filteredRiepilogo)}
               className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-[7px] border border-gray-200 hover:bg-gray-50 text-gray-600 transition-colors"
             >
               <svg width="15" height="15" fill="none" viewBox="0 0 24 24">
@@ -471,9 +492,27 @@ export function DocumentiContabiliClient({ notule, formatori, fattureAttese: ini
             </button>
           </div>
 
-          {riepilogo.length === 0 ? (
+          {/* Stato filter (per-tab) */}
+          <div className="flex items-end gap-3 mb-4">
+            <div>
+              <div className="text-xs text-gray-400 mb-1">Stato documenti</div>
+              <select value={riepilogoFilterStato} onChange={e => setRiepilogoFilterStato(e.target.value)} className={selCls}>
+                <option value="">Tutti</option>
+                <option value="ok">OK</option>
+                <option value="in_attesa">In attesa</option>
+                <option value="da_verificare">Da verificare</option>
+              </select>
+            </div>
+            {riepilogoFilterStato && (
+              <button onClick={() => setRiepilogoFilterStato('')} className="text-xs text-gray-400 hover:text-gray-700 px-2 py-1.5">
+                Azzera
+              </button>
+            )}
+          </div>
+
+          {filteredRiepilogo.length === 0 ? (
             <div className="bg-white rounded-xl px-6 py-16 text-center text-sm text-gray-400" style={{ border: '0.5px solid #e5e5e5' }}>
-              Nessun dato disponibile.
+              Nessun dato per i filtri selezionati.
             </div>
           ) : (
             <div className="bg-white rounded-xl overflow-hidden" style={{ border: '0.5px solid #e5e5e5' }}>
@@ -491,23 +530,14 @@ export function DocumentiContabiliClient({ notule, formatori, fattureAttese: ini
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {riepilogo.map(r => {
-                    const statoBadge = r.stato === 'ok'
-                      ? 'bg-green-100 text-green-700'
-                      : r.stato === 'in_attesa'
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'bg-yellow-100 text-yellow-700'
+                  {filteredRiepilogo.map(r => {
+                    const statoBadge = r.stato === 'ok' ? 'bg-green-100 text-green-700' : r.stato === 'in_attesa' ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700'
                     const statoLabel = r.stato === 'ok' ? 'OK' : r.stato === 'in_attesa' ? 'In attesa' : 'Da verificare'
-                    const regimeBadge = r.regime === 'notula'
-                      ? 'bg-orange-100 text-orange-700'
-                      : r.regime === 'forfettario'
-                        ? 'bg-green-100 text-green-700'
-                        : 'bg-blue-100 text-blue-700'
                     return (
                       <tr key={r.formatore_id} className="hover:bg-gray-50">
                         <td className="px-5 py-3 font-medium text-gray-900">{r.formatore_nome}</td>
                         <td className="px-4 py-3">
-                          <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md ${regimeBadge}`}>
+                          <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md ${REGIME_BADGE[r.regime as RegimeFiscale] ?? 'bg-gray-100 text-gray-600'}`}>
                             {REGIME_LABELS[r.regime as RegimeFiscale] ?? r.regime}
                           </span>
                         </td>

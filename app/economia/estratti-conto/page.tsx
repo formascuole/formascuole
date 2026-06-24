@@ -211,12 +211,10 @@ export default async function EstrattiContoPage() {
   ).sort((a, b) => a.nome.localeCompare(b.nome))
 
   const progettiList = progetti
-    .filter(p => items.some(i => i.progetto_id === p.id))
     .map(p => ({ id: p.id as string, nome: p.school_name as string }))
     .sort((a, b) => a.nome.localeCompare(b.nome))
 
   const finanziamentiList = finanziamenti
-    .filter(f => items.some(i => i.finanziamento_id === f.id))
     .map(f => ({ id: f.id as string, nome: f.nome as string }))
     .sort((a, b) => a.nome.localeCompare(b.nome))
 

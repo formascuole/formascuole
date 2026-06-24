@@ -10,6 +10,7 @@ import type { Notula } from '@/lib/types'
 export interface NotuleAdminItem extends Notula {
   formatore_nome: string
   formatore_email: string
+  formatore_regime: 'notula' | 'forfettario' | 'ordinario'
   n_corsi: number
 }
 
@@ -59,7 +60,7 @@ export default async function DocumentiContabiliPage() {
   // ── Tab 1: Notule ─────────────────────────────────────────────────────────
   const { data: notuleRaw } = await admin
     .from('notule')
-    .select('*, formatore:profiles!formatore_id(id, nome, email), corsi:notule_corsi(corso_id, importo, ore_erogate)')
+    .select('*, formatore:profiles!formatore_id(id, nome, email, regime_fiscale), corsi:notule_corsi(corso_id, importo, ore_erogate)')
     .order('created_at', { ascending: false })
 
   const notule: NotuleAdminItem[] = (notuleRaw || []).map(n => ({
@@ -80,6 +81,7 @@ export default async function DocumentiContabiliPage() {
     created_at: n.created_at as string,
     formatore_nome: (n.formatore as { nome: string } | null)?.nome ?? '—',
     formatore_email: (n.formatore as { email: string } | null)?.email ?? '—',
+    formatore_regime: ((n.formatore as { regime_fiscale?: string } | null)?.regime_fiscale ?? 'notula') as 'notula' | 'forfettario' | 'ordinario',
     n_corsi: Array.isArray(n.corsi) ? n.corsi.length : 0,
   }))
 
@@ -164,68 +166,6 @@ export default async function DocumentiContabiliPage() {
     })
   }
 
-  // ── Tab 3: Riepilogo ──────────────────────────────────────────────────────
-  // Notula formatori riepilogo
-  const notulaRiepilogo = new Map<string, { nome: string; n_corsi: number; lordo: number; ritenute: number; iva: number; netto: number; stati: string[] }>()
-  for (const n of notule) {
-    const existing = notulaRiepilogo.get(n.formatore_id) ?? { nome: n.formatore_nome, n_corsi: 0, lordo: 0, ritenute: 0, iva: 0, netto: 0, stati: [] }
-    existing.n_corsi += n.n_corsi
-    existing.lordo += Number(n.importo_totale ?? 0)
-    existing.ritenute += Number(n.ritenuta ?? 0)
-    existing.iva += Number(n.iva ?? 0)
-    existing.netto += Number(n.netto ?? 0)
-    existing.stati.push(n.stato)
-    notulaRiepilogo.set(n.formatore_id, existing)
-  }
-
-  // P.IVA formatori riepilogo
-  const pivaRiepilogo = new Map<string, { nome: string; regime: 'forfettario' | 'ordinario'; n_corsi: number; lordo: number; iva: number; netto: number; all_received: boolean }>()
-  for (const f of fattureAttese) {
-    const existing = pivaRiepilogo.get(f.formatore_id) ?? { nome: f.formatore_nome, regime: f.regime, n_corsi: 0, lordo: 0, iva: 0, netto: 0, all_received: true }
-    existing.n_corsi++
-    existing.lordo += f.imponibile
-    existing.iva += f.iva
-    existing.netto += f.netto
-    if (!f.fattura_ricevuta) existing.all_received = false
-    pivaRiepilogo.set(f.formatore_id, existing)
-  }
-
-  const riepilogo: RiepilogoItem[] = [
-    ...[...notulaRiepilogo.entries()].map(([id, v]) => {
-      const stati = v.stati
-      const stato: 'ok' | 'in_attesa' | 'da_verificare' =
-        stati.some(s => s === 'bozza') ? 'da_verificare'
-        : stati.some(s => s === 'inviata') ? 'in_attesa'
-        : 'ok'
-      return {
-        formatore_id: id,
-        formatore_nome: v.nome,
-        regime: 'notula' as const,
-        n_corsi: v.n_corsi,
-        totale_lordo: v.lordo,
-        totale_ritenute: v.ritenute,
-        totale_iva: v.iva,
-        totale_netto: v.netto,
-        stato,
-      }
-    }),
-    ...[...pivaRiepilogo.entries()].map(([id, v]) => ({
-      formatore_id: id,
-      formatore_nome: v.nome,
-      regime: v.regime,
-      n_corsi: v.n_corsi,
-      totale_lordo: v.lordo,
-      totale_ritenute: 0,
-      totale_iva: v.iva,
-      totale_netto: v.netto,
-      stato: (v.all_received ? 'ok' : 'in_attesa') as 'ok' | 'in_attesa' | 'da_verificare',
-    })),
-  ].sort((a, b) => a.formatore_nome.localeCompare(b.formatore_nome))
-
-  const formatori = Array.from(
-    new Map(notule.map(n => [n.formatore_id, { id: n.formatore_id, nome: n.formatore_nome }])).values()
-  ).sort((a, b) => a.nome.localeCompare(b.nome))
-
   return (
     <AppLayout
       role={profile.role}
@@ -237,9 +177,7 @@ export default async function DocumentiContabiliPage() {
     >
       <DocumentiContabiliClient
         notule={notule}
-        formatori={formatori}
         fattureAttese={fattureAttese}
-        riepilogo={riepilogo}
       />
     </AppLayout>
   )
