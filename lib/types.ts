@@ -151,6 +151,10 @@ export interface Corso {
   edizione?: string | null
   note?: string | null
   location?: string | null
+  // Notification system
+  notificato?: boolean
+  token_assegnazione?: string | null
+  pre_assegnazione?: boolean
 }
 
 export interface Candidatura {

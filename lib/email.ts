@@ -1163,6 +1163,78 @@ Rispondi SOLO con il corpo dell'email in testo semplice (no HTML, no oggetto). T
   }
 }
 
+// ─── Grouped assignment (batch) ───────────────────────────────────────────────
+
+interface AssegnazioneRaggruppataEmailParams {
+  formatore_nome: string
+  corsi: { title: string; tipo: string; ore_totali: number; modalita?: string | null; pre_assegnazione: boolean }[]
+  school_name: string
+  token_url: string
+  is_pre_assegnazione: boolean  // true if the full batch is pre-assigned
+}
+
+function fallbackAssegnazioneRaggruppataEmail(p: AssegnazioneRaggruppataEmailParams): string {
+  const list = p.corsi.map(c => `  • ${c.title} (${c.tipo}, ${c.ore_totali}h${c.modalita ? ', ' + c.modalita : ''})${c.pre_assegnazione && !p.is_pre_assegnazione ? ' [pre-assegnazione]' : ''}`).join('\n')
+  const intro = p.is_pre_assegnazione
+    ? `sei stato pre-assegnato ai seguenti corsi del progetto presso ${p.school_name}.\n\nIl progetto è attualmente in attesa di conferma definitiva — ti aggiorneremo non appena sarà attivato. Puoi comunque indicare la tua disponibilità di massima tramite il link qui sotto.`
+    : `sei stato assegnato ai seguenti corsi del progetto presso ${p.school_name}:\n\nHai 48 ore per accettare o rifiutare le assegnazioni.`
+  return `Gentile ${p.formatore_nome},\n\n${intro}\n\n${list}\n\nGrazie,\nIl team Formascuole`
+}
+
+export async function generateAssegnazioneRaggruppataEmail(p: AssegnazioneRaggruppataEmailParams): Promise<string> {
+  const list = p.corsi.map(c => `- ${c.title} (${c.tipo}, ${c.ore_totali}h${c.modalita ? ', ' + c.modalita : ''})`).join('\n')
+  try {
+    const message = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 600,
+      messages: [{
+        role: 'user',
+        content: `Genera un'email professionale in italiano per un formatore ${p.is_pre_assegnazione ? 'pre-assegnato' : 'assegnato'} a più corsi.
+
+Dati:
+- Nome formatore: ${p.formatore_nome}
+- Scuola: ${p.school_name}
+- Tipo: ${p.is_pre_assegnazione ? 'PRE-ASSEGNAZIONE (progetto in attesa di conferma)' : 'ASSEGNAZIONE DEFINITIVA'}
+- Corsi:
+${list}
+
+L'email deve:
+1. Salutare per nome
+2. ${p.is_pre_assegnazione ? 'Comunicare la pre-assegnazione e che verrà ricontattato all\'attivazione del progetto' : 'Comunicare l\'assegnazione definitiva ai corsi elencati'}
+3. Elencare i corsi con titolo, tipo e ore
+4. ${p.is_pre_assegnazione ? 'Invitare a indicare la disponibilità di massima tramite il link' : 'Chiedere di accettare o rifiutare entro 48 ore tramite il link'}
+5. Chiudere con un saluto professionale
+
+Rispondi SOLO con il corpo dell'email in testo semplice (no HTML, no oggetto).`,
+      }],
+    })
+    return (message.content[0] as { type: string; text: string }).text
+  } catch (err) {
+    console.error('[email] Anthropic fallback for grouped assignment:', err)
+    return fallbackAssegnazioneRaggruppataEmail(p)
+  }
+}
+
+// ─── Admin notification after formatore responds via token ────────────────────
+
+interface RispostaAssegnazioniAdminEmailParams {
+  formatore_nome: string
+  school_name: string
+  accettati: { title: string }[]
+  rifiutati: { title: string; motivazione?: string }[]
+  progetto_url: string
+}
+
+export async function generateRispostaAssegnazioniAdminEmail(p: RispostaAssegnazioniAdminEmailParams): Promise<string> {
+  const accList = p.accettati.map(c => `  ✅ ${c.title}`).join('\n')
+  const rifList = p.rifiutati.map(c => `  ❌ ${c.title}${c.motivazione ? '\n     Motivazione: ' + c.motivazione : ''}`).join('\n')
+  return [
+    `Il formatore ${p.formatore_nome} ha risposto alle assegnazioni del progetto presso ${p.school_name}:`,
+    p.accettati.length > 0 ? `\nAccettati:\n${accList}` : '',
+    p.rifiutati.length > 0 ? `\nRifiutati:\n${rifList}` : '',
+  ].filter(Boolean).join('\n')
+}
+
 // ─── Sender ───────────────────────────────────────────────────────────────────
 
 export async function sendEmail({

@@ -32,6 +32,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   }
   if ('edizione' in body) updates.edizione = body.edizione?.trim() || null
   if ('note' in body) updates.note = body.note?.trim() || null
+  if ('pre_assegnazione' in body) updates.pre_assegnazione = !!body.pre_assegnazione
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: 'Nessun campo da aggiornare' }, { status: 400 })

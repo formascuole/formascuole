@@ -21,7 +21,7 @@ import { ModalitaIcon } from '@/components/ui/ModalitaIcon'
 
 interface CorsoDetailClientProps {
   corso: CorsoConOre & { formatore?: Profile; tutor?: Profile; referente?: Referente }
-  progetto: Pick<Progetto, 'school_name' | 'anno_scolastico' | 'ref_name' | 'ref_email' | 'ref_tel' | 'finanziamento_id'> | null
+  progetto: Pick<Progetto, 'school_name' | 'anno_scolastico' | 'ref_name' | 'ref_email' | 'ref_tel' | 'finanziamento_id' | 'status'> | null
   finanziamentoNome?: string | null
   sessioni: Sessione[]
   formatori: Profile[]
@@ -1055,6 +1055,35 @@ export function CorsoDetailClient({
             ) : null
           })()}
         </div>
+        {isAdmin && progetto?.status === 'pending' && corso.formatore_id && (
+          <div className="mb-4 flex items-center justify-between p-3 bg-purple-50 border border-purple-100 rounded-[7px]">
+            <div>
+              <div className="text-sm font-medium text-purple-900">Pre-assegnazione</div>
+              <div className="text-xs text-purple-600 mt-0.5">
+                {corso.pre_assegnazione
+                  ? 'Questa è una pre-assegnazione. Diventerà definitiva quando il progetto passa ad Attivo.'
+                  : 'Assegnazione definitiva.'}
+              </div>
+            </div>
+            <button
+              onClick={async () => {
+                await fetch(`/api/corsi/${corso.id}`, {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ pre_assegnazione: !corso.pre_assegnazione }),
+                })
+                router.refresh()
+              }}
+              className={`text-xs font-medium px-3 py-1.5 rounded-[6px] border transition-colors ${
+                corso.pre_assegnazione
+                  ? 'bg-white text-purple-700 border-purple-200 hover:bg-purple-100'
+                  : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-100'
+              }`}
+            >
+              {corso.pre_assegnazione ? 'Segna come definitiva' : 'Segna come pre-assegnazione'}
+            </button>
+          </div>
+        )}
         {corso.stato_assegnazione === 'rifiutato' && corso.rifiuto_motivazione && (
           <div className="mb-4 bg-red-50 border border-red-200 rounded-[7px] px-4 py-3 text-sm text-red-700">
             <div className="font-medium mb-0.5">Motivazione rifiuto</div>

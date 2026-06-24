@@ -65,6 +65,17 @@ export function ProgettoDetailClient({
   // ── Delete progetto ──────────────────────────────────────────
   const [deleteProgettoOpen, setDeleteProgettoOpen] = useState(false)
 
+  // ── Notifica assegnazioni ─────────────────────────────────────
+  const [notificaOpen, setNotificaOpen] = useState(false)
+  const [notificaSelected, setNotificaSelected] = useState<Set<string>>(new Set())
+  const [sendingNotifiche, setSendingNotifiche] = useState(false)
+  const [notificaError, setNotificaError] = useState('')
+
+  // ── Conferma pre-assegnazioni ─────────────────────────────────
+  const [preConfirmOpen, setPreConfirmOpen] = useState(false)
+  const [preConfirmSelected, setPreConfirmSelected] = useState<Set<string>>(new Set())
+  const [confirmingPre, setConfirmingPre] = useState(false)
+
   // ── Corso form ──────────────────────────────────────────────
   const [addCorsoOpen, setAddCorsoOpen] = useState(false)
   const [addCorsoStep, setAddCorsoStep] = useState<1 | 2>(1)
@@ -196,9 +207,55 @@ export function ProgettoDetailClient({
       const json = await res.json()
       if (!res.ok) { setScuolaError(json.error || 'Errore'); return }
       setEditScuolaOpen(false)
-      router.refresh()
+
+      const isTransitionToActive = progetto.status === 'pending' && editScuolaForm.status === 'active'
+      const preAssegnati = corsi.filter(c => c.pre_assegnazione && c.formatore_id)
+      if (isTransitionToActive && preAssegnati.length > 0) {
+        setPreConfirmSelected(new Set(preAssegnati.map(c => c.id)))
+        setPreConfirmOpen(true)
+      } else {
+        router.refresh()
+      }
     } finally {
       setSavingScuola(false)
+    }
+  }
+
+  // ── Handlers: notifica assegnazioni ──────────────────────────
+  const handleSendNotifiche = async () => {
+    setSendingNotifiche(true)
+    setNotificaError('')
+    try {
+      const res = await fetch(`/api/progetti/${progetto.id}/notifica-assegnazioni`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ corso_ids: Array.from(notificaSelected) }),
+      })
+      const json = await res.json()
+      if (!res.ok) { setNotificaError(json.error || 'Errore'); return }
+      setNotificaOpen(false)
+      router.refresh()
+    } finally {
+      setSendingNotifiche(false)
+    }
+  }
+
+  // ── Handlers: conferma pre-assegnazioni ──────────────────────
+  const handleConfirmPreAssegnazioni = async () => {
+    setConfirmingPre(true)
+    try {
+      const selected = Array.from(preConfirmSelected)
+      if (selected.length > 0) {
+        await fetch(`/api/progetti/${progetto.id}/conferma-pre-assegnazioni`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ corso_ids: selected }),
+        })
+      }
+      setPreConfirmOpen(false)
+      router.refresh()
+    } finally {
+      setConfirmingPre(false)
     }
   }
 
@@ -502,13 +559,40 @@ export function ProgettoDetailClient({
       {/* Corsi */}
       <div className="bg-white rounded-xl mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h2 className="font-semibold text-gray-900">Corsi ({corsi.length})</h2>
-          <Button size="sm" onClick={() => setAddCorsoOpen(true)}>
-            <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
-              <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
-            Aggiungi Corso
-          </Button>
+          <div className="flex items-center gap-3">
+            <h2 className="font-semibold text-gray-900">Corsi ({corsi.length})</h2>
+            {corsi.filter(c => c.formatore_id && !c.notificato).length > 0 && (
+              <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                {corsi.filter(c => c.formatore_id && !c.notificato).length} da notificare
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            {corsi.filter(c => c.formatore_id && !c.notificato).length > 0 && (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => {
+                  const daNotificare = corsi.filter(c => c.formatore_id && !c.notificato)
+                  setNotificaSelected(new Set(daNotificare.map(c => c.id)))
+                  setNotificaError('')
+                  setNotificaOpen(true)
+                }}
+              >
+                <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
+                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  <polyline points="22,6 12,13 2,6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                Invia notifiche
+              </Button>
+            )}
+            <Button size="sm" onClick={() => setAddCorsoOpen(true)}>
+              <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
+                <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+              Aggiungi Corso
+            </Button>
+          </div>
         </div>
         <div className="divide-y divide-gray-50">
           {corsi.length === 0 ? (
@@ -730,6 +814,178 @@ export function ProgettoDetailClient({
           <Input label="Telefono" value={editMainRefForm.tel} onChange={e => setEditMainRefForm(f => ({ ...f, tel: e.target.value }))} placeholder="Es. 02-12345678" />
           <div><label className="block text-sm font-medium text-gray-700 mb-1">Ruolo</label><select value={editMainRefForm.ruolo} onChange={e => setEditMainRefForm(f => ({ ...f, ruolo: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"><option value="">— Seleziona ruolo —</option>{RUOLI_REFERENTE.map(r => <option key={r} value={r}>{r}</option>)}</select></div>
           {mainRefError && <p className="text-sm text-red-600">{mainRefError}</p>}
+        </div>
+      </Modal>
+
+      {/* ── Modal: Invia notifiche assegnazioni ─────────────────────── */}
+      <Modal
+        open={notificaOpen}
+        onClose={() => setNotificaOpen(false)}
+        title="Invia notifiche assegnazioni"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setNotificaOpen(false)}>Annulla</Button>
+            <Button
+              onClick={handleSendNotifiche}
+              loading={sendingNotifiche}
+              disabled={notificaSelected.size === 0}
+            >
+              Invia notifiche selezionate ({notificaSelected.size})
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-1">
+          <p className="text-sm text-gray-500 mb-4">
+            Verrà inviata un&apos;unica email riepilogativa per ogni formatore con i corsi selezionati.
+          </p>
+          {(() => {
+            const daNotificare = corsi.filter(c => c.formatore_id && !c.notificato)
+            const byFormatore = new Map<string, typeof daNotificare>()
+            for (const c of daNotificare) {
+              const fId = c.formatore_id as string
+              if (!byFormatore.has(fId)) byFormatore.set(fId, [])
+              byFormatore.get(fId)!.push(c)
+            }
+            return Array.from(byFormatore.entries()).map(([fId, fCorsi]) => {
+              const formatore = (fCorsi[0].formatore as { nome?: string } | undefined)
+              const preCorsi = fCorsi.filter(c => c.pre_assegnazione)
+              const defCorsi = fCorsi.filter(c => !c.pre_assegnazione)
+              return (
+                <div key={fId} className="border border-gray-100 rounded-[7px] overflow-hidden mb-3">
+                  <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-800">{formatore?.nome || 'Formatore'}</span>
+                    <button
+                      className="text-xs text-gray-400 hover:text-gray-600"
+                      onClick={() => {
+                        const allIds = fCorsi.map(c => c.id)
+                        const allSelected = allIds.every(id => notificaSelected.has(id))
+                        setNotificaSelected(prev => {
+                          const next = new Set(prev)
+                          if (allSelected) allIds.forEach(id => next.delete(id))
+                          else allIds.forEach(id => next.add(id))
+                          return next
+                        })
+                      }}
+                    >
+                      {fCorsi.every(c => notificaSelected.has(c.id)) ? 'Deseleziona tutti' : 'Seleziona tutti'}
+                    </button>
+                  </div>
+                  <div className="px-4 py-2">
+                    {preCorsi.length > 0 && (
+                      <div className="mb-2">
+                        <div className="text-xs font-medium text-purple-600 uppercase tracking-wide mb-1.5">Pre-assegnazioni</div>
+                        {preCorsi.map(c => (
+                          <label key={c.id} className="flex items-center gap-2.5 py-1.5 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={notificaSelected.has(c.id)}
+                              onChange={e => {
+                                setNotificaSelected(prev => {
+                                  const next = new Set(prev)
+                                  if (e.target.checked) next.add(c.id)
+                                  else next.delete(c.id)
+                                  return next
+                                })
+                              }}
+                              className="w-4 h-4 rounded accent-[#d64b55]"
+                            />
+                            <span className="text-sm text-gray-700 flex-1">{c.title}</span>
+                            <span className="text-xs text-gray-400">{c.ore_totali}h</span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                    {defCorsi.length > 0 && (
+                      <div className={preCorsi.length > 0 ? 'pt-2 border-t border-gray-50' : ''}>
+                        {preCorsi.length > 0 && (
+                          <div className="text-xs font-medium text-blue-600 uppercase tracking-wide mb-1.5">Assegnazioni definitive</div>
+                        )}
+                        {defCorsi.map(c => (
+                          <label key={c.id} className="flex items-center gap-2.5 py-1.5 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={notificaSelected.has(c.id)}
+                              onChange={e => {
+                                setNotificaSelected(prev => {
+                                  const next = new Set(prev)
+                                  if (e.target.checked) next.add(c.id)
+                                  else next.delete(c.id)
+                                  return next
+                                })
+                              }}
+                              className="w-4 h-4 rounded accent-[#d64b55]"
+                            />
+                            <span className="text-sm text-gray-700 flex-1">{c.title}</span>
+                            <span className="text-xs text-gray-400">{c.ore_totali}h</span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            })
+          })()}
+          {notificaError && <p className="text-sm text-red-600 pt-2">{notificaError}</p>}
+        </div>
+      </Modal>
+
+      {/* ── Modal: Conferma pre-assegnazioni ─────────────────────────── */}
+      <Modal
+        open={preConfirmOpen}
+        onClose={() => { setPreConfirmOpen(false); router.refresh() }}
+        title="Conferma pre-assegnazioni"
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => { setPreConfirmOpen(false); router.refresh() }}
+            >
+              Salta per ora
+            </Button>
+            <Button
+              onClick={handleConfirmPreAssegnazioni}
+              loading={confirmingPre}
+              disabled={preConfirmSelected.size === 0}
+            >
+              Conferma selezionate ({preConfirmSelected.size})
+            </Button>
+          </>
+        }
+      >
+        <div>
+          <p className="text-sm text-gray-600 mb-4">
+            Il progetto è passato ad <strong>Attivo</strong>. I corsi seguenti erano in pre-assegnazione.
+            Seleziona quelli da confermare come assegnazioni definitive (notificato = no, per consentire il re-invio):
+          </p>
+          <div className="space-y-1">
+            {corsi.filter(c => c.pre_assegnazione && c.formatore_id).map(c => {
+              const formatore = c.formatore as { nome?: string } | undefined
+              return (
+                <label key={c.id} className="flex items-center gap-2.5 py-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={preConfirmSelected.has(c.id)}
+                    onChange={e => {
+                      setPreConfirmSelected(prev => {
+                        const next = new Set(prev)
+                        if (e.target.checked) next.add(c.id)
+                        else next.delete(c.id)
+                        return next
+                      })
+                    }}
+                    className="w-4 h-4 rounded accent-[#d64b55]"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm text-gray-700">{c.title}</div>
+                    {formatore?.nome && <div className="text-xs text-gray-400">{formatore.nome}</div>}
+                  </div>
+                  <span className="text-xs text-gray-400">{c.ore_totali}h</span>
+                </label>
+              )
+            })}
+          </div>
         </div>
       </Modal>
 
