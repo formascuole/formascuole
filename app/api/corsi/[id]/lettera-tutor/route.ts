@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { generateLetteraIncaricoTutorPdf } from '@/lib/generate-lettera-incarico-pdf'
-import { sendLetteraIncaricoEmail } from '@/lib/email'
+import { sendLetteraAggiornataEmail } from '@/lib/email'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://formascuole.vercel.app'
 
@@ -23,11 +23,13 @@ export async function POST(
 
   const { data: corso } = await admin
     .from('corsi')
-    .select('id, title, project_id, tutor_id, ore_tutoraggio, tariffa_oraria_tutor')
+    .select('id, title, project_id, tutor_id, ore_tutoraggio, tariffa_oraria_tutor, lettera_tutor_url')
     .eq('id', id)
     .single()
   if (!corso || !corso.tutor_id)
     return NextResponse.json({ error: 'Corso o tutor non trovato' }, { status: 404 })
+
+  const isRigenera = !!corso.lettera_tutor_url
 
   const [{ data: tutor }, { data: progetto }] = await Promise.all([
     admin.from('profiles').select('id, nome, email, indirizzo_via, indirizzo_cap, indirizzo_citta, indirizzo_provincia, codice_fiscale, tariffa_oraria_tutor').eq('id', corso.tutor_id as string).single(),
@@ -71,25 +73,34 @@ export async function POST(
 
   const { data: updated, error: updateError } = await admin
     .from('corsi')
-    .update({ lettera_tutor_url: publicUrl, lettera_tutor_firmata: false, lettera_tutor_firmata_at: null, lettera_tutor_ip: null })
+    .update({
+      lettera_tutor_url: publicUrl,
+      lettera_tutor_firmata: false,
+      lettera_tutor_firmata_at: null,
+      lettera_tutor_ip: null,
+      lettera_tutor_pending: true,
+      lettera_tutor_inviata_at: null,
+      lettera_tutor_sollecito_at: null,
+    })
     .eq('id', id)
-    .select('lettera_tutor_url, lettera_tutor_firmata, lettera_tutor_firmata_at')
+    .select('lettera_tutor_url, lettera_tutor_firmata, lettera_tutor_firmata_at, lettera_tutor_pending')
     .single()
   if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 })
 
-  try {
-    const letteraUrl = `${APP_URL}/progetti/${corso.project_id}/corsi/${id}`
-    await sendLetteraIncaricoEmail({
-      to: tutor.email as string,
-      persona_nome: tutor.nome as string,
-      corso_title: corso.title as string,
-      school_name: progetto.school_name as string,
-      pdfBuffer,
-      tipo: 'tutor',
-      lettera_url: letteraUrl,
-    })
-  } catch (err) {
-    console.error('[lettera-tutor] Email send failed (non-fatal):', err)
+  if (isRigenera) {
+    try {
+      const letteraUrl = `${APP_URL}/progetti/${corso.project_id}/corsi/${id}`
+      await sendLetteraAggiornataEmail({
+        to: tutor.email as string,
+        persona_nome: tutor.nome as string,
+        corso_title: corso.title as string,
+        school_name: progetto.school_name as string,
+        tipo: 'tutor',
+        lettera_url: letteraUrl,
+      })
+    } catch (err) {
+      console.error('[lettera-tutor] Rigenera notification failed (non-fatal):', err)
+    }
   }
 
   return NextResponse.json(updated)

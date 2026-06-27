@@ -163,10 +163,16 @@ export interface Corso {
   lettera_incarico_firmata?: boolean
   lettera_incarico_firmata_at?: string | null
   lettera_incarico_ip?: string | null
+  lettera_incarico_pending?: boolean
+  lettera_incarico_inviata_at?: string | null
+  lettera_incarico_sollecito_at?: string | null
   lettera_tutor_url?: string | null
   lettera_tutor_firmata?: boolean
   lettera_tutor_firmata_at?: string | null
   lettera_tutor_ip?: string | null
+  lettera_tutor_pending?: boolean
+  lettera_tutor_inviata_at?: string | null
+  lettera_tutor_sollecito_at?: string | null
 }
 
 export interface Candidatura {

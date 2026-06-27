@@ -1278,6 +1278,114 @@ Il team SVC Consulting Srl`
   })
 }
 
+export async function sendLettereCumulativeEmail({
+  to,
+  persona_nome,
+  school_name,
+  progetto_nome,
+  lettere,
+  lettera_url,
+}: {
+  to: string
+  persona_nome: string
+  school_name: string
+  progetto_nome: string
+  lettere: Array<{ pdfBuffer: Buffer; corso_title: string; tipo: 'formatore' | 'tutor' }>
+  lettera_url: string
+}) {
+  const elenco = lettere.map(l => `  • ${l.corso_title}`).join('\n')
+  const body = `Gentile ${persona_nome},
+
+le inviamo in allegato ${lettere.length === 1 ? 'la lettera di incarico' : `le ${lettere.length} lettere di incarico`} relative ai corsi del progetto "${progetto_nome}" presso ${school_name}:
+
+${elenco}
+
+La preghiamo di leggere attentamente i documenti e di procedere con la firma digitale accedendo alla piattaforma:
+${lettera_url}
+
+Cordiali saluti,
+Il team SVC Consulting Srl`
+
+  await resend.emails.send({
+    from: 'Formascuole <noreply@formascuole.it>',
+    to,
+    subject: `Lettere di incarico — ${progetto_nome} — ${school_name}`,
+    text: body,
+    attachments: lettere.map((l, i) => ({
+      filename: `lettera-incarico-${i + 1}-${l.corso_title.replace(/[^a-z0-9]/gi, '-').toLowerCase()}.pdf`,
+      content: l.pdfBuffer.toString('base64'),
+    })),
+  })
+}
+
+export async function sendLetteraAnnullataEmail({
+  to,
+  persona_nome,
+  corso_title,
+  school_name,
+  tipo,
+  motivo,
+}: {
+  to: string
+  persona_nome: string
+  corso_title: string
+  school_name: string
+  tipo: 'formatore' | 'tutor'
+  motivo?: string | null
+}) {
+  const ruolo = tipo === 'tutor' ? 'tutoraggio' : 'formazione'
+  const motivoLine = motivo ? `\n\nMotivo: ${motivo}` : ''
+  const body = `Gentile ${persona_nome},
+
+la informiamo che la lettera di incarico per l'attività di ${ruolo} relativa al corso "${corso_title}" presso ${school_name} è stata annullata.${motivoLine}
+
+Per ulteriori informazioni, la preghiamo di contattare il team Formascuole.
+
+Cordiali saluti,
+Il team SVC Consulting Srl`
+
+  await resend.emails.send({
+    from: 'Formascuole <noreply@formascuole.it>',
+    to,
+    subject: `Lettera di incarico annullata — ${corso_title} — ${school_name}`,
+    text: body,
+  })
+}
+
+export async function sendLetteraAggiornataEmail({
+  to,
+  persona_nome,
+  corso_title,
+  school_name,
+  tipo,
+  lettera_url,
+}: {
+  to: string
+  persona_nome: string
+  corso_title: string
+  school_name: string
+  tipo: 'formatore' | 'tutor'
+  lettera_url: string
+}) {
+  const ruolo = tipo === 'tutor' ? 'tutoraggio' : 'formazione'
+  const body = `Gentile ${persona_nome},
+
+la lettera di incarico per l'attività di ${ruolo} relativa al corso "${corso_title}" presso ${school_name} è stata aggiornata.
+
+Riceverà la nuova versione del documento via email entro oggi. Potrà comunque accedere alla piattaforma per visualizzarla:
+${lettera_url}
+
+Cordiali saluti,
+Il team SVC Consulting Srl`
+
+  await resend.emails.send({
+    from: 'Formascuole <noreply@formascuole.it>',
+    to,
+    subject: `Lettera di incarico aggiornata — ${corso_title} — ${school_name}`,
+    text: body,
+  })
+}
+
 // ─── Sender ───────────────────────────────────────────────────────────────────
 
 export async function sendEmail({

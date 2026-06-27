@@ -10,6 +10,7 @@ import {
   generateCandidaturaDisponibileEmail,
   sendEmail,
   sendQuestionarioReminderEmail,
+  sendLettereCumulativeEmail,
 } from '@/lib/email'
 
 const CRON_SECRET = process.env.CRON_SECRET
@@ -549,6 +550,259 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // ── FASE 6: Invio lettere incarico pending ────────────────────────────────
+    const letteraResults: { corso_id: string; action: string }[] = []
+
+    // Formatore letters
+    const { data: corsiLetteraPending } = await supabase
+      .from('corsi')
+      .select('id, title, tipo, formatore_id, project_id')
+      .eq('lettera_incarico_pending', true)
+      .not('lettera_incarico_url', 'is', null)
+
+    // Group by formatore_id + project_id
+    type LetteraGroup = { formatore_id: string; project_id: string; corsi: Array<{ id: string; title: string; tipo: string }> }
+    const letteraGroupMap = new Map<string, LetteraGroup>()
+    for (const c of corsiLetteraPending || []) {
+      const key = `${c.formatore_id}::${c.project_id}`
+      if (!letteraGroupMap.has(key)) {
+        letteraGroupMap.set(key, { formatore_id: c.formatore_id as string, project_id: c.project_id as string, corsi: [] })
+      }
+      letteraGroupMap.get(key)!.corsi.push({ id: c.id as string, title: c.title as string, tipo: c.tipo as string })
+    }
+
+    for (const group of letteraGroupMap.values()) {
+      try {
+        const [{ data: formatore }, { data: progetto }] = await Promise.all([
+          supabase.from('profiles').select('nome, email').eq('id', group.formatore_id).single(),
+          supabase.from('progetti').select('school_name, id').eq('id', group.project_id).single(),
+        ])
+        if (!formatore || !progetto) continue
+
+        const lettere: Array<{ pdfBuffer: Buffer; corso_title: string; tipo: 'formatore' | 'tutor' }> = []
+        const corsoIdsSent: string[] = []
+
+        for (const c of group.corsi) {
+          const storagePath = `lettere/${c.id}/lettera_formatore.pdf`
+          const { data: fileData } = await supabase.storage.from('notule').download(storagePath)
+          if (!fileData) continue
+          const pdfBuffer = Buffer.from(await fileData.arrayBuffer())
+          lettere.push({ pdfBuffer, corso_title: c.title, tipo: 'formatore' })
+          corsoIdsSent.push(c.id)
+        }
+
+        if (lettere.length === 0) continue
+
+        const lettera_url = `${APP_URL}/formatore`
+        await sendLettereCumulativeEmail({
+          to: formatore.email as string,
+          persona_nome: formatore.nome as string,
+          school_name: progetto.school_name as string,
+          progetto_nome: progetto.school_name as string,
+          lettere,
+          lettera_url,
+        })
+
+        const inviataAt = now.toISOString()
+        for (const id of corsoIdsSent) {
+          await supabase.from('corsi').update({
+            lettera_incarico_pending: false,
+            lettera_incarico_inviata_at: inviataAt,
+          }).eq('id', id)
+          letteraResults.push({ corso_id: id, action: 'sent_lettera_formatore' })
+        }
+      } catch (err) {
+        console.error('[cron] Lettera formatore send failed:', err)
+        for (const c of group.corsi) letteraResults.push({ corso_id: c.id, action: 'lettera_email_error' })
+      }
+    }
+
+    // Tutor letters — same pattern
+    const { data: corsiLetteraTutorPending } = await supabase
+      .from('corsi')
+      .select('id, title, tutor_id, project_id')
+      .eq('lettera_tutor_pending', true)
+      .not('lettera_tutor_url', 'is', null)
+
+    type LetteraTutorGroup = { tutor_id: string; project_id: string; corsi: Array<{ id: string; title: string }> }
+    const letteraTutorGroupMap = new Map<string, LetteraTutorGroup>()
+    for (const c of corsiLetteraTutorPending || []) {
+      const key = `${c.tutor_id}::${c.project_id}`
+      if (!letteraTutorGroupMap.has(key)) {
+        letteraTutorGroupMap.set(key, { tutor_id: c.tutor_id as string, project_id: c.project_id as string, corsi: [] })
+      }
+      letteraTutorGroupMap.get(key)!.corsi.push({ id: c.id as string, title: c.title as string })
+    }
+
+    for (const group of letteraTutorGroupMap.values()) {
+      try {
+        const [{ data: tutor }, { data: progetto }] = await Promise.all([
+          supabase.from('profiles').select('nome, email').eq('id', group.tutor_id).single(),
+          supabase.from('progetti').select('school_name').eq('id', group.project_id).single(),
+        ])
+        if (!tutor || !progetto) continue
+
+        const lettere: Array<{ pdfBuffer: Buffer; corso_title: string; tipo: 'formatore' | 'tutor' }> = []
+        const corsoIdsSent: string[] = []
+
+        for (const c of group.corsi) {
+          const storagePath = `lettere/${c.id}/lettera_tutor.pdf`
+          const { data: fileData } = await supabase.storage.from('notule').download(storagePath)
+          if (!fileData) continue
+          const pdfBuffer = Buffer.from(await fileData.arrayBuffer())
+          lettere.push({ pdfBuffer, corso_title: c.title, tipo: 'tutor' })
+          corsoIdsSent.push(c.id)
+        }
+
+        if (lettere.length === 0) continue
+
+        const lettera_url = `${APP_URL}/formatore`
+        await sendLettereCumulativeEmail({
+          to: tutor.email as string,
+          persona_nome: tutor.nome as string,
+          school_name: progetto.school_name as string,
+          progetto_nome: progetto.school_name as string,
+          lettere,
+          lettera_url,
+        })
+
+        const inviataAt = now.toISOString()
+        for (const id of corsoIdsSent) {
+          await supabase.from('corsi').update({
+            lettera_tutor_pending: false,
+            lettera_tutor_inviata_at: inviataAt,
+          }).eq('id', id)
+          letteraResults.push({ corso_id: id, action: 'sent_lettera_tutor' })
+        }
+      } catch (err) {
+        console.error('[cron] Lettera tutor send failed:', err)
+        for (const c of group.corsi) letteraResults.push({ corso_id: c.id, action: 'lettera_tutor_email_error' })
+      }
+    }
+
+    // ── FASE 7: Solleciti firma lettere ───────────────────────────────────────
+    const sollecitiFirmaResults: { corso_id: string; action: string }[] = []
+    const cutoff24hLettera = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString()
+
+    // Formatore: inviata >24h ago, not signed, (no sollecito or sollecito >24h ago)
+    const { data: corsiSollecitaFormatore } = await supabase
+      .from('corsi')
+      .select('id, title, formatore_id, project_id, lettera_incarico_sollecito_at')
+      .not('lettera_incarico_inviata_at', 'is', null)
+      .eq('lettera_incarico_firmata', false)
+      .lt('lettera_incarico_inviata_at', cutoff24hLettera)
+
+    const sollecitaFormGroups = new Map<string, { formatore_id: string; project_id: string; corsi: Array<{ id: string; title: string; sollecito_at: string | null }> }>()
+    for (const c of corsiSollecitaFormatore || []) {
+      const sollecitoAt = c.lettera_incarico_sollecito_at as string | null
+      // Skip if sollecito was sent less than 24h ago
+      if (sollecitoAt && new Date(sollecitoAt) > new Date(cutoff24hLettera)) continue
+      const key = `${c.formatore_id}::${c.project_id}`
+      if (!sollecitaFormGroups.has(key)) {
+        sollecitaFormGroups.set(key, { formatore_id: c.formatore_id as string, project_id: c.project_id as string, corsi: [] })
+      }
+      sollecitaFormGroups.get(key)!.corsi.push({ id: c.id as string, title: c.title as string, sollecito_at: sollecitoAt })
+    }
+
+    for (const group of sollecitaFormGroups.values()) {
+      try {
+        const [{ data: formatore }, { data: progetto }] = await Promise.all([
+          supabase.from('profiles').select('nome, email').eq('id', group.formatore_id).single(),
+          supabase.from('progetti').select('school_name').eq('id', group.project_id).single(),
+        ])
+        if (!formatore || !progetto) continue
+
+        const elenco = group.corsi.map(c => `  • ${c.title}`).join('\n')
+        const lettera_url = `${APP_URL}/formatore`
+        const body = `Gentile ${formatore.nome},
+
+le ricordiamo che ${group.corsi.length === 1 ? 'la lettera di incarico' : 'le lettere di incarico'} per i seguenti corsi presso ${progetto.school_name} ${group.corsi.length === 1 ? 'non è ancora stata firmata' : 'non sono ancora state firmate'}:
+
+${elenco}
+
+La preghiamo di procedere con la firma digitale accedendo alla piattaforma:
+${lettera_url}
+
+Cordiali saluti,
+Il team SVC Consulting Srl`
+
+        await sendEmail({
+          to: formatore.email as string,
+          subject: `Sollecito firma lettera d'incarico — ${progetto.school_name}`,
+          body,
+          actions: [{ label: 'Firma lettera', url: lettera_url, primary: true }],
+        })
+
+        const sollecitoAt = now.toISOString()
+        for (const c of group.corsi) {
+          await supabase.from('corsi').update({ lettera_incarico_sollecito_at: sollecitoAt }).eq('id', c.id)
+          sollecitiFirmaResults.push({ corso_id: c.id, action: 'sent_sollecito_firma_formatore' })
+        }
+      } catch (err) {
+        console.error('[cron] Sollecito firma formatore failed:', err)
+        for (const c of group.corsi) sollecitiFirmaResults.push({ corso_id: c.id, action: 'sollecito_firma_error' })
+      }
+    }
+
+    // Tutor: same pattern
+    const { data: corsiSollecitaTutor } = await supabase
+      .from('corsi')
+      .select('id, title, tutor_id, project_id, lettera_tutor_sollecito_at')
+      .not('lettera_tutor_inviata_at', 'is', null)
+      .eq('lettera_tutor_firmata', false)
+      .lt('lettera_tutor_inviata_at', cutoff24hLettera)
+
+    const sollecitaTutorGroups = new Map<string, { tutor_id: string; project_id: string; corsi: Array<{ id: string; title: string; sollecito_at: string | null }> }>()
+    for (const c of corsiSollecitaTutor || []) {
+      const sollecitoAt = c.lettera_tutor_sollecito_at as string | null
+      if (sollecitoAt && new Date(sollecitoAt) > new Date(cutoff24hLettera)) continue
+      const key = `${c.tutor_id}::${c.project_id}`
+      if (!sollecitaTutorGroups.has(key)) {
+        sollecitaTutorGroups.set(key, { tutor_id: c.tutor_id as string, project_id: c.project_id as string, corsi: [] })
+      }
+      sollecitaTutorGroups.get(key)!.corsi.push({ id: c.id as string, title: c.title as string, sollecito_at: sollecitoAt })
+    }
+
+    for (const group of sollecitaTutorGroups.values()) {
+      try {
+        const [{ data: tutor }, { data: progetto }] = await Promise.all([
+          supabase.from('profiles').select('nome, email').eq('id', group.tutor_id).single(),
+          supabase.from('progetti').select('school_name').eq('id', group.project_id).single(),
+        ])
+        if (!tutor || !progetto) continue
+
+        const elenco = group.corsi.map(c => `  • ${c.title}`).join('\n')
+        const lettera_url = `${APP_URL}/formatore`
+        const body = `Gentile ${tutor.nome},
+
+le ricordiamo che ${group.corsi.length === 1 ? 'la lettera di incarico di tutoraggio' : 'le lettere di incarico di tutoraggio'} per i seguenti corsi presso ${progetto.school_name} ${group.corsi.length === 1 ? 'non è ancora stata firmata' : 'non sono ancora state firmate'}:
+
+${elenco}
+
+La preghiamo di procedere con la firma digitale accedendo alla piattaforma:
+${lettera_url}
+
+Cordiali saluti,
+Il team SVC Consulting Srl`
+
+        await sendEmail({
+          to: tutor.email as string,
+          subject: `Sollecito firma lettera d'incarico tutoraggio — ${progetto.school_name}`,
+          body,
+          actions: [{ label: 'Firma lettera', url: lettera_url, primary: true }],
+        })
+
+        const sollecitoAt = now.toISOString()
+        for (const c of group.corsi) {
+          await supabase.from('corsi').update({ lettera_tutor_sollecito_at: sollecitoAt }).eq('id', c.id)
+          sollecitiFirmaResults.push({ corso_id: c.id, action: 'sent_sollecito_firma_tutor' })
+        }
+      } catch (err) {
+        console.error('[cron] Sollecito firma tutor failed:', err)
+        for (const c of group.corsi) sollecitiFirmaResults.push({ corso_id: c.id, action: 'sollecito_firma_tutor_error' })
+      }
+    }
+
     return NextResponse.json({
       success: true,
       accettazione_processed: (pendingCorsi || []).length,
@@ -562,6 +816,10 @@ export async function GET(request: NextRequest) {
       questionario_results: questionarioResults,
       candidature_processed: (corsiCandidatureAperte || []).length,
       candidature_results: candidatureResults,
+      lettere_processed: letteraResults.length,
+      lettere_results: letteraResults,
+      solleciti_firma_processed: sollecitiFirmaResults.length,
+      solleciti_firma_results: sollecitiFirmaResults,
       timestamp: now.toISOString(),
     })
   } catch (error) {

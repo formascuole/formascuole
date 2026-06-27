@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { generateRispostaFormatoreEmail, sendEmail } from '@/lib/email'
+import { generateLetteraIncaricoFormatorePdf } from '@/lib/generate-lettera-incarico-pdf'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://formascuole.vercel.app'
 
@@ -13,10 +14,9 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
   const admin = createAdminClient()
 
-  // Verify caller is the assigned formatore
   const { data: corso } = await admin
     .from('corsi')
-    .select('id, title, formatore_id, project_id, stato_assegnazione, ore_totali, tipo')
+    .select('id, title, formatore_id, project_id, stato_assegnazione, ore_totali, tipo, tariffa_oraria')
     .eq('id', corsoId)
     .single()
 
@@ -26,7 +26,6 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ error: 'Il corso non è in attesa di accettazione' }, { status: 400 })
   }
 
-  // Update stato
   const { error } = await admin
     .from('corsi')
     .update({
@@ -37,20 +36,57 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Fetch project + formatore info for notification
-  const { data: progetto } = await admin
-    .from('progetti')
-    .select('school_name')
-    .eq('id', corso.project_id)
-    .single()
+  const [{ data: progetto }, { data: formatore }] = await Promise.all([
+    admin.from('progetti').select('school_name').eq('id', corso.project_id).single(),
+    admin.from('profiles').select('nome, email, indirizzo_via, indirizzo_cap, indirizzo_citta, indirizzo_provincia, codice_fiscale, tariffa_oraria_formatore').eq('id', user.id).single(),
+  ])
 
-  const { data: formatore } = await admin
-    .from('profiles')
-    .select('nome, email')
-    .eq('id', user.id)
-    .single()
+  // Auto-generate lettera incarico
+  if (formatore && progetto) {
+    try {
+      const tariffa = corso.tariffa_oraria != null
+        ? Number(corso.tariffa_oraria)
+        : (formatore.tariffa_oraria_formatore != null ? Number(formatore.tariffa_oraria_formatore) : null)
+      const oreTotali = Number(corso.ore_totali)
+      const compensoStimato = tariffa != null ? +(oreTotali * tariffa).toFixed(2) : null
+      const today = new Date().toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' })
 
-  // Send notification to all admins (fire and forget)
+      const pdfBuffer = await generateLetteraIncaricoFormatorePdf({
+        data: today,
+        formatore_nome: formatore.nome as string,
+        formatore_indirizzo: formatore.indirizzo_via as string | null,
+        formatore_cap: formatore.indirizzo_cap as string | null,
+        formatore_citta: formatore.indirizzo_citta as string | null,
+        formatore_provincia: formatore.indirizzo_provincia as string | null,
+        formatore_codice_fiscale: formatore.codice_fiscale as string | null,
+        corso_title: corso.title as string,
+        corso_tipo: corso.tipo as string,
+        school_name: progetto.school_name as string,
+        ore_totali: oreTotali,
+        tariffa,
+        compenso_stimato: compensoStimato,
+        firma_admin_nome: null,
+      })
+
+      const storagePath = `lettere/${corsoId}/lettera_formatore.pdf`
+      await admin.storage.from('notule').upload(storagePath, pdfBuffer, { contentType: 'application/pdf', upsert: true })
+      const { data: { publicUrl } } = admin.storage.from('notule').getPublicUrl(storagePath)
+
+      await admin.from('corsi').update({
+        lettera_incarico_url: publicUrl,
+        lettera_incarico_pending: true,
+        lettera_incarico_firmata: false,
+        lettera_incarico_firmata_at: null,
+        lettera_incarico_ip: null,
+        lettera_incarico_inviata_at: null,
+        lettera_incarico_sollecito_at: null,
+      }).eq('id', corsoId)
+    } catch (err) {
+      console.error('[accetta] Lettera generation failed (non-fatal):', err)
+    }
+  }
+
+  // Notify admins (fire and forget)
   if (progetto && formatore) {
     const { data: admins } = await admin
       .from('profiles')
@@ -58,9 +94,9 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
       .in('role', ['admin', 'super_admin'])
 
     const emailBody = await generateRispostaFormatoreEmail({
-      formatore_nome: formatore.nome,
-      corso_title: corso.title,
-      school_name: progetto.school_name,
+      formatore_nome: formatore.nome as string,
+      corso_title: corso.title as string,
+      school_name: progetto.school_name as string,
       risposta: 'accettato',
       corso_admin_url: `${APP_URL}/progetti/${corso.project_id}/corsi/${corsoId}`,
     })

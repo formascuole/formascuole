@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { generateLetteraIncaricoFormatorePdf } from '@/lib/generate-lettera-incarico-pdf'
-import { sendLetteraIncaricoEmail } from '@/lib/email'
+import { sendLetteraAggiornataEmail } from '@/lib/email'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://formascuole.vercel.app'
 
@@ -23,11 +23,13 @@ export async function POST(
 
   const { data: corso } = await admin
     .from('corsi')
-    .select('id, title, project_id, formatore_id, ore_totali, tipo, tariffa_oraria')
+    .select('id, title, project_id, formatore_id, ore_totali, tipo, tariffa_oraria, lettera_incarico_url')
     .eq('id', id)
     .single()
   if (!corso || !corso.formatore_id)
     return NextResponse.json({ error: 'Corso o formatore non trovato' }, { status: 404 })
+
+  const isRigenera = !!corso.lettera_incarico_url
 
   const [{ data: formatore }, { data: progetto }] = await Promise.all([
     admin.from('profiles').select('id, nome, email, indirizzo_via, indirizzo_cap, indirizzo_citta, indirizzo_provincia, codice_fiscale, tariffa_oraria_formatore').eq('id', corso.formatore_id as string).single(),
@@ -72,26 +74,34 @@ export async function POST(
 
   const { data: updated, error: updateError } = await admin
     .from('corsi')
-    .update({ lettera_incarico_url: publicUrl, lettera_incarico_firmata: false, lettera_incarico_firmata_at: null, lettera_incarico_ip: null })
+    .update({
+      lettera_incarico_url: publicUrl,
+      lettera_incarico_firmata: false,
+      lettera_incarico_firmata_at: null,
+      lettera_incarico_ip: null,
+      lettera_incarico_pending: true,
+      lettera_incarico_inviata_at: null,
+      lettera_incarico_sollecito_at: null,
+    })
     .eq('id', id)
-    .select('lettera_incarico_url, lettera_incarico_firmata, lettera_incarico_firmata_at')
+    .select('lettera_incarico_url, lettera_incarico_firmata, lettera_incarico_firmata_at, lettera_incarico_pending')
     .single()
   if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 })
 
-  // Send email with PDF attachment
-  try {
-    const letteraUrl = `${APP_URL}/progetti/${corso.project_id}/corsi/${id}`
-    await sendLetteraIncaricoEmail({
-      to: formatore.email as string,
-      persona_nome: formatore.nome as string,
-      corso_title: corso.title as string,
-      school_name: progetto.school_name as string,
-      pdfBuffer,
-      tipo: 'formatore',
-      lettera_url: letteraUrl,
-    })
-  } catch (err) {
-    console.error('[lettera-incarico] Email send failed (non-fatal):', err)
+  if (isRigenera) {
+    try {
+      const letteraUrl = `${APP_URL}/progetti/${corso.project_id}/corsi/${id}`
+      await sendLetteraAggiornataEmail({
+        to: formatore.email as string,
+        persona_nome: formatore.nome as string,
+        corso_title: corso.title as string,
+        school_name: progetto.school_name as string,
+        tipo: 'formatore',
+        lettera_url: letteraUrl,
+      })
+    } catch (err) {
+      console.error('[lettera-incarico] Rigenera notification failed (non-fatal):', err)
+    }
   }
 
   return NextResponse.json(updated)

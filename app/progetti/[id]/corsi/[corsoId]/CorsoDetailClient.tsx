@@ -436,21 +436,33 @@ export function CorsoDetailClient({
   const [letteraUrl, setLetteraUrl] = useState<string | null>(corso.lettera_incarico_url ?? null)
   const [letteraFirmata, setLetteraFirmata] = useState(corso.lettera_incarico_firmata ?? false)
   const [letteraFirmataAt, setLetteraFirmataAt] = useState<string | null>(corso.lettera_incarico_firmata_at ?? null)
+  const [letteraPending, setLetteraPending] = useState(corso.lettera_incarico_pending ?? false)
   const [generandoLettera, setGenerandoLettera] = useState(false)
   const [generandoLetteraError, setGenerandoLetteraError] = useState<string | null>(null)
   const [firmaLetteraOpen, setFirmaLetteraOpen] = useState(false)
   const [firmandoLettera, setFirmandoLettera] = useState(false)
   const [firmaLetteraError, setFirmaLetteraError] = useState<string | null>(null)
+  const [rigeneraLetteraOpen, setRigeneraLetteraOpen] = useState(false)
+  const [annullaLetteraOpen, setAnnullaLetteraOpen] = useState(false)
+  const [annullaLetteraMotivo, setAnnullaLetteraMotivo] = useState('')
+  const [annullandoLettera, setAnnullandoLettera] = useState(false)
+  const [annullaLetteraError, setAnnullaLetteraError] = useState<string | null>(null)
 
   // Lettera d'incarico — tutor
   const [letteraTutorUrl, setLetteraTutorUrl] = useState<string | null>(corso.lettera_tutor_url ?? null)
   const [letteraTutorFirmata, setLetteraTutorFirmata] = useState(corso.lettera_tutor_firmata ?? false)
   const [letteraTutorFirmataAt, setLetteraTutorFirmataAt] = useState<string | null>(corso.lettera_tutor_firmata_at ?? null)
+  const [letteraTutorPending, setLetteraTutorPending] = useState(corso.lettera_tutor_pending ?? false)
   const [generandoLetteraTutor, setGenerandoLetteraTutor] = useState(false)
   const [generandoLetteraTutorError, setGenerandoLetteraTutorError] = useState<string | null>(null)
   const [firmaLetteraTutorOpen, setFirmaLetteraTutorOpen] = useState(false)
   const [firmandoLetteraTutor, setFirmandoLetteraTutor] = useState(false)
   const [firmaLetteraTutorError, setFirmaLetteraTutorError] = useState<string | null>(null)
+  const [rigeneraLetteraTutorOpen, setRigeneraLetteraTutorOpen] = useState(false)
+  const [annullaLetteraTutorOpen, setAnnullaLetteraTutorOpen] = useState(false)
+  const [annullaLetteraTutorMotivo, setAnnullaLetteraTutorMotivo] = useState('')
+  const [annullandoLetteraTutor, setAnnullandoLetteraTutor] = useState(false)
+  const [annullaLetteraTutorError, setAnnullaLetteraTutorError] = useState<string | null>(null)
 
   // Time-to-ore helper (round to nearest 0.5h)
   const calcOreFromTime = (start: string, end: string): number => {
@@ -864,6 +876,7 @@ export function CorsoDetailClient({
   const handleGeneraLettera = async () => {
     setGenerandoLettera(true)
     setGenerandoLetteraError(null)
+    setRigeneraLetteraOpen(false)
     try {
       const res = await fetch(`/api/corsi/${corso.id}/lettera-incarico`, { method: 'POST' })
       if (res.ok) {
@@ -871,6 +884,7 @@ export function CorsoDetailClient({
         setLetteraUrl(d.lettera_incarico_url)
         setLetteraFirmata(false)
         setLetteraFirmataAt(null)
+        setLetteraPending(true)
       } else {
         const j = await res.json().catch(() => ({}))
         setGenerandoLetteraError(j.error || 'Errore durante la generazione')
@@ -883,6 +897,7 @@ export function CorsoDetailClient({
   const handleGeneraLetteraTutor = async () => {
     setGenerandoLetteraTutor(true)
     setGenerandoLetteraTutorError(null)
+    setRigeneraLetteraTutorOpen(false)
     try {
       const res = await fetch(`/api/corsi/${corso.id}/lettera-tutor`, { method: 'POST' })
       if (res.ok) {
@@ -890,12 +905,63 @@ export function CorsoDetailClient({
         setLetteraTutorUrl(d.lettera_tutor_url)
         setLetteraTutorFirmata(false)
         setLetteraTutorFirmataAt(null)
+        setLetteraTutorPending(true)
       } else {
         const j = await res.json().catch(() => ({}))
         setGenerandoLetteraTutorError(j.error || 'Errore durante la generazione')
       }
     } finally {
       setGenerandoLetteraTutor(false)
+    }
+  }
+
+  const handleAnnullaLettera = async () => {
+    setAnnullandoLettera(true)
+    setAnnullaLetteraError(null)
+    try {
+      const res = await fetch(`/api/corsi/${corso.id}/annulla-lettera`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ motivo: annullaLetteraMotivo.trim() || null }),
+      })
+      if (res.ok) {
+        setLetteraUrl(null)
+        setLetteraFirmata(false)
+        setLetteraFirmataAt(null)
+        setLetteraPending(false)
+        setAnnullaLetteraOpen(false)
+        setAnnullaLetteraMotivo('')
+      } else {
+        const j = await res.json().catch(() => ({}))
+        setAnnullaLetteraError(j.error || 'Errore durante l\'annullamento')
+      }
+    } finally {
+      setAnnullandoLettera(false)
+    }
+  }
+
+  const handleAnnullaLetteraTutor = async () => {
+    setAnnullandoLetteraTutor(true)
+    setAnnullaLetteraTutorError(null)
+    try {
+      const res = await fetch(`/api/corsi/${corso.id}/annulla-lettera-tutor`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ motivo: annullaLetteraTutorMotivo.trim() || null }),
+      })
+      if (res.ok) {
+        setLetteraTutorUrl(null)
+        setLetteraTutorFirmata(false)
+        setLetteraTutorFirmataAt(null)
+        setLetteraTutorPending(false)
+        setAnnullaLetteraTutorOpen(false)
+        setAnnullaLetteraTutorMotivo('')
+      } else {
+        const j = await res.json().catch(() => ({}))
+        setAnnullaLetteraTutorError(j.error || 'Errore durante l\'annullamento')
+      }
+    } finally {
+      setAnnullandoLetteraTutor(false)
     }
   }
 
@@ -1504,9 +1570,13 @@ export function CorsoDetailClient({
                           <svg width="10" height="10" fill="none" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>
                           Firmata{letteraFirmataAt ? ` il ${new Date(letteraFirmataAt).toLocaleDateString('it-IT')}` : ''}
                         </span>
+                      ) : letteraPending ? (
+                        <span className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md bg-amber-100 text-amber-700">
+                          In invio (cron ore 18:00)
+                        </span>
                       ) : (
                         <span className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md bg-blue-100 text-blue-700">
-                          Generata — in attesa di firma
+                          Inviata — in attesa di firma
                         </span>
                       )
                     ) : (
@@ -1523,7 +1593,17 @@ export function CorsoDetailClient({
                       PDF
                     </a>
                   )}
-                  <Button size="sm" variant={letteraUrl ? 'secondary' : undefined} onClick={handleGeneraLettera} loading={generandoLettera}>
+                  {letteraUrl && !letteraFirmata && (
+                    <Button size="sm" variant="secondary" onClick={() => setAnnullaLetteraOpen(true)}>
+                      Annulla
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant={letteraUrl ? 'secondary' : undefined}
+                    onClick={letteraUrl ? () => setRigeneraLetteraOpen(true) : handleGeneraLettera}
+                    loading={generandoLettera}
+                  >
                     {letteraUrl ? 'Rigenera' : 'Genera lettera'}
                   </Button>
                 </div>
@@ -1542,9 +1622,13 @@ export function CorsoDetailClient({
                           <svg width="10" height="10" fill="none" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>
                           Firmata{letteraTutorFirmataAt ? ` il ${new Date(letteraTutorFirmataAt).toLocaleDateString('it-IT')}` : ''}
                         </span>
+                      ) : letteraTutorPending ? (
+                        <span className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md bg-amber-100 text-amber-700">
+                          In invio (cron ore 18:00)
+                        </span>
                       ) : (
                         <span className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md bg-blue-100 text-blue-700">
-                          Generata — in attesa di firma
+                          Inviata — in attesa di firma
                         </span>
                       )
                     ) : (
@@ -1561,7 +1645,17 @@ export function CorsoDetailClient({
                       PDF
                     </a>
                   )}
-                  <Button size="sm" variant={letteraTutorUrl ? 'secondary' : undefined} onClick={handleGeneraLetteraTutor} loading={generandoLetteraTutor}>
+                  {letteraTutorUrl && !letteraTutorFirmata && (
+                    <Button size="sm" variant="secondary" onClick={() => setAnnullaLetteraTutorOpen(true)}>
+                      Annulla
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant={letteraTutorUrl ? 'secondary' : undefined}
+                    onClick={letteraTutorUrl ? () => setRigeneraLetteraTutorOpen(true) : handleGeneraLetteraTutor}
+                    loading={generandoLetteraTutor}
+                  >
                     {letteraTutorUrl ? 'Rigenera' : 'Genera lettera'}
                   </Button>
                 </div>
@@ -3233,6 +3327,104 @@ export function CorsoDetailClient({
             La firma digitale includerà la data e l&apos;indirizzo IP del tuo dispositivo. L&apos;operazione è irreversibile.
           </p>
           {firmaLetteraTutorError && <p className="text-xs text-red-500">{firmaLetteraTutorError}</p>}
+        </div>
+      </Modal>
+
+      {/* Rigenera lettera formatore modal */}
+      <Modal
+        open={rigeneraLetteraOpen}
+        onClose={() => setRigeneraLetteraOpen(false)}
+        title="Rigenera lettera d'incarico"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setRigeneraLetteraOpen(false)}>Annulla</Button>
+            <Button onClick={handleGeneraLettera} loading={generandoLettera}>Rigenera</Button>
+          </>
+        }
+      >
+        <p className="text-sm text-gray-600">
+          La lettera precedente verrà sostituita con una nuova versione aggiornata. Il formatore riceverà una notifica via email e la nuova lettera verrà inviata con la prossima spedizione giornaliera.
+        </p>
+      </Modal>
+
+      {/* Rigenera lettera tutor modal */}
+      <Modal
+        open={rigeneraLetteraTutorOpen}
+        onClose={() => setRigeneraLetteraTutorOpen(false)}
+        title="Rigenera lettera d'incarico tutoraggio"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setRigeneraLetteraTutorOpen(false)}>Annulla</Button>
+            <Button onClick={handleGeneraLetteraTutor} loading={generandoLetteraTutor}>Rigenera</Button>
+          </>
+        }
+      >
+        <p className="text-sm text-gray-600">
+          La lettera precedente verrà sostituita con una nuova versione aggiornata. Il tutor riceverà una notifica via email e la nuova lettera verrà inviata con la prossima spedizione giornaliera.
+        </p>
+      </Modal>
+
+      {/* Annulla lettera formatore modal */}
+      <Modal
+        open={annullaLetteraOpen}
+        onClose={() => { setAnnullaLetteraOpen(false); setAnnullaLetteraMotivo(''); setAnnullaLetteraError(null) }}
+        title="Annulla lettera d'incarico"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => { setAnnullaLetteraOpen(false); setAnnullaLetteraMotivo(''); setAnnullaLetteraError(null) }}>Chiudi</Button>
+            <Button variant="danger" onClick={handleAnnullaLettera} loading={annullandoLettera}>Annulla lettera</Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <p className="text-sm text-gray-600">
+            La lettera verrà annullata e il formatore riceverà una email di notifica. Questa operazione è irreversibile.
+          </p>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Motivo annullamento (opzionale)</label>
+            <textarea
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              rows={3}
+              value={annullaLetteraMotivo}
+              onChange={e => setAnnullaLetteraMotivo(e.target.value)}
+              placeholder="Es. dati aggiornati, riassegnazione corso..."
+            />
+          </div>
+          {annullaLetteraError && <p className="text-xs text-red-500">{annullaLetteraError}</p>}
+        </div>
+      </Modal>
+
+      {/* Annulla lettera tutor modal */}
+      <Modal
+        open={annullaLetteraTutorOpen}
+        onClose={() => { setAnnullaLetteraTutorOpen(false); setAnnullaLetteraTutorMotivo(''); setAnnullaLetteraTutorError(null) }}
+        title="Annulla lettera d'incarico tutoraggio"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => { setAnnullaLetteraTutorOpen(false); setAnnullaLetteraTutorMotivo(''); setAnnullaLetteraTutorError(null) }}>Chiudi</Button>
+            <Button variant="danger" onClick={handleAnnullaLetteraTutor} loading={annullandoLetteraTutor}>Annulla lettera</Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <p className="text-sm text-gray-600">
+            La lettera verrà annullata e il tutor riceverà una email di notifica. Questa operazione è irreversibile.
+          </p>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Motivo annullamento (opzionale)</label>
+            <textarea
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              rows={3}
+              value={annullaLetteraTutorMotivo}
+              onChange={e => setAnnullaLetteraTutorMotivo(e.target.value)}
+              placeholder="Es. dati aggiornati, riassegnazione corso..."
+            />
+          </div>
+          {annullaLetteraTutorError && <p className="text-xs text-red-500">{annullaLetteraTutorError}</p>}
         </div>
       </Modal>
     </div>
