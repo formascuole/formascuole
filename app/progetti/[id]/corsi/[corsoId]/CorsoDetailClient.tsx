@@ -432,6 +432,26 @@ export function CorsoDetailClient({
   const [tariffaTutorForm, setTariffaTutorForm] = useState(corso.tariffa_oraria_tutor != null ? String(corso.tariffa_oraria_tutor) : '')
   const [savingTariffaTutor, setSavingTariffaTutor] = useState(false)
 
+  // Lettera d'incarico — formatore
+  const [letteraUrl, setLetteraUrl] = useState<string | null>(corso.lettera_incarico_url ?? null)
+  const [letteraFirmata, setLetteraFirmata] = useState(corso.lettera_incarico_firmata ?? false)
+  const [letteraFirmataAt, setLetteraFirmataAt] = useState<string | null>(corso.lettera_incarico_firmata_at ?? null)
+  const [generandoLettera, setGenerandoLettera] = useState(false)
+  const [generandoLetteraError, setGenerandoLetteraError] = useState<string | null>(null)
+  const [firmaLetteraOpen, setFirmaLetteraOpen] = useState(false)
+  const [firmandoLettera, setFirmandoLettera] = useState(false)
+  const [firmaLetteraError, setFirmaLetteraError] = useState<string | null>(null)
+
+  // Lettera d'incarico — tutor
+  const [letteraTutorUrl, setLetteraTutorUrl] = useState<string | null>(corso.lettera_tutor_url ?? null)
+  const [letteraTutorFirmata, setLetteraTutorFirmata] = useState(corso.lettera_tutor_firmata ?? false)
+  const [letteraTutorFirmataAt, setLetteraTutorFirmataAt] = useState<string | null>(corso.lettera_tutor_firmata_at ?? null)
+  const [generandoLetteraTutor, setGenerandoLetteraTutor] = useState(false)
+  const [generandoLetteraTutorError, setGenerandoLetteraTutorError] = useState<string | null>(null)
+  const [firmaLetteraTutorOpen, setFirmaLetteraTutorOpen] = useState(false)
+  const [firmandoLetteraTutor, setFirmandoLetteraTutor] = useState(false)
+  const [firmaLetteraTutorError, setFirmaLetteraTutorError] = useState<string | null>(null)
+
   // Time-to-ore helper (round to nearest 0.5h)
   const calcOreFromTime = (start: string, end: string): number => {
     const [sh, sm] = start.split(':').map(Number)
@@ -838,6 +858,82 @@ export function CorsoDetailClient({
       }
     } finally {
       setCompletamentoLoading(false)
+    }
+  }
+
+  const handleGeneraLettera = async () => {
+    setGenerandoLettera(true)
+    setGenerandoLetteraError(null)
+    try {
+      const res = await fetch(`/api/corsi/${corso.id}/lettera-incarico`, { method: 'POST' })
+      if (res.ok) {
+        const d = await res.json()
+        setLetteraUrl(d.lettera_incarico_url)
+        setLetteraFirmata(false)
+        setLetteraFirmataAt(null)
+      } else {
+        const j = await res.json().catch(() => ({}))
+        setGenerandoLetteraError(j.error || 'Errore durante la generazione')
+      }
+    } finally {
+      setGenerandoLettera(false)
+    }
+  }
+
+  const handleGeneraLetteraTutor = async () => {
+    setGenerandoLetteraTutor(true)
+    setGenerandoLetteraTutorError(null)
+    try {
+      const res = await fetch(`/api/corsi/${corso.id}/lettera-tutor`, { method: 'POST' })
+      if (res.ok) {
+        const d = await res.json()
+        setLetteraTutorUrl(d.lettera_tutor_url)
+        setLetteraTutorFirmata(false)
+        setLetteraTutorFirmataAt(null)
+      } else {
+        const j = await res.json().catch(() => ({}))
+        setGenerandoLetteraTutorError(j.error || 'Errore durante la generazione')
+      }
+    } finally {
+      setGenerandoLetteraTutor(false)
+    }
+  }
+
+  const handleFirmaLettera = async () => {
+    setFirmandoLettera(true)
+    setFirmaLetteraError(null)
+    try {
+      const res = await fetch(`/api/corsi/${corso.id}/firma-lettera`, { method: 'POST' })
+      if (res.ok) {
+        const d = await res.json()
+        setLetteraFirmata(true)
+        setLetteraFirmataAt(d.lettera_incarico_firmata_at)
+        setFirmaLetteraOpen(false)
+      } else {
+        const j = await res.json().catch(() => ({}))
+        setFirmaLetteraError(j.error || 'Errore durante la firma')
+      }
+    } finally {
+      setFirmandoLettera(false)
+    }
+  }
+
+  const handleFirmaLetteraTutor = async () => {
+    setFirmandoLetteraTutor(true)
+    setFirmaLetteraTutorError(null)
+    try {
+      const res = await fetch(`/api/corsi/${corso.id}/firma-lettera-tutor`, { method: 'POST' })
+      if (res.ok) {
+        const d = await res.json()
+        setLetteraTutorFirmata(true)
+        setLetteraTutorFirmataAt(d.lettera_tutor_firmata_at)
+        setFirmaLetteraTutorOpen(false)
+      } else {
+        const j = await res.json().catch(() => ({}))
+        setFirmaLetteraTutorError(j.error || 'Errore durante la firma')
+      }
+    } finally {
+      setFirmandoLetteraTutor(false)
     }
   }
 
@@ -1392,6 +1488,90 @@ export function CorsoDetailClient({
         </div>
       )}
 
+      {/* Lettere d'incarico — admin */}
+      {isAdmin && (corso.formatore_id || (corso.tipo === 'PF' && corso.tutor_id)) && (
+        <div className="bg-white rounded-xl p-6 mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
+          <h2 className="font-semibold text-gray-900 mb-4">Lettere d&apos;incarico</h2>
+          <div className="space-y-3">
+            {corso.formatore_id && (
+              <div className="flex items-center justify-between py-2 border-b border-gray-50">
+                <div>
+                  <div className="text-sm font-medium text-gray-700">Lettera formatore</div>
+                  <div className="mt-0.5">
+                    {letteraUrl ? (
+                      letteraFirmata ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-md bg-green-100 text-green-700">
+                          <svg width="10" height="10" fill="none" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>
+                          Firmata{letteraFirmataAt ? ` il ${new Date(letteraFirmataAt).toLocaleDateString('it-IT')}` : ''}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md bg-blue-100 text-blue-700">
+                          Generata — in attesa di firma
+                        </span>
+                      )
+                    ) : (
+                      <span className="text-xs text-gray-400">Non ancora generata</span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {letteraUrl && (
+                    <a href={letteraUrl} target="_blank" rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-gray-900 border border-gray-200 hover:bg-gray-50 px-2.5 py-1.5 rounded-[7px] transition-colors"
+                    >
+                      <svg width="12" height="12" fill="none" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      PDF
+                    </a>
+                  )}
+                  <Button size="sm" variant={letteraUrl ? 'secondary' : undefined} onClick={handleGeneraLettera} loading={generandoLettera}>
+                    {letteraUrl ? 'Rigenera' : 'Genera lettera'}
+                  </Button>
+                </div>
+              </div>
+            )}
+            {generandoLetteraError && <p className="text-xs text-red-500">{generandoLetteraError}</p>}
+
+            {corso.tipo === 'PF' && corso.tutor_id && (
+              <div className="flex items-center justify-between py-2">
+                <div>
+                  <div className="text-sm font-medium text-gray-700">Lettera tutor</div>
+                  <div className="mt-0.5">
+                    {letteraTutorUrl ? (
+                      letteraTutorFirmata ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-md bg-green-100 text-green-700">
+                          <svg width="10" height="10" fill="none" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>
+                          Firmata{letteraTutorFirmataAt ? ` il ${new Date(letteraTutorFirmataAt).toLocaleDateString('it-IT')}` : ''}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md bg-blue-100 text-blue-700">
+                          Generata — in attesa di firma
+                        </span>
+                      )
+                    ) : (
+                      <span className="text-xs text-gray-400">Non ancora generata</span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {letteraTutorUrl && (
+                    <a href={letteraTutorUrl} target="_blank" rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-gray-900 border border-gray-200 hover:bg-gray-50 px-2.5 py-1.5 rounded-[7px] transition-colors"
+                    >
+                      <svg width="12" height="12" fill="none" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      PDF
+                    </a>
+                  )}
+                  <Button size="sm" variant={letteraTutorUrl ? 'secondary' : undefined} onClick={handleGeneraLetteraTutor} loading={generandoLetteraTutor}>
+                    {letteraTutorUrl ? 'Rigenera' : 'Genera lettera'}
+                  </Button>
+                </div>
+              </div>
+            )}
+            {generandoLetteraTutorError && <p className="text-xs text-red-500">{generandoLetteraTutorError}</p>}
+          </div>
+        </div>
+      )}
+
       {/* Referente */}
       <div className="bg-white rounded-xl p-6 mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
         <h2 className="font-semibold text-gray-900 mb-4">Referente scolastico</h2>
@@ -1841,6 +2021,90 @@ export function CorsoDetailClient({
             <p className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-[7px] px-3 py-2">
               Tariffa da definire — contatta l&apos;amministrazione
             </p>
+          )}
+        </div>
+      )}
+
+      {/* Lettera d'incarico — vista formatore */}
+      {!isAdmin && corso.formatore_id === currentUserId && letteraUrl && (
+        <div className="bg-white rounded-xl p-6 mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
+          <h2 className="font-semibold text-gray-900 mb-4">Lettera d&apos;incarico</h2>
+          {letteraFirmata ? (
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="inline-flex items-center gap-1.5 text-sm font-medium text-green-700 bg-green-100 px-3 py-1.5 rounded-md">
+                  <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>
+                  Lettera firmata
+                </span>
+                {letteraFirmataAt && (
+                  <p className="text-xs text-gray-400 mt-1.5">
+                    Firmata il {new Date(letteraFirmataAt).toLocaleDateString('it-IT', { day: '2-digit', month: 'long', year: 'numeric' })}
+                  </p>
+                )}
+              </div>
+              <a href={letteraUrl} target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-gray-900 border border-gray-200 hover:bg-gray-50 px-2.5 py-1.5 rounded-[7px] transition-colors"
+              >
+                Visualizza PDF
+              </a>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600">
+                È disponibile una lettera d&apos;incarico per questo corso. La preghiamo di visualizzarla e firmarla digitalmente.
+              </p>
+              <div className="flex items-center gap-3">
+                <a href={letteraUrl} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-gray-900 border border-gray-200 hover:bg-gray-50 px-3 py-2 rounded-[7px] transition-colors"
+                >
+                  <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  Visualizza lettera
+                </a>
+                <Button onClick={() => setFirmaLetteraOpen(true)}>Firma lettera</Button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Lettera d'incarico tutoraggio — vista tutor */}
+      {!isAdmin && corso.tutor_id === currentUserId && letteraTutorUrl && (
+        <div className="bg-white rounded-xl p-6 mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
+          <h2 className="font-semibold text-gray-900 mb-4">Lettera d&apos;incarico tutoraggio</h2>
+          {letteraTutorFirmata ? (
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="inline-flex items-center gap-1.5 text-sm font-medium text-green-700 bg-green-100 px-3 py-1.5 rounded-md">
+                  <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>
+                  Lettera firmata
+                </span>
+                {letteraTutorFirmataAt && (
+                  <p className="text-xs text-gray-400 mt-1.5">
+                    Firmata il {new Date(letteraTutorFirmataAt).toLocaleDateString('it-IT', { day: '2-digit', month: 'long', year: 'numeric' })}
+                  </p>
+                )}
+              </div>
+              <a href={letteraTutorUrl} target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-gray-900 border border-gray-200 hover:bg-gray-50 px-2.5 py-1.5 rounded-[7px] transition-colors"
+              >
+                Visualizza PDF
+              </a>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600">
+                È disponibile una lettera d&apos;incarico per il tutoraggio di questo corso. La preghiamo di visualizzarla e firmarla digitalmente.
+              </p>
+              <div className="flex items-center gap-3">
+                <a href={letteraTutorUrl} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-gray-900 border border-gray-200 hover:bg-gray-50 px-3 py-2 rounded-[7px] transition-colors"
+                >
+                  <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  Visualizza lettera
+                </a>
+                <Button onClick={() => setFirmaLetteraTutorOpen(true)}>Firma lettera</Button>
+              </div>
+            </div>
           )}
         </div>
       )}
@@ -2922,6 +3186,54 @@ export function CorsoDetailClient({
           placeholder="Es. 25.00"
           hint="Lascia vuoto per rimuovere la tariffa"
         />
+      </Modal>
+
+      {/* Firma lettera formatore modal */}
+      <Modal
+        open={firmaLetteraOpen}
+        onClose={() => { setFirmaLetteraOpen(false); setFirmaLetteraError(null) }}
+        title="Firma lettera d'incarico"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => { setFirmaLetteraOpen(false); setFirmaLetteraError(null) }}>Annulla</Button>
+            <Button onClick={handleFirmaLettera} loading={firmandoLettera}>Firma</Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <p className="text-sm text-gray-600">
+            Firmando digitalmente questa lettera, confermo di aver letto e accettato le condizioni dell&apos;incarico di formazione.
+          </p>
+          <p className="text-xs text-gray-400">
+            La firma digitale includerà la data e l&apos;indirizzo IP del tuo dispositivo. L&apos;operazione è irreversibile.
+          </p>
+          {firmaLetteraError && <p className="text-xs text-red-500">{firmaLetteraError}</p>}
+        </div>
+      </Modal>
+
+      {/* Firma lettera tutor modal */}
+      <Modal
+        open={firmaLetteraTutorOpen}
+        onClose={() => { setFirmaLetteraTutorOpen(false); setFirmaLetteraTutorError(null) }}
+        title="Firma lettera d'incarico tutoraggio"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => { setFirmaLetteraTutorOpen(false); setFirmaLetteraTutorError(null) }}>Annulla</Button>
+            <Button onClick={handleFirmaLetteraTutor} loading={firmandoLetteraTutor}>Firma</Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <p className="text-sm text-gray-600">
+            Firmando digitalmente questa lettera, confermo di aver letto e accettato le condizioni dell&apos;incarico di tutoraggio.
+          </p>
+          <p className="text-xs text-gray-400">
+            La firma digitale includerà la data e l&apos;indirizzo IP del tuo dispositivo. L&apos;operazione è irreversibile.
+          </p>
+          {firmaLetteraTutorError && <p className="text-xs text-red-500">{firmaLetteraTutorError}</p>}
+        </div>
       </Modal>
     </div>
   )

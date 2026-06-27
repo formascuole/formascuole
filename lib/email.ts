@@ -1235,6 +1235,49 @@ export async function generateRispostaAssegnazioniAdminEmail(p: RispostaAssegnaz
   ].filter(Boolean).join('\n')
 }
 
+// ─── Lettera d'incarico ───────────────────────────────────────────────────────
+
+export async function sendLetteraIncaricoEmail({
+  to,
+  persona_nome,
+  corso_title,
+  school_name,
+  pdfBuffer,
+  tipo = 'formatore',
+  lettera_url,
+}: {
+  to: string
+  persona_nome: string
+  corso_title: string
+  school_name: string
+  pdfBuffer: Buffer
+  tipo?: 'formatore' | 'tutor'
+  lettera_url: string
+}) {
+  const subject = `Lettera di incarico — ${corso_title} — ${school_name}`
+  const ruolo = tipo === 'tutor' ? 'tutoraggio' : 'formazione'
+  const body = `Gentile ${persona_nome},
+
+le inviamo in allegato la lettera di incarico per l'attività di ${ruolo} relativa al corso "${corso_title}" presso ${school_name}.
+
+La preghiamo di leggere attentamente il documento e di procedere con la firma digitale accedendo alla piattaforma:
+${lettera_url}
+
+Cordiali saluti,
+Il team SVC Consulting Srl`
+
+  await resend.emails.send({
+    from: 'Formascuole <noreply@formascuole.it>',
+    to,
+    subject,
+    text: body,
+    attachments: [{
+      filename: `lettera-incarico-${tipo}.pdf`,
+      content: pdfBuffer.toString('base64'),
+    }],
+  })
+}
+
 // ─── Sender ───────────────────────────────────────────────────────────────────
 
 export async function sendEmail({

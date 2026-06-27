@@ -158,6 +158,15 @@ export interface Corso {
   notificato?: boolean
   token_assegnazione?: string | null
   pre_assegnazione?: boolean
+  // Lettere d'incarico
+  lettera_incarico_url?: string | null
+  lettera_incarico_firmata?: boolean
+  lettera_incarico_firmata_at?: string | null
+  lettera_incarico_ip?: string | null
+  lettera_tutor_url?: string | null
+  lettera_tutor_firmata?: boolean
+  lettera_tutor_firmata_at?: string | null
+  lettera_tutor_ip?: string | null
 }
 
 export interface Candidatura {

@@ -84,6 +84,7 @@ const adminNav: NavEntry[] = [
       { href: '/economia/estratti-conto', label: 'Estratti conto' },
       { href: '/economia/corsi-completati', label: 'Corsi completati' },
       { href: '/economia/documenti-contabili', label: 'Documenti contabili' },
+      { href: '/economia/lettere-incarico', label: 'Lettere d\'incarico' },
     ],
   } as NavGroup,
   {
