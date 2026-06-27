@@ -29,11 +29,20 @@ export async function PATCH(
   let tariffaTutorGiaImpostata = false
   if (tutor_id) {
     const [{ data: tp }, { data: currentCorso }] = await Promise.all([
-      adminClient.from('profiles').select('tariffa_oraria_tutor').eq('id', tutor_id).single(),
+      adminClient.from('profiles').select('nome, tariffa_oraria_tutor').eq('id', tutor_id).single(),
       adminClient.from('corsi').select('tariffa_oraria_tutor').eq('id', id).single(),
     ])
     tariffaTutor = tp?.tariffa_oraria_tutor != null ? Number(tp.tariffa_oraria_tutor) : null
     tariffaTutorGiaImpostata = currentCorso?.tariffa_oraria_tutor != null
+    // Block assignment if tariffa is missing
+    if (!tariffaTutor || tariffaTutor <= 0) {
+      return NextResponse.json({
+        error: 'TARIFFA_MANCANTE',
+        message: 'Tariffa oraria mancante',
+        tutor_id: tutor_id,
+        tutor_nome: (tp?.nome as string | null) ?? '—',
+      }, { status: 400 })
+    }
   }
 
   const { data, error } = await adminClient

@@ -19,11 +19,20 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   let tariffaCorsoGiaImpostata = false
   if (formatore_id) {
     const [{ data: fp }, { data: currentCorso }] = await Promise.all([
-      adminClient.from('profiles').select('tariffa_oraria_formatore').eq('id', formatore_id).single(),
+      adminClient.from('profiles').select('nome, tariffa_oraria_formatore').eq('id', formatore_id).single(),
       adminClient.from('corsi').select('tariffa_oraria').eq('id', id).single(),
     ])
     tariffaFormatore = fp?.tariffa_oraria_formatore != null ? Number(fp.tariffa_oraria_formatore) : null
     tariffaCorsoGiaImpostata = currentCorso?.tariffa_oraria != null
+    // Block assignment if tariffa is missing
+    if (!tariffaFormatore || tariffaFormatore <= 0) {
+      return NextResponse.json({
+        error: 'TARIFFA_MANCANTE',
+        message: 'Tariffa oraria mancante',
+        formatore_id: formatore_id,
+        formatore_nome: (fp?.nome as string | null) ?? '—',
+      }, { status: 400 })
+    }
   }
 
   const updateData = formatore_id

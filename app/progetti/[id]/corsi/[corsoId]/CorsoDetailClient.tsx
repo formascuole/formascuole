@@ -82,12 +82,13 @@ interface FormatorePickerCardProps {
   tasso: number | null
   regioneRilevante: boolean
   showScore: boolean
+  noTariffa: boolean
   onClick: () => void
 }
 
 function FormatorePickerCard({
   f, score, skillMatches, totalCorsoTags, isAvailable, sameRegion,
-  isCurrent, isDualRole, isAssigning, tasso, regioneRilevante, showScore, onClick,
+  isCurrent, isDualRole, isAssigning, tasso, regioneRilevante, showScore, noTariffa, onClick,
 }: FormatorePickerCardProps) {
   return (
     <button
@@ -107,6 +108,14 @@ function FormatorePickerCard({
           <div className="font-medium text-sm text-gray-900 flex items-center gap-2 flex-wrap">
             {f.nome}
             {isDualRole && <span className="text-xs font-normal px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700">Formatore + Tutor</span>}
+            {noTariffa && (
+              <span
+                className="text-xs font-medium px-1.5 py-0.5 rounded bg-orange-100 text-orange-700"
+                title="La tariffa verrà richiesta al momento dell'assegnazione"
+              >
+                Tariffa mancante
+              </span>
+            )}
             {isCurrent && <span className="text-xs text-[#d64b55] font-medium">Corrente</span>}
           </div>
           <div className="text-xs text-gray-400">{f.email}</div>
@@ -212,6 +221,18 @@ export function CorsoDetailClient({
   const [assigningId, setAssigningId] = useState<string | null>(null)
   const [assigningReferente, setAssigningReferente] = useState(false)
   const [assignError, setAssignError] = useState<string | null>(null)
+
+  // Tariffa mancante modal state
+  interface TariffaMancanteInfo {
+    tipo: 'formatore' | 'tutor'
+    userId: string
+    userName: string
+    pendingId: string  // formatore_id or tutor_id to assign after saving
+  }
+  const [tariffaMancante, setTariffaMancante] = useState<TariffaMancanteInfo | null>(null)
+  const [tariffaMancanteInput, setTariffaMancanteInput] = useState('')
+  const [savingTariffaMancante, setSavingTariffaMancante] = useState(false)
+  const [tariffaMancanteError, setTariffaMancanteError] = useState<string | null>(null)
 
   // Dual-role dialog state
   const [dualRoleUser, setDualRoleUser] = useState<Profile | null>(null)
@@ -488,7 +509,14 @@ export function CorsoDetailClient({
         router.refresh()
       } else {
         const j = await res.json().catch(() => ({}))
-        setAssignError(j.error || 'Errore durante l\'assegnazione')
+        if (j.error === 'TARIFFA_MANCANTE') {
+          setFormatorePickerOpen(false)
+          setTariffaMancante({ tipo: 'formatore', userId: j.formatore_id, userName: j.formatore_nome, pendingId: formatoreId })
+          setTariffaMancanteInput('')
+          setTariffaMancanteError(null)
+        } else {
+          setAssignError(j.error || 'Errore durante l\'assegnazione')
+        }
       }
     } finally {
       setAssigningId(null)
@@ -529,7 +557,15 @@ export function CorsoDetailClient({
         router.refresh()
       } else {
         const j = await res.json().catch(() => ({}))
-        setAssignError(j.error || 'Errore durante l\'assegnazione')
+        if (j.error === 'TARIFFA_MANCANTE') {
+          setTutorePickerOpen(false)
+          setDualRoleUser(null)
+          setTariffaMancante({ tipo: 'tutor', userId: j.tutor_id, userName: j.tutor_nome, pendingId: tutorId })
+          setTariffaMancanteInput('')
+          setTariffaMancanteError(null)
+        } else {
+          setAssignError(j.error || 'Errore durante l\'assegnazione')
+        }
       }
     } finally {
       setAssigningId(null)
@@ -543,6 +579,49 @@ export function CorsoDetailClient({
       body: JSON.stringify({ tutor_id: null }),
     })
     router.refresh()
+  }
+
+  const handleSaveTariffaEAssegna = async () => {
+    if (!tariffaMancante) return
+    const val = parseFloat(tariffaMancanteInput.replace(',', '.'))
+    if (!val || val <= 0) { setTariffaMancanteError('Inserisci una tariffa valida maggiore di zero'); return }
+    setSavingTariffaMancante(true)
+    setTariffaMancanteError(null)
+    try {
+      // Step 1: salva tariffa nel profilo
+      const tariffaKey = tariffaMancante.tipo === 'formatore' ? 'tariffa_oraria_formatore' : 'tariffa_oraria_tutor'
+      const patchRes = await fetch(`/api/utenti/${tariffaMancante.userId}/tariffa`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [tariffaKey]: val }),
+      })
+      if (!patchRes.ok) {
+        const j = await patchRes.json().catch(() => ({}))
+        setTariffaMancanteError(j.error || 'Errore nel salvataggio della tariffa')
+        return
+      }
+      // Step 2: riprova assegnazione
+      const endpoint = tariffaMancante.tipo === 'formatore'
+        ? `/api/corsi/${corso.id}/formatore`
+        : `/api/corsi/${corso.id}/tutor`
+      const body = tariffaMancante.tipo === 'formatore'
+        ? { formatore_id: tariffaMancante.pendingId }
+        : { tutor_id: tariffaMancante.pendingId }
+      const assignRes = await fetch(endpoint, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (!assignRes.ok) {
+        const j = await assignRes.json().catch(() => ({}))
+        setTariffaMancanteError(j.message || j.error || 'Errore durante l\'assegnazione')
+        return
+      }
+      setTariffaMancante(null)
+      router.refresh()
+    } finally {
+      setSavingTariffaMancante(false)
+    }
   }
 
   const handleAssignReferente = async (referenteId: string | null) => {
@@ -2469,6 +2548,7 @@ export function CorsoDetailClient({
                       tasso={tassoAccettazioneMap[f.id] ?? null}
                       regioneRilevante={corso.modalita === 'presenza' || corso.modalita === 'residenziale' || corso.modalita === 'semi_residenziale' || corso.tipo === 'Lab'}
                       showScore
+                      noTariffa={!f.tariffa_oraria_formatore}
                       onClick={() => handleAssignFormatore(f)}
                     />
                   ))}
@@ -2502,6 +2582,7 @@ export function CorsoDetailClient({
                       tasso={tassoAccettazioneMap[f.id] ?? null}
                       regioneRilevante={corso.modalita === 'presenza' || corso.modalita === 'residenziale' || corso.modalita === 'semi_residenziale' || corso.tipo === 'Lab'}
                       showScore={false}
+                      noTariffa={!f.tariffa_oraria_formatore}
                       onClick={() => handleAssignFormatore(f)}
                     />
                   ))}
@@ -2541,6 +2622,14 @@ export function CorsoDetailClient({
                 <div className="font-medium text-sm text-gray-900">{t.nome}</div>
                 <div className="text-xs text-gray-400">{t.email}</div>
               </div>
+              {!t.tariffa_oraria_tutor && (
+                <span
+                  className="text-xs font-medium px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 shrink-0"
+                  title="La tariffa verrà richiesta al momento dell'assegnazione"
+                >
+                  Tariffa mancante
+                </span>
+              )}
               {t.id === corso.tutor_id && <span className="text-xs text-[#d64b55] font-medium">Corrente</span>}
               {assigningId === 'tutor-' + t.id && (
                 <svg className="animate-spin h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24">
@@ -2554,6 +2643,57 @@ export function CorsoDetailClient({
             <p className="text-sm text-gray-400 text-center py-4">Nessun tutor disponibile. Crea prima un utente con ruolo tutor.</p>
           )}
         </div>
+      </Modal>
+
+      {/* Tariffa Mancante Modal */}
+      <Modal
+        open={!!tariffaMancante}
+        onClose={() => { setTariffaMancante(null); setTariffaMancanteError(null) }}
+        title="Tariffa oraria mancante"
+        size="sm"
+      >
+        {tariffaMancante && (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              <strong>{tariffaMancante.userName}</strong> non ha una tariffa oraria impostata nel profilo.
+              Inseriscila ora per procedere con l&apos;assegnazione.
+            </p>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">Tariffa oraria</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">€</span>
+                <input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  placeholder="es. 40.00"
+                  value={tariffaMancanteInput}
+                  onChange={e => setTariffaMancanteInput(e.target.value)}
+                  className="w-full pl-8 pr-10 py-2 border border-gray-200 rounded-[7px] text-sm focus:outline-none focus:border-[#d64b55]"
+                  autoFocus
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">/h</span>
+              </div>
+            </div>
+            {tariffaMancanteError && (
+              <div className="bg-red-50 border border-red-200 rounded-[7px] px-3 py-2 text-sm text-red-700">
+                {tariffaMancanteError}
+              </div>
+            )}
+            <div className="flex gap-2 justify-end pt-1">
+              <Button variant="secondary" onClick={() => { setTariffaMancante(null); setTariffaMancanteError(null) }}>
+                Annulla
+              </Button>
+              <Button
+                onClick={handleSaveTariffaEAssegna}
+                loading={savingTariffaMancante}
+                disabled={!tariffaMancanteInput || savingTariffaMancante}
+              >
+                Salva e assegna
+              </Button>
+            </div>
+          </div>
+        )}
       </Modal>
 
       {/* Referente Picker Modal */}
