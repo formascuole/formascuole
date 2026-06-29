@@ -513,17 +513,16 @@ export function ProgettoDetailClient({
             <div className="px-6 py-4">
               <div className="space-y-2 max-w-xs">
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Imponibile</span>
-                  <span className="font-mono font-medium text-gray-800">{fmtCur(quotaProg)}</span>
+                  <span className="text-gray-500">Imponibile (ricavo SVC)</span>
+                  <span className="font-mono font-semibold text-blue-700">{fmtCur(quotaProg)}</span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">IVA 22% (split payment)</span>
-                  <span className="font-mono text-gray-500">{fmtCur(ivaQuota)}</span>
+                <div className="flex justify-between text-sm text-gray-400">
+                  <span>IVA 22% — versata dalla scuola all&apos;Erario (Split Payment)</span>
+                  <span className="font-mono">{fmtCur(ivaQuota)}</span>
                 </div>
-                <p className="text-xs text-gray-400 -mt-1">versata direttamente allo Stato dalla scuola</p>
-                <div className="border-t border-gray-100 pt-2 flex justify-between text-sm font-medium">
-                  <span className="text-gray-700">Totale fatturato</span>
-                  <span className="font-mono font-semibold text-blue-700">{fmtCur(quotaProg + ivaQuota)}</span>
+                <div className="flex justify-between text-sm text-gray-400">
+                  <span>Totale documento</span>
+                  <span className="font-mono">{fmtCur(quotaProg + ivaQuota)}</span>
                 </div>
                 {progetto.quota_progettazione_note && (
                   <p className="text-xs text-gray-400 pt-1">{progetto.quota_progettazione_note}</p>
