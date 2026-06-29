@@ -12,6 +12,14 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  const { data: callerProfile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  const isAdmin = ['admin', 'super_admin'].includes(callerProfile?.role)
+
   const admin = createAdminClient()
 
   // Fetch course with project and finanziamento
@@ -23,8 +31,8 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
   if (!corso) return NextResponse.json({ error: 'Corso non trovato' }, { status: 404 })
 
-  // Only the assigned formatore can mark as complete
-  if (corso.formatore_id !== user.id) {
+  // Accessible by the assigned formatore or any admin
+  if (corso.formatore_id !== user.id && !isAdmin) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
@@ -69,10 +77,10 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   const { data: formatoreProfile } = await admin
     .from('profiles')
     .select('nome, email, ha_partita_iva, regime_fiscale, rivalsa_iva')
-    .eq('id', user.id)
+    .eq('id', corso.formatore_id as string)
     .single()
 
-  if (!formatoreProfile) return NextResponse.json({ error: 'Profilo non trovato' }, { status: 404 })
+  if (!formatoreProfile) return NextResponse.json({ error: 'Profilo formatore non trovato' }, { status: 404 })
 
   // Fetch tutor profile if present
   let tutorNome: string | null = null
@@ -159,7 +167,7 @@ Scheda corso: ${corsoUrl}`
     // Insert solleciti_log to prevent cron duplicate of notifica_corso_concluso
     admin.from('solleciti_log').insert({
       corso_id: id,
-      formatore_id: user.id,
+      formatore_id: corso.formatore_id,
       tipo: 'notifica_corso_concluso',
     }),
   ])
