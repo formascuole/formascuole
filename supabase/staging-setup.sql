@@ -919,11 +919,24 @@ DECLARE
   v_role     user_role;
   v_nome     TEXT;
   v_initials TEXT;
+  v_role_raw TEXT;
 BEGIN
-  v_role     := COALESCE((NEW.raw_user_meta_data->>'role')::user_role, 'formatore');
-  v_nome     := COALESCE(NEW.raw_user_meta_data->>'nome', NEW.email);
+  -- Uso CASE esplicito invece di ::user_role cast per evitare errori
+  -- quando il dashboard Supabase crea utenti con role='' o role non valido.
+  v_role_raw := NULLIF(TRIM(COALESCE(NEW.raw_user_meta_data->>'role', '')), '');
+  v_role := CASE v_role_raw
+    WHEN 'super_admin' THEN 'super_admin'::user_role
+    WHEN 'admin'       THEN 'admin'::user_role
+    WHEN 'tutor'       THEN 'tutor'::user_role
+    ELSE                    'formatore'::user_role
+  END;
+
+  v_nome     := COALESCE(
+    NULLIF(TRIM(COALESCE(NEW.raw_user_meta_data->>'nome', '')), ''),
+    NEW.email
+  );
   v_initials := COALESCE(
-    NEW.raw_user_meta_data->>'avatar_initials',
+    NULLIF(TRIM(COALESCE(NEW.raw_user_meta_data->>'avatar_initials', '')), ''),
     UPPER(LEFT(v_nome, 2))
   );
 
