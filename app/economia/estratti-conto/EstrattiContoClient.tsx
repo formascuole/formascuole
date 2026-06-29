@@ -394,20 +394,18 @@ export function EstrattiContoClient({ items, formatori, progetti, finanziamenti 
           Nessun dato per i filtri selezionati.
         </div>
       ) : (
-        <div className="bg-white rounded-xl overflow-hidden" style={{ border: '0.5px solid #e5e5e5' }}>
+        <div className="bg-white rounded-xl" style={{ border: '0.5px solid #e5e5e5' }}>
+          <div className="overflow-x-auto w-full">
           {/* ── Tabella principale: per progetto ── */}
-          <table className="w-full text-sm">
+          <table className="w-full text-[13px] min-w-[580px]">
             <thead>
               <tr className="border-b border-gray-100">
-                <th className="text-left text-xs font-medium text-gray-400 px-5 py-3">PROGETTO</th>
-                <th className="text-left text-xs font-medium text-gray-400 px-4 py-3">FINANZIAMENTO</th>
-                <th className="text-center text-xs font-medium text-gray-400 px-3 py-3">FORM.</th>
-                <th className="text-center text-xs font-medium text-gray-400 px-3 py-3">CORSI</th>
-                <th className="text-center text-xs font-medium text-gray-400 px-3 py-3">ORE</th>
-                <th className="text-right text-xs font-medium text-gray-400 px-4 py-3">FAT. SCUOLA</th>
-                <th className="text-right text-xs font-medium text-gray-400 px-4 py-3">COSTO FORM.</th>
-                <th className="text-right text-xs font-medium text-gray-400 px-4 py-3">COSTO TUTOR</th>
-                <th className="text-right text-xs font-medium text-gray-400 px-5 py-3">MARGINE</th>
+                <th className="text-left text-xs font-medium text-gray-400 px-4 py-2.5 min-w-[180px]">PROGETTO</th>
+                <th className="text-center text-xs font-medium text-gray-400 px-3 py-2.5 hidden md:table-cell">CORSI</th>
+                <th className="text-center text-xs font-medium text-gray-400 px-3 py-2.5">ORE</th>
+                <th className="text-right text-xs font-medium text-gray-400 px-3 py-2.5 hidden md:table-cell">FAT. SCUOLA</th>
+                <th className="text-right text-xs font-medium text-gray-400 px-3 py-2.5">NETTO FORM.</th>
+                <th className="text-right text-xs font-medium text-gray-400 px-4 py-2.5">MARGINE</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -421,28 +419,26 @@ export function EstrattiContoClient({ items, formatori, progetti, finanziamenti 
                       className="hover:bg-gray-50 cursor-pointer"
                       onClick={() => toggleProgetto(p.progetto_id)}
                     >
-                      <td className="px-5 py-3 font-medium text-gray-900">
+                      <td className="px-4 py-2.5 font-medium text-gray-900">
                         <div className="flex items-center gap-2">
                           <ExpandChevron expanded={isPExpanded} />
-                          {p.school_name}
+                          <div>
+                            <div>{p.school_name}</div>
+                            {p.finanziamento_nome && (
+                              <div className="text-[11px] font-normal text-gray-400 mt-0.5 leading-tight">{p.finanziamento_nome}</div>
+                            )}
+                          </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-xs text-gray-500">
-                        {p.finanziamento_nome ?? <span className="text-gray-300">—</span>}
-                      </td>
-                      <td className="px-3 py-3 text-center text-gray-700">{p.n_formatori}</td>
-                      <td className="px-3 py-3 text-center text-gray-700">{p.n_corsi}</td>
-                      <td className="px-3 py-3 text-center text-gray-700">{p.ore_totali}h</td>
-                      <td className="px-4 py-3 text-right font-mono text-gray-700">
+                      <td className="px-3 py-2.5 text-center text-gray-700 hidden md:table-cell">{p.n_corsi}</td>
+                      <td className="px-3 py-2.5 text-center text-gray-700">{p.ore_totali}h</td>
+                      <td className="px-3 py-2.5 text-right font-mono text-gray-700 hidden md:table-cell">
                         {p.fatturato_scuola > 0 ? fmtCur(p.fatturato_scuola) : <span className="text-gray-300">—</span>}
                       </td>
-                      <td className="px-4 py-3 text-right font-mono text-gray-700">
+                      <td className="px-3 py-2.5 text-right font-mono text-gray-700">
                         {p.costo_formatori > 0 ? fmtCur(p.costo_formatori) : <span className="text-gray-300">—</span>}
                       </td>
-                      <td className="px-4 py-3 text-right font-mono text-gray-700">
-                        {p.costo_tutor > 0 ? fmtCur(p.costo_tutor) : <span className="text-gray-300">—</span>}
-                      </td>
-                      <td className="px-5 py-3 text-right">
+                      <td className="px-4 py-2.5 text-right">
                         <MargineCell v={p.margine} />
                       </td>
                     </tr>
@@ -450,17 +446,17 @@ export function EstrattiContoClient({ items, formatori, progetti, finanziamenti 
                     {/* ── FORMATORI (livello 2) ── */}
                     {isPExpanded && (
                       <tr>
-                        <td colSpan={9} className="px-0 py-0 bg-gray-50/40 border-b border-gray-100">
+                        <td colSpan={6} className="px-0 py-0 bg-gray-50/40 border-b border-gray-100">
                           <div className="pl-10">
                             <table className="w-full text-sm">
                               <thead>
                                 <tr className="border-b border-gray-100">
-                                  <th className="text-left text-xs font-medium text-gray-400 px-4 py-2.5">FORMATORE</th>
-                                  <th className="text-left text-xs font-medium text-gray-400 px-3 py-2.5">REGIME</th>
-                                  <th className="text-center text-xs font-medium text-gray-400 px-3 py-2.5">CORSI</th>
-                                  <th className="text-center text-xs font-medium text-gray-400 px-3 py-2.5">ORE</th>
-                                  <th className="text-right text-xs font-medium text-gray-400 px-4 py-2.5">NETTO DA PAGARE</th>
-                                  <th className="px-3 py-2.5"></th>
+                                  <th className="text-left text-xs font-medium text-gray-400 px-4 py-2 min-w-[140px]">FORMATORE</th>
+                                  <th className="text-left text-xs font-medium text-gray-400 px-3 py-2 hidden sm:table-cell">REGIME</th>
+                                  <th className="text-center text-xs font-medium text-gray-400 px-3 py-2 hidden md:table-cell">CORSI</th>
+                                  <th className="text-center text-xs font-medium text-gray-400 px-3 py-2">ORE</th>
+                                  <th className="text-right text-xs font-medium text-gray-400 px-4 py-2">NETTO DA PAGARE</th>
+                                  <th className="px-3 py-2 hidden sm:table-cell"></th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-gray-100">
@@ -477,7 +473,7 @@ export function EstrattiContoClient({ items, formatori, progetti, finanziamenti 
                                         className="hover:bg-white/70 cursor-pointer"
                                         onClick={() => toggleFormatore(fKey)}
                                       >
-                                        <td className="px-4 py-2.5 font-medium text-gray-800">
+                                        <td className="px-4 py-2 font-medium text-gray-800">
                                           <div className="flex items-center gap-2">
                                             <button
                                               className="inline-flex items-center justify-center w-5 h-5 rounded border border-gray-300 bg-white text-gray-500 hover:bg-gray-100 shrink-0 text-xs font-bold leading-none"
@@ -489,14 +485,14 @@ export function EstrattiContoClient({ items, formatori, progetti, finanziamenti 
                                             {f.formatore_nome}
                                           </div>
                                         </td>
-                                        <td className="px-3 py-2.5">
+                                        <td className="px-3 py-2 hidden sm:table-cell">
                                           <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md ${REGIME_BADGE[f.regime_fiscale]}`}>
                                             {REGIME_LABELS[f.regime_fiscale]}
                                           </span>
                                         </td>
-                                        <td className="px-3 py-2.5 text-center text-gray-700">{f.n_corsi}</td>
-                                        <td className="px-3 py-2.5 text-center text-gray-700">{f.ore_totali}h</td>
-                                        <td className="px-4 py-2.5 text-right">
+                                        <td className="px-3 py-2 text-center text-gray-700 hidden md:table-cell">{f.n_corsi}</td>
+                                        <td className="px-3 py-2 text-center text-gray-700">{f.ore_totali}h</td>
+                                        <td className="px-4 py-2 text-right">
                                           <span className="font-mono font-semibold text-orange-700">
                                             {f.netto > 0 ? fmtCur(f.netto) : <span className="text-gray-300">—</span>}
                                           </span>
@@ -506,7 +502,7 @@ export function EstrattiContoClient({ items, formatori, progetti, finanziamenti 
                                             </span>
                                           )}
                                         </td>
-                                        <td className="px-3 py-2.5" onClick={e => e.stopPropagation()}>
+                                        <td className="px-3 py-2 hidden sm:table-cell" onClick={e => e.stopPropagation()}>
                                           <Link
                                             href={`/utenti/${f.formatore_id}`}
                                             className="inline-flex items-center gap-1 text-xs font-medium text-[#d64b55] hover:underline"
@@ -618,25 +614,24 @@ export function EstrattiContoClient({ items, formatori, progetti, finanziamenti 
             </tbody>
             <tfoot>
               <tr className="border-t border-gray-200 bg-gray-50">
-                <td colSpan={2} className="px-5 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wide">Totale</td>
-                <td className="px-3 py-3 text-center font-semibold text-gray-900">{totals.n_formatori}</td>
-                <td className="px-3 py-3 text-center font-semibold text-gray-900">{totals.n_corsi}</td>
-                <td className="px-3 py-3 text-center font-semibold text-gray-900">{totals.ore_totali}h</td>
-                <td className="px-4 py-3 text-right font-mono font-semibold text-gray-900">
+                <td className="px-4 py-2.5 text-xs font-semibold text-gray-700 uppercase tracking-wide">
+                  Totale — {progettiRows.length} progett{progettiRows.length === 1 ? 'o' : 'i'}
+                </td>
+                <td className="px-3 py-2.5 text-center font-semibold text-gray-900 hidden md:table-cell">{totals.n_corsi}</td>
+                <td className="px-3 py-2.5 text-center font-semibold text-gray-900">{totals.ore_totali}h</td>
+                <td className="px-3 py-2.5 text-right font-mono font-semibold text-gray-900 hidden md:table-cell">
                   {totals.fatturato_scuola > 0 ? fmtCur(totals.fatturato_scuola) : '—'}
                 </td>
-                <td className="px-4 py-3 text-right font-mono font-semibold text-gray-900">
+                <td className="px-3 py-2.5 text-right font-mono font-semibold text-gray-900">
                   {totals.costo_formatori > 0 ? fmtCur(totals.costo_formatori) : '—'}
                 </td>
-                <td className="px-4 py-3 text-right font-mono font-semibold text-gray-900">
-                  {totals.costo_tutor > 0 ? fmtCur(totals.costo_tutor) : '—'}
-                </td>
-                <td className="px-5 py-3 text-right">
+                <td className="px-4 py-2.5 text-right">
                   <MargineCell v={totals.margine} />
                 </td>
               </tr>
             </tfoot>
           </table>
+          </div>
         </div>
       )}
     </div>
