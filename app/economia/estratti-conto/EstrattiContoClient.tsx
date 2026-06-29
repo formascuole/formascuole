@@ -239,7 +239,7 @@ function fmtSigned(v: number) {
 
 function MargineCell({ v }: { v: number }) {
   if (v === 0) return <span className="text-gray-300">—</span>
-  if (v > 0) return <span className="font-mono font-semibold text-emerald-700">{fmtCur(v)}</span>
+  if (v > 0) return <span className="font-mono font-semibold text-green-600">{fmtCur(v)}</span>
   return <span className="font-mono font-semibold text-red-600">{fmtCur(v)}</span>
 }
 
@@ -596,12 +596,12 @@ export function EstrattiContoClient({ items, formatori, progetti, finanziamenti,
                 <th className="text-left text-xs font-medium text-gray-400 px-4 py-2.5 min-w-[180px]">PROGETTO</th>
                 <th className="text-center text-xs font-medium text-gray-400 px-3 py-2.5 hidden md:table-cell">CORSI</th>
                 <th className="text-center text-xs font-medium text-gray-400 px-3 py-2.5">ORE</th>
-                <th className="text-right text-xs font-medium text-gray-400 px-3 py-2.5 hidden md:table-cell">FAT. SCUOLA</th>
-                <th className="text-right text-xs font-medium text-gray-400 px-3 py-2.5">NETTO FORM.</th>
-                <th className="text-left text-xs font-medium text-violet-400 px-3 py-2.5 hidden lg:table-cell">PARTNER</th>
-                <th className="text-right text-xs font-medium text-violet-400 px-3 py-2.5">COMM. PAR.</th>
-                <th className="text-right text-xs font-medium text-violet-400 px-3 py-2.5 hidden sm:table-cell">IVA PAR.</th>
-                <th className="text-right text-xs font-medium text-violet-500 px-3 py-2.5">TOT. PAR.</th>
+                <th className="text-right text-xs font-medium text-blue-400 px-3 py-2.5 hidden md:table-cell">FAT. SCUOLA</th>
+                <th className="text-right text-xs font-medium text-amber-400 px-3 py-2.5">NETTO FORM.</th>
+                <th className="text-left text-xs font-medium text-emerald-500 px-3 py-2.5 hidden lg:table-cell">PARTNER</th>
+                <th className="text-right text-xs font-medium text-emerald-500 px-3 py-2.5">COMM. PAR.</th>
+                <th className="text-right text-xs font-medium text-emerald-400 px-3 py-2.5 hidden sm:table-cell">IVA PAR.</th>
+                <th className="text-right text-xs font-medium text-emerald-600 px-3 py-2.5">TOT. PAR.</th>
                 <th className="text-right text-xs font-medium text-gray-400 px-4 py-2.5">MARGINE</th>
               </tr>
             </thead>
@@ -629,22 +629,22 @@ export function EstrattiContoClient({ items, formatori, progetti, finanziamenti,
                       </td>
                       <td className="px-3 py-2.5 text-center text-gray-700 hidden md:table-cell">{p.n_corsi}</td>
                       <td className="px-3 py-2.5 text-center text-gray-700">{p.ore_totali}h</td>
-                      <td className="px-3 py-2.5 text-right font-mono text-gray-700 hidden md:table-cell">
+                      <td className="px-3 py-2.5 text-right font-mono text-blue-700 hidden md:table-cell">
                         {p.fatturato_scuola > 0 ? fmtCur(p.fatturato_scuola) : <span className="text-gray-300">—</span>}
                       </td>
-                      <td className="px-3 py-2.5 text-right font-mono text-gray-700">
+                      <td className="px-3 py-2.5 text-right font-mono text-amber-600">
                         {p.costo_formatori > 0 ? fmtCur(p.costo_formatori) : <span className="text-gray-300">—</span>}
                       </td>
-                      <td className="px-3 py-2.5 text-left font-medium text-violet-700 hidden lg:table-cell">
+                      <td className="px-3 py-2.5 text-left font-medium text-emerald-800 hidden lg:table-cell">
                         {p.partner_nome ?? <span className="text-gray-300">—</span>}
                       </td>
-                      <td className="px-3 py-2.5 text-right font-mono text-violet-600">
+                      <td className="px-3 py-2.5 text-right font-mono text-emerald-700">
                         {p.commissione_partner > 0 ? fmtCur(p.commissione_partner) : <span className="text-gray-300">—</span>}
                       </td>
-                      <td className="px-3 py-2.5 text-right font-mono text-violet-500 hidden sm:table-cell">
+                      <td className="px-3 py-2.5 text-right font-mono text-emerald-600 hidden sm:table-cell">
                         {p.iva_partner > 0 ? fmtCur(p.iva_partner) : <span className="text-gray-300">—</span>}
                       </td>
-                      <td className="px-3 py-2.5 text-right font-mono font-semibold text-violet-700">
+                      <td className="px-3 py-2.5 text-right font-mono font-semibold text-emerald-800">
                         {p.totale_partner > 0 ? fmtCur(p.totale_partner) : <span className="text-gray-300">—</span>}
                       </td>
                       <td className="px-4 py-2.5 text-right">
@@ -702,11 +702,11 @@ export function EstrattiContoClient({ items, formatori, progetti, finanziamenti,
                                         <td className="px-3 py-2 text-center text-gray-700 hidden md:table-cell">{f.n_corsi}</td>
                                         <td className="px-3 py-2 text-center text-gray-700">{f.ore_totali}h</td>
                                         <td className="px-4 py-2 text-right">
-                                          <span className="font-mono font-semibold text-orange-700">
+                                          <span className="font-mono font-semibold text-amber-600">
                                             {f.netto > 0 ? fmtCur(f.netto) : <span className="text-gray-300">—</span>}
                                           </span>
                                           {f.netto_tutor > 0 && (
-                                            <span className="ml-1.5 font-mono text-xs text-purple-600">
+                                            <span className="ml-1.5 font-mono text-xs text-violet-700">
                                               +{fmtCur(f.netto_tutor)} T.
                                             </span>
                                           )}
@@ -744,9 +744,9 @@ export function EstrattiContoClient({ items, formatori, progetti, finanziamenti,
                                                     <th className="text-right font-medium text-orange-400 px-3 py-2">IVA</th>
                                                     <th className="text-right font-medium text-orange-400 px-3 py-2">INPS</th>
                                                     <th className="text-right font-medium text-orange-500 px-3 py-2">NETTO F.</th>
-                                                    <th className="text-right font-medium text-purple-400 px-3 py-2 border-l border-purple-100">ORE T.</th>
-                                                    <th className="text-right font-medium text-purple-400 px-3 py-2">IMPON. T.</th>
-                                                    <th className="text-right font-medium text-purple-500 px-3 py-2">NETTO T.</th>
+                                                    <th className="text-right font-medium text-violet-400 px-3 py-2 border-l border-purple-100">ORE T.</th>
+                                                    <th className="text-right font-medium text-violet-400 px-3 py-2">IMPON. T.</th>
+                                                    <th className="text-right font-medium text-violet-500 px-3 py-2">NETTO T.</th>
                                                     <th className="text-right font-medium text-emerald-500 px-3 py-2 border-l border-emerald-100">MARGINE</th>
                                                     <th className="px-3 py-2"></th>
                                                   </tr>
@@ -775,7 +775,7 @@ export function EstrattiContoClient({ items, formatori, progetti, finanziamenti,
                                                       <td className="px-3 py-2 text-right">{fmtSigned(ci.ritenuta)}</td>
                                                       <td className="px-3 py-2 text-right">{fmtSigned(ci.iva)}</td>
                                                       <td className="px-3 py-2 text-right">{fmtSigned(ci.inps)}</td>
-                                                      <td className="px-3 py-2 text-right font-mono font-semibold text-orange-700">
+                                                      <td className="px-3 py-2 text-right font-mono font-semibold text-amber-600">
                                                         {ci.netto > 0 ? fmtCur(ci.netto) : <span className="text-gray-300">—</span>}
                                                       </td>
                                                       <td className="px-3 py-2 text-right text-gray-500 border-l border-purple-50">
@@ -784,7 +784,7 @@ export function EstrattiContoClient({ items, formatori, progetti, finanziamenti,
                                                       <td className="px-3 py-2 text-right font-mono text-gray-600">
                                                         {ci.imponibile_tutor > 0 ? fmtCur(ci.imponibile_tutor) : <span className="text-gray-300">—</span>}
                                                       </td>
-                                                      <td className="px-3 py-2 text-right font-mono font-semibold text-purple-700">
+                                                      <td className="px-3 py-2 text-right font-mono font-semibold text-violet-700">
                                                         {ci.netto_tutor > 0 ? fmtCur(ci.netto_tutor) : <span className="text-gray-300">—</span>}
                                                       </td>
                                                       <td className="px-3 py-2 text-right border-l border-emerald-50">
@@ -828,20 +828,20 @@ export function EstrattiContoClient({ items, formatori, progetti, finanziamenti,
                 </td>
                 <td className="px-3 py-2.5 text-center font-semibold text-gray-900 hidden md:table-cell">{totals.n_corsi}</td>
                 <td className="px-3 py-2.5 text-center font-semibold text-gray-900">{totals.ore_totali}h</td>
-                <td className="px-3 py-2.5 text-right font-mono font-semibold text-gray-900 hidden md:table-cell">
+                <td className="px-3 py-2.5 text-right font-mono font-semibold text-blue-700 hidden md:table-cell">
                   {totals.fatturato_scuola > 0 ? fmtCur(totals.fatturato_scuola) : '—'}
                 </td>
-                <td className="px-3 py-2.5 text-right font-mono font-semibold text-gray-900">
+                <td className="px-3 py-2.5 text-right font-mono font-semibold text-amber-600">
                   {totals.costo_formatori > 0 ? fmtCur(totals.costo_formatori) : '—'}
                 </td>
                 <td className="px-3 py-2.5 hidden lg:table-cell"></td>
-                <td className="px-3 py-2.5 text-right font-mono font-semibold text-violet-700">
+                <td className="px-3 py-2.5 text-right font-mono font-semibold text-emerald-700">
                   {totals.commissione_partner > 0 ? fmtCur(totals.commissione_partner) : <span className="text-gray-300">—</span>}
                 </td>
-                <td className="px-3 py-2.5 text-right font-mono font-semibold text-violet-600 hidden sm:table-cell">
+                <td className="px-3 py-2.5 text-right font-mono font-semibold text-emerald-600 hidden sm:table-cell">
                   {totals.iva_partner > 0 ? fmtCur(totals.iva_partner) : <span className="text-gray-300">—</span>}
                 </td>
-                <td className="px-3 py-2.5 text-right font-mono font-bold text-violet-800">
+                <td className="px-3 py-2.5 text-right font-mono font-bold text-emerald-900">
                   {totals.totale_partner > 0 ? fmtCur(totals.totale_partner) : <span className="text-gray-300">—</span>}
                 </td>
                 <td className="px-4 py-2.5 text-right">
@@ -900,10 +900,10 @@ export function EstrattiContoClient({ items, formatori, progetti, finanziamenti,
                     <tr className="border-b border-gray-100">
                       <th className="text-left text-xs font-medium text-gray-400 px-5 py-2.5 min-w-[160px]">PARTNER</th>
                       <th className="text-center text-xs font-medium text-gray-400 px-3 py-2.5 hidden md:table-cell">PROGETTI</th>
-                      <th className="text-right text-xs font-medium text-gray-400 px-3 py-2.5 hidden md:table-cell">FATTURATO SCUOLA</th>
-                      <th className="text-right text-xs font-medium text-violet-400 px-3 py-2.5">COMMISSIONE</th>
-                      <th className="text-right text-xs font-medium text-violet-400 px-3 py-2.5 hidden sm:table-cell">IVA 22%</th>
-                      <th className="text-right text-xs font-medium text-violet-500 px-5 py-2.5">TOTALE</th>
+                      <th className="text-right text-xs font-medium text-blue-400 px-3 py-2.5 hidden md:table-cell">FATTURATO SCUOLA</th>
+                      <th className="text-right text-xs font-medium text-emerald-500 px-3 py-2.5">COMMISSIONE</th>
+                      <th className="text-right text-xs font-medium text-emerald-400 px-3 py-2.5 hidden sm:table-cell">IVA 22%</th>
+                      <th className="text-right text-xs font-medium text-emerald-600 px-5 py-2.5">TOTALE</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
@@ -926,19 +926,19 @@ export function EstrattiContoClient({ items, formatori, progetti, finanziamenti,
                               </div>
                             </td>
                             <td className="px-3 py-2.5 text-center text-gray-700 hidden md:table-cell">{pr.n_progetti}</td>
-                            <td className="px-3 py-2.5 text-right font-mono text-gray-700 hidden md:table-cell">
+                            <td className="px-3 py-2.5 text-right font-mono text-blue-700 hidden md:table-cell">
                               {pr.fatturato_scuola > 0 ? fmtCur(pr.fatturato_scuola) : <span className="text-gray-300">—</span>}
                             </td>
                             <td className="px-3 py-2.5 text-right">
-                              <span className="font-mono font-semibold text-violet-700">{fmtCur(pr.commissione)}</span>
+                              <span className="font-mono font-semibold text-emerald-700">{fmtCur(pr.commissione)}</span>
                               <div className="text-[11px] text-gray-400 mt-0.5">
                                 {pr.fatturato_scuola <= 100000 ? '10% flat' : '10% + 12%'}
                               </div>
                             </td>
-                            <td className="px-3 py-2.5 text-right font-mono text-violet-500 hidden sm:table-cell">
+                            <td className="px-3 py-2.5 text-right font-mono text-emerald-600 hidden sm:table-cell">
                               {fmtCur(pr.iva)}
                             </td>
-                            <td className="px-5 py-2.5 text-right font-mono font-bold text-violet-800">
+                            <td className="px-5 py-2.5 text-right font-mono font-bold text-emerald-800">
                               {fmtCur(pr.totale)}
                             </td>
                           </tr>
@@ -952,9 +952,9 @@ export function EstrattiContoClient({ items, formatori, progetti, finanziamenti,
                                         <th className="text-left text-xs font-medium text-gray-400 px-4 py-2">PROGETTO</th>
                                         <th className="text-center text-xs font-medium text-gray-400 px-3 py-2 hidden sm:table-cell">CORSI</th>
                                         <th className="text-right text-xs font-medium text-gray-400 px-3 py-2 hidden md:table-cell">FATTURATO</th>
-                                        <th className="text-right text-xs font-medium text-violet-400 px-3 py-2">COMMISSIONE</th>
-                                        <th className="text-right text-xs font-medium text-violet-400 px-3 py-2 hidden sm:table-cell">IVA 22%</th>
-                                        <th className="text-right text-xs font-medium text-violet-500 px-4 py-2">TOTALE</th>
+                                        <th className="text-right text-xs font-medium text-emerald-500 px-3 py-2">COMMISSIONE</th>
+                                        <th className="text-right text-xs font-medium text-emerald-400 px-3 py-2 hidden sm:table-cell">IVA 22%</th>
+                                        <th className="text-right text-xs font-medium text-emerald-600 px-4 py-2">TOTALE</th>
                                       </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100">
@@ -965,13 +965,13 @@ export function EstrattiContoClient({ items, formatori, progetti, finanziamenti,
                                           <td className="px-3 py-2 text-right font-mono text-gray-600 hidden md:table-cell">
                                             {p.fatturato_scuola > 0 ? fmtCur(p.fatturato_scuola) : '—'}
                                           </td>
-                                          <td className="px-3 py-2 text-right font-mono text-violet-600">
+                                          <td className="px-3 py-2 text-right font-mono text-emerald-700">
                                             {fmtCur(p.commissione)}
                                           </td>
-                                          <td className="px-3 py-2 text-right font-mono text-violet-500 hidden sm:table-cell">
+                                          <td className="px-3 py-2 text-right font-mono text-emerald-600 hidden sm:table-cell">
                                             {fmtCur(p.iva)}
                                           </td>
-                                          <td className="px-4 py-2 text-right font-mono font-semibold text-violet-700">
+                                          <td className="px-4 py-2 text-right font-mono font-semibold text-emerald-800">
                                             {fmtCur(p.totale)}
                                           </td>
                                         </tr>
@@ -992,16 +992,16 @@ export function EstrattiContoClient({ items, formatori, progetti, finanziamenti,
                       <td className="px-3 py-2.5 text-center font-semibold text-gray-900 hidden md:table-cell">
                         {partnerRows.reduce((s, r) => s + r.n_progetti, 0)}
                       </td>
-                      <td className="px-3 py-2.5 text-right font-mono font-semibold text-gray-900 hidden md:table-cell">
+                      <td className="px-3 py-2.5 text-right font-mono font-semibold text-blue-700 hidden md:table-cell">
                         {fmtCur(partnerRows.reduce((s, r) => s + r.fatturato_scuola, 0))}
                       </td>
-                      <td className="px-3 py-2.5 text-right font-mono font-bold text-violet-700">
+                      <td className="px-3 py-2.5 text-right font-mono font-bold text-emerald-700">
                         {fmtCur(partnerRows.reduce((s, r) => s + r.commissione, 0))}
                       </td>
-                      <td className="px-3 py-2.5 text-right font-mono font-bold text-violet-600 hidden sm:table-cell">
+                      <td className="px-3 py-2.5 text-right font-mono font-bold text-emerald-600 hidden sm:table-cell">
                         {fmtCur(partnerRows.reduce((s, r) => s + r.iva, 0))}
                       </td>
-                      <td className="px-5 py-2.5 text-right font-mono font-bold text-violet-800">
+                      <td className="px-5 py-2.5 text-right font-mono font-bold text-emerald-900">
                         {fmtCur(partnerRows.reduce((s, r) => s + r.totale, 0))}
                       </td>
                     </tr>
