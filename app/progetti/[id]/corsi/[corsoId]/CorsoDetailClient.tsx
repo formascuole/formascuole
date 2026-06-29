@@ -397,6 +397,7 @@ export function CorsoDetailClient({
 
   // Completamento corso
   const [completamentoModalOpen, setCompletamentoModalOpen] = useState(false)
+  const [adminCompletamentoModalOpen, setAdminCompletamentoModalOpen] = useState(false)
   const [completamentoLoading, setCompletamentoLoading] = useState(false)
   const [completamentoError, setCompletamentoError] = useState<string | null>(null)
   const [corsoCompletatoLocal, setCorsoCompletatoLocal] = useState(corso.corso_completato ?? false)
@@ -873,6 +874,25 @@ export function CorsoDetailClient({
     }
   }
 
+  const handleAdminCompletaCorso = async () => {
+    setCompletamentoLoading(true)
+    setCompletamentoError(null)
+    try {
+      const res = await fetch(`/api/corsi/${corso.id}/completamento`, { method: 'POST' })
+      if (res.ok) {
+        setCorsoCompletatoLocal(true)
+        setCorsoCompletatoAtLocal(new Date().toISOString())
+        setAdminCompletamentoModalOpen(false)
+        router.refresh()
+      } else {
+        const j = await res.json().catch(() => ({}))
+        setCompletamentoError(j.error || 'Errore durante il completamento')
+      }
+    } finally {
+      setCompletamentoLoading(false)
+    }
+  }
+
   const handleGeneraLettera = async () => {
     setGenerandoLettera(true)
     setGenerandoLetteraError(null)
@@ -1105,6 +1125,7 @@ export function CorsoDetailClient({
   const pctTutor = oreTutoraggio > 0 ? Math.round((oreTutorErogate / oreTutoraggio) * 100) : 0
 
   const canMarkComplete = !isAdmin && corso.formatore_id === currentUserId && !corsoCompletatoLocal && oreErogate >= Number(corso.ore_totali) && Number(corso.ore_totali) > 0
+  const canAdminMarkComplete = isAdmin && !corsoCompletatoLocal && oreErogate >= Number(corso.ore_totali) && Number(corso.ore_totali) > 0
 
   return (
     <div className="p-8 max-w-4xl mx-auto">
@@ -2219,6 +2240,26 @@ export function CorsoDetailClient({
         </div>
       )}
 
+      {/* Bottone segna come completato — solo admin quando 100% erogato e non ancora completato */}
+      {canAdminMarkComplete && (
+        <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-4 flex items-center justify-between gap-4">
+          <div>
+            <div className="font-medium text-gray-700 text-sm">Tutte le ore sono state erogate</div>
+            <div className="text-xs text-gray-400 mt-0.5">Il formatore non ha ancora segnato il corso come completato.</div>
+          </div>
+          <button
+            onClick={() => setAdminCompletamentoModalOpen(true)}
+            title="Il formatore non ha ancora segnato il corso come completato"
+            className="inline-flex items-center gap-2 text-sm font-medium px-3 py-1.5 rounded-[7px] border border-gray-300 bg-white text-gray-600 hover:bg-gray-100 hover:text-gray-800 transition-colors whitespace-nowrap"
+          >
+            <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
+              <polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            Segna come completato
+          </button>
+        </div>
+      )}
+
       {/* Notula note — solo formatore assegnato quando corso completato */}
       {!isAdmin && corso.formatore_id === currentUserId && corsoCompletatoLocal && (
         <div className="bg-gray-50 rounded-xl p-5 mb-4 border border-gray-200">
@@ -3227,6 +3268,30 @@ export function CorsoDetailClient({
           </p>
           <p className="text-sm text-gray-500">
             Verrà inviata una mail riepilogativa con le istruzioni per il pagamento.
+          </p>
+          {completamentoError && <p className="text-sm text-red-600">{completamentoError}</p>}
+        </div>
+      </Modal>
+
+      {/* Modal conferma completamento corso — admin */}
+      <Modal
+        open={adminCompletamentoModalOpen}
+        onClose={() => { setAdminCompletamentoModalOpen(false); setCompletamentoError(null) }}
+        title="Segna corso come completato"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setAdminCompletamentoModalOpen(false)}>Annulla</Button>
+            <Button onClick={handleAdminCompletaCorso} loading={completamentoLoading}>Conferma</Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <p className="text-sm text-gray-700">
+            Vuoi segnare il corso <strong>{corso.title}</strong> come completato al posto del formatore?
+          </p>
+          <p className="text-sm text-gray-500">
+            Verrà inviata la mail di riepilogo al formatore con le istruzioni per il pagamento.
           </p>
           {completamentoError && <p className="text-sm text-red-600">{completamentoError}</p>}
         </div>
