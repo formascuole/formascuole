@@ -64,6 +64,8 @@ export function ProgettiClient({ progetti, finanziamenti, partners, inAttesaProj
     citta: '',
     finanziamento_id: '',
     partner_id: '',
+    quota_progettazione: '',
+    quota_progettazione_note: '',
     ref_name: '',
     ref_email: '',
     ref_tel: '',
@@ -99,7 +101,8 @@ export function ProgettiClient({ progetti, finanziamenti, partners, inAttesaProj
 
   const resetForm = () => setForm({
     school_name: '', address: '', regione: '', provincia: '', citta: '',
-    finanziamento_id: '', partner_id: '', ref_name: '', ref_email: '', ref_tel: '', ref_ruolo: '', status: 'active',
+    finanziamento_id: '', partner_id: '', quota_progettazione: '', quota_progettazione_note: '',
+    ref_name: '', ref_email: '', ref_tel: '', ref_ruolo: '', status: 'active',
   })
 
   const handleSave = async () => {
@@ -113,6 +116,8 @@ export function ProgettiClient({ progetti, finanziamenti, partners, inAttesaProj
           ...form,
           finanziamento_id: form.finanziamento_id || null,
           partner_id: form.partner_id || null,
+          quota_progettazione: form.quota_progettazione ? Number(form.quota_progettazione) : null,
+          quota_progettazione_note: form.quota_progettazione_note || null,
           regione: form.regione || null,
           provincia: form.provincia || null,
           citta: form.citta || null,
@@ -261,6 +266,22 @@ export function ProgettiClient({ progetti, finanziamenti, partners, inAttesaProj
               </select>
             </div>
           )}
+          <div>
+            <Input
+              label="Quota progettazione (€)"
+              type="number"
+              value={form.quota_progettazione}
+              onChange={e => setForm(f => ({ ...f, quota_progettazione: e.target.value }))}
+              placeholder="es. 1000.00"
+            />
+            <p className="text-xs text-gray-400 mt-1">Importo fisso fatturato da SVC alla scuola (min €500 max €1.500). Soggetto a split payment IVA 22%.</p>
+          </div>
+          <Input
+            label="Note quota progettazione"
+            value={form.quota_progettazione_note}
+            onChange={e => setForm(f => ({ ...f, quota_progettazione_note: e.target.value }))}
+            placeholder="es. Compenso per progettazione didattica"
+          />
           <div className="grid grid-cols-2 gap-3">
             <Input label="Nome referente *" value={form.ref_name} onChange={e => setForm(f => ({ ...f, ref_name: e.target.value }))} />
             <Input label="Email referente *" type="email" value={form.ref_email} onChange={e => setForm(f => ({ ...f, ref_email: e.target.value }))} />

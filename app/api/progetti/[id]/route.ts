@@ -31,6 +31,12 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   // Sanitize UUID fields — empty string is invalid for UUID type in PostgreSQL
   if (body.finanziamento_id === '') body.finanziamento_id = null
   if (body.partner_id === '') body.partner_id = null
+  // Sanitize numeric field — convert empty string to null, parse to number otherwise
+  if (body.quota_progettazione === '' || body.quota_progettazione === undefined) {
+    body.quota_progettazione = null
+  } else if (body.quota_progettazione !== null) {
+    body.quota_progettazione = Number(body.quota_progettazione) || null
+  }
 
   // Use admin client to bypass RLS for the update
   const adminForUpdate = createAdminClient()

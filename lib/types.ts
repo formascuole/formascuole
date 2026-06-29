@@ -82,6 +82,8 @@ export interface Progetto {
   citta?: string | null
   // 'address' remains for backward compatibility but now means via e civico
   partner_id?: string | null
+  quota_progettazione?: number | null
+  quota_progettazione_note?: string | null
 }
 
 export interface ProgettoConStats extends Progetto {

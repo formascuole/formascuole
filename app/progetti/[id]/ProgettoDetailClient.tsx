@@ -41,6 +41,8 @@ type EditScuolaForm = {
   anno_scolastico: string
   finanziamento_id: string
   partner_id: string
+  quota_progettazione: string
+  quota_progettazione_note: string
   status: string
   regione: string
   provincia: string
@@ -99,6 +101,8 @@ export function ProgettoDetailClient({
     anno_scolastico: progetto.anno_scolastico || '',
     finanziamento_id: (progetto as ProgettoConStats & { finanziamento_id?: string | null }).finanziamento_id || '',
     partner_id: progetto.partner_id || '',
+    quota_progettazione: String(progetto.quota_progettazione ?? ''),
+    quota_progettazione_note: progetto.quota_progettazione_note ?? '',
     status: progetto.status,
     regione: progetto.regione ?? '',
     provincia: progetto.provincia ?? '',
@@ -416,6 +420,8 @@ export function ProgettoDetailClient({
                   anno_scolastico: progetto.anno_scolastico || '',
                   finanziamento_id: (progetto as ProgettoConStats & { finanziamento_id?: string | null }).finanziamento_id || '',
                   partner_id: progetto.partner_id || '',
+                  quota_progettazione: String(progetto.quota_progettazione ?? ''),
+                  quota_progettazione_note: progetto.quota_progettazione_note ?? '',
                   status: progetto.status,
                   regione: progetto.regione ?? '',
                   provincia: progetto.provincia ?? '',
@@ -491,6 +497,43 @@ export function ProgettoDetailClient({
         </div>
       )}
 
+      {/* ── Sezione quota progettazione ── */}
+      {(() => {
+        const quotaProg = Number(progetto.quota_progettazione ?? 0)
+        if (!quotaProg) return null
+        const ivaQuota = quotaProg * 0.22
+        return (
+          <div className="bg-white rounded-xl mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
+            <div className="flex items-center gap-2 px-6 py-4 border-b border-gray-100">
+              <svg width="15" height="15" fill="none" viewBox="0 0 24 24" className="text-blue-500 shrink-0">
+                <path d="M9 14l6-6M9 9h.01M15 15h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              <h2 className="font-semibold text-gray-900">Quota progettazione</h2>
+            </div>
+            <div className="px-6 py-4">
+              <div className="space-y-2 max-w-xs">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Imponibile</span>
+                  <span className="font-mono font-medium text-gray-800">{fmtCur(quotaProg)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">IVA 22% (split payment)</span>
+                  <span className="font-mono text-gray-500">{fmtCur(ivaQuota)}</span>
+                </div>
+                <p className="text-xs text-gray-400 -mt-1">versata direttamente allo Stato dalla scuola</p>
+                <div className="border-t border-gray-100 pt-2 flex justify-between text-sm font-medium">
+                  <span className="text-gray-700">Totale fatturato</span>
+                  <span className="font-mono font-semibold text-blue-700">{fmtCur(quotaProg + ivaQuota)}</span>
+                </div>
+                {progetto.quota_progettazione_note && (
+                  <p className="text-xs text-gray-400 pt-1">{progetto.quota_progettazione_note}</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
       {/* ── Sezione commissione partner ── */}
       {progetto.partner_id && (() => {
         const partner = partners.find(p => p.id === progetto.partner_id)
@@ -499,19 +542,22 @@ export function ProgettoDetailClient({
         const fin = finId ? finanziamenti.find(f => f.id === finId) : null
         const tariffaF = Number(fin?.tariffa_formatore_ora ?? 0)
         const tariffaT = Number(fin?.tariffa_tutor_ora ?? 0)
+        const quotaProg = Number(progetto.quota_progettazione ?? 0)
 
-        let fatturatoAttuale = 0
-        let fatturatoPotenziale = 0
+        let fatturatoCorsiFull = 0
+        let fatturatoCorsiAttuali = 0
         for (const c of corsi) {
           const oreTotali = Number(c.ore_totali ?? 0)
           const oreErogate = oreErogatePerCorso[c.id] ?? 0
           const hasRealTutor = c.tipo === 'PF' && !!c.tutor_id
           const oreTutor = hasRealTutor ? Number((c as CorsoConOre & { ore_tutoraggio?: number }).ore_tutoraggio ?? 0) : 0
-          fatturatoPotenziale += oreTotali * tariffaF + oreTutor * tariffaT
+          fatturatoCorsiFull += oreTotali * tariffaF + oreTutor * tariffaT
           if (c.corso_completato) {
-            fatturatoAttuale += oreErogate * tariffaF + oreTutor * tariffaT
+            fatturatoCorsiAttuali += oreErogate * tariffaF + oreTutor * tariffaT
           }
         }
+        const fatturatoAttuale = fatturatoCorsiAttuali + quotaProg
+        const fatturatoPotenziale = fatturatoCorsiFull + quotaProg
         const commAttuale = calcCommissionePartner(fatturatoAttuale)
         const commPotenziale = calcCommissionePartner(fatturatoPotenziale)
         const hasTariffe = tariffaF > 0
@@ -532,6 +578,12 @@ export function ProgettoDetailClient({
                 <div className="grid grid-cols-2 gap-6">
                   <div>
                     <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Attuale (corsi completati)</div>
+                    {quotaProg > 0 && (
+                      <div className="text-xs text-gray-400 mb-2 space-y-0.5">
+                        <div>Base di calcolo:</div>
+                        <div className="font-mono">Corsi {fmtCur(fatturatoCorsiAttuali)} + Quota {fmtCur(quotaProg)} = {fmtCur(fatturatoAttuale)}</div>
+                      </div>
+                    )}
                     <div className="text-sm text-gray-500 mb-0.5">Fatturato scuola</div>
                     <div className="font-mono font-semibold text-gray-800 text-base">{fmtCur(fatturatoAttuale)}</div>
                     <div className="text-sm text-gray-500 mt-3 mb-0.5">Commissione maturata</div>
@@ -546,6 +598,12 @@ export function ProgettoDetailClient({
                   </div>
                   <div>
                     <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Potenziale (tutti i corsi)</div>
+                    {quotaProg > 0 && (
+                      <div className="text-xs text-gray-400 mb-2 space-y-0.5">
+                        <div>Base di calcolo:</div>
+                        <div className="font-mono">Corsi {fmtCur(fatturatoCorsiFull)} + Quota {fmtCur(quotaProg)} = {fmtCur(fatturatoPotenziale)}</div>
+                      </div>
+                    )}
                     <div className="text-sm text-gray-500 mb-0.5">Fatturato scuola</div>
                     <div className="font-mono font-semibold text-gray-600 text-base">{fmtCur(fatturatoPotenziale)}</div>
                     <div className="text-sm text-gray-500 mt-3 mb-0.5">Commissione potenziale</div>
@@ -820,6 +878,22 @@ export function ProgettoDetailClient({
               {partners.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
             </select>
           </div>
+          <div>
+            <Input
+              label="Quota progettazione (€)"
+              type="number"
+              value={editScuolaForm.quota_progettazione}
+              onChange={e => setEditScuolaForm(f => ({ ...f, quota_progettazione: e.target.value }))}
+              placeholder="es. 1000.00"
+            />
+            <p className="text-xs text-gray-400 mt-1">Importo fisso fatturato da SVC alla scuola (min €500 max €1.500). Soggetto a split payment IVA 22%.</p>
+          </div>
+          <Input
+            label="Note quota progettazione"
+            value={editScuolaForm.quota_progettazione_note}
+            onChange={e => setEditScuolaForm(f => ({ ...f, quota_progettazione_note: e.target.value }))}
+            placeholder="es. Compenso per progettazione didattica"
+          />
           <Select
             label="Stato *"
             value={editScuolaForm.status}

@@ -15,6 +15,8 @@ interface ProgettoRow {
   n_formatori: number
   n_corsi: number
   ore_totali: number
+  fatturato_corsi: number
+  quota_progettazione: number
   fatturato_scuola: number
   costo_formatori: number
   costo_tutor: number
@@ -58,6 +60,7 @@ interface Props {
   progetti: { id: string; nome: string }[]
   finanziamenti: { id: string; nome: string }[]
   partners: { id: string; nome: string }[]
+  quotaProgettiMap: Record<string, number>
 }
 
 // ─── Partner types ─────────────────────────────────────────────────────────────
@@ -170,12 +173,14 @@ async function exportEstrattiConto(
   // Foglio 2: Riepilogo per progetto
   const s2Headers = [
     'Progetto (Scuola)', 'Finanziamento', 'Partner', 'N. Formatori', 'N. Corsi', 'Ore Totali',
-    'Fatturato Scuola (€)', 'Costo Formatori (€)', 'Costo Tutor (€)',
+    'Fatturato Corsi (€)', 'Quota Progettazione (€)', 'Fatturato Scuola (€)',
+    'Costo Formatori (€)', 'Costo Tutor (€)',
     'Comm. Partner (€)', 'IVA Partner (€)', 'Totale Partner (€)', 'Margine (€)',
   ]
   const s2Data: (string | number)[][] = progettiRows.map(p => [
     p.school_name, p.finanziamento_nome ?? '', p.partner_nome ?? '', p.n_formatori, p.n_corsi, p.ore_totali,
-    p.fatturato_scuola, p.costo_formatori, p.costo_tutor,
+    p.fatturato_corsi, p.quota_progettazione, p.fatturato_scuola,
+    p.costo_formatori, p.costo_tutor,
     p.commissione_partner, p.iva_partner, p.totale_partner, p.margine,
   ])
   s2Data.push([
@@ -183,6 +188,8 @@ async function exportEstrattiConto(
     progettiRows.reduce((s, p) => s + p.n_formatori, 0),
     progettiRows.reduce((s, p) => s + p.n_corsi, 0),
     progettiRows.reduce((s, p) => s + p.ore_totali, 0),
+    progettiRows.reduce((s, p) => s + p.fatturato_corsi, 0),
+    progettiRows.reduce((s, p) => s + p.quota_progettazione, 0),
     progettiRows.reduce((s, p) => s + p.fatturato_scuola, 0),
     progettiRows.reduce((s, p) => s + p.costo_formatori, 0),
     progettiRows.reduce((s, p) => s + p.costo_tutor, 0),
@@ -256,7 +263,7 @@ function ExpandChevron({ expanded }: { expanded: boolean }) {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function EstrattiContoClient({ items, formatori, progetti, finanziamenti, partners }: Props) {
+export function EstrattiContoClient({ items, formatori, progetti, finanziamenti, partners, quotaProgettiMap }: Props) {
   const currentYear = String(new Date().getFullYear())
   const [activeTab, setActiveTab] = useState<'formatori' | 'partner'>('formatori')
   const [filterAnno, setFilterAnno] = useState<FilterAnno>(currentYear)
@@ -298,13 +305,14 @@ export function EstrattiContoClient({ items, formatori, progetti, finanziamenti,
         partner_id: i.partner_id,
         partner_nome: i.partner_nome,
         n_formatori: 0, n_corsi: 0, ore_totali: 0,
+        fatturato_corsi: 0, quota_progettazione: quotaProgettiMap[i.progetto_id] ?? 0,
         fatturato_scuola: 0, costo_formatori: 0, costo_tutor: 0,
         commissione_partner: 0, iva_partner: 0, totale_partner: 0,
         margine: 0,
       }
       cur.n_corsi++
       cur.ore_totali += i.ore_erogate
-      cur.fatturato_scuola += i.totale_fattura_scuola
+      cur.fatturato_corsi += i.totale_fattura_scuola
       cur.costo_formatori += i.netto
       cur.costo_tutor += i.netto_tutor
       cur.margine += i.margine
@@ -314,6 +322,8 @@ export function EstrattiContoClient({ items, formatori, progetti, finanziamenti,
     }
     for (const [pid, row] of map) {
       row.n_formatori = formPerProg.get(pid)?.size ?? 0
+      row.fatturato_scuola = row.fatturato_corsi + row.quota_progettazione
+      row.margine += row.quota_progettazione
       if (row.partner_id) {
         const comm = calcCommissionePartner(row.fatturato_scuola)
         row.commissione_partner = comm.commissione
@@ -323,7 +333,7 @@ export function EstrattiContoClient({ items, formatori, progetti, finanziamenti,
       }
     }
     return [...map.values()].sort((a, b) => a.school_name.localeCompare(b.school_name))
-  }, [filtered])
+  }, [filtered, quotaProgettiMap])
 
   // Level 2: raggruppa per formatore dentro ogni progetto
   const getFormatoriForProgetto = (progettoId: string): FormatoreRow[] => {
@@ -418,7 +428,7 @@ export function EstrattiContoClient({ items, formatori, progetti, finanziamenti,
       prog.fatturato_scuola += i.totale_fattura_scuola
     }
 
-    // Compute commissions
+    // Compute commissions (include quota progettazione once per project)
     const rows: PartnerRow[] = []
     const progettiByPartner = new Map<string, PartnerProgettoRow[]>()
     for (const [pid, pr] of partnerMap) {
@@ -426,6 +436,8 @@ export function EstrattiContoClient({ items, formatori, progetti, finanziamenti,
       let totalFatturato = 0
       const progList: PartnerProgettoRow[] = []
       for (const prog of progMap.values()) {
+        const quota = quotaProgettiMap[prog.progetto_id] ?? 0
+        prog.fatturato_scuola += quota
         const c = calcCommissionePartner(prog.fatturato_scuola)
         prog.commissione = c.commissione
         prog.iva = c.iva
@@ -444,7 +456,7 @@ export function EstrattiContoClient({ items, formatori, progetti, finanziamenti,
     }
     rows.sort((a, b) => a.partner_nome.localeCompare(b.partner_nome))
     return { partnerRows: rows, partnerProgettiMap: progettiByPartner }
-  }, [partnerFiltered])
+  }, [partnerFiltered, quotaProgettiMap])
 
   const togglePartner = (id: string) => setExpandedPartners(prev => {
     const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next
@@ -656,6 +668,16 @@ export function EstrattiContoClient({ items, formatori, progetti, finanziamenti,
                     {isPExpanded && (
                       <tr>
                         <td colSpan={10} className="px-0 py-0 bg-gray-50/40 border-b border-gray-100">
+                          {p.quota_progettazione > 0 && (
+                            <div className="pl-10 pr-4 py-2 flex items-center gap-6 text-xs text-gray-500 border-b border-blue-50">
+                              <span className="font-medium text-gray-400 uppercase tracking-wide">Fatturato scuola:</span>
+                              <span>Corsi <span className="font-mono text-blue-600">{fmtCur(p.fatturato_corsi)}</span></span>
+                              <span className="text-gray-300">+</span>
+                              <span>Quota progettazione <span className="font-mono text-blue-600">{fmtCur(p.quota_progettazione)}</span></span>
+                              <span className="text-gray-300">=</span>
+                              <span className="font-semibold">Totale <span className="font-mono text-blue-700">{fmtCur(p.fatturato_scuola)}</span></span>
+                            </div>
+                          )}
                           <div className="pl-10">
                             <table className="w-full text-sm">
                               <thead>

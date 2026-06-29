@@ -25,15 +25,20 @@ export default async function ProgettoDetailPage({ params }: { params: Promise<{
 
   if (!progetto) notFound()
 
-  // progetti_con_stats is a static view that may predate the partner_id column —
-  // fetch it explicitly from the base table so the badge and commission section render.
+  // progetti_con_stats is a static view — columns added after its creation
+  // (partner_id, quota_progettazione) are not included; fetch from the base table.
   const { data: progettoBase } = await supabase
     .from('progetti')
-    .select('partner_id')
+    .select('partner_id, quota_progettazione, quota_progettazione_note')
     .eq('id', id)
     .single()
 
-  const progettoFull = { ...progetto, partner_id: progettoBase?.partner_id ?? null }
+  const progettoFull = {
+    ...progetto,
+    partner_id: progettoBase?.partner_id ?? null,
+    quota_progettazione: progettoBase?.quota_progettazione ?? null,
+    quota_progettazione_note: progettoBase?.quota_progettazione_note ?? null,
+  }
 
   const { data: corsi } = await supabase
     .from('corsi_con_ore')

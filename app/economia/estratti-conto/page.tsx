@@ -86,7 +86,7 @@ export default async function EstrattiContoPage() {
       .select('id, project_id, title, tipo, formatore_id, tutor_id, tutor_previsto, corso_completato, corso_completato_at, tariffa_oraria, tariffa_oraria_tutor, ore_tutoraggio, notula_id')
       .eq('corso_completato', true)
       .not('formatore_id', 'is', null),
-    admin.from('progetti').select('id, school_name, finanziamento_id, partner_id'),
+    admin.from('progetti').select('id, school_name, finanziamento_id, partner_id, quota_progettazione'),
     admin.from('sessioni').select('corso_id, ore, data').eq('completata', true),
     admin.from('finanziamenti').select('id, nome, tariffa_formatore_ora, tariffa_tutor_ora'),
     admin.from('partners').select('id, nome').order('nome'),
@@ -101,6 +101,11 @@ export default async function EstrattiContoPage() {
 
   const profilesMap = new Map(profiles.map(p => [p.id as string, p]))
   const progettiMap = new Map(progetti.map(p => [p.id as string, p]))
+  const quotaByProgetto: Record<string, number> = {}
+  for (const p of progetti) {
+    const q = Number((p as { quota_progettazione?: number | null }).quota_progettazione ?? 0)
+    if (q > 0) quotaByProgetto[p.id as string] = q
+  }
   const partnersMap = new Map(partners.map(p => [p.id as string, p]))
   const finanziamentiMap = new Map(finanziamenti.map(f => [f.id as string, f]))
 
@@ -247,6 +252,7 @@ export default async function EstrattiContoPage() {
         progetti={progettiList}
         finanziamenti={finanziamentiList}
         partners={partnersList}
+        quotaProgettiMap={quotaByProgetto}
       />
     </AppLayout>
   )
