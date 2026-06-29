@@ -138,7 +138,7 @@ async function exportFormatori(utenti: UtenteConStats[], statsMap: Record<string
   XLSX.writeFile(wb, `Formatori_Formascuole_${today}.xlsx`)
 }
 
-const initialCreateForm = { nome: '', email: '', password: '', roles: ['formatore'] as UserRole[] }
+const initialCreateForm = { nome: '', email: '', ruolo: 'formatore' as UserRole }
 
 type EditForm = { nome: string; roles: UserRole[] }
 
@@ -151,6 +151,8 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState('')
   const [createSuccess, setCreateSuccess] = useState('')
+  const [generatedPassword, setGeneratedPassword] = useState('')
+  const [passwordCopied, setPasswordCopied] = useState(false)
 
   // --- Edit state ---
   const [editTarget, setEditTarget] = useState<UtenteConStats | null>(null)
@@ -198,30 +200,21 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
     setCreateForm(initialCreateForm)
     setCreateError('')
     setCreateSuccess('')
-  }
-
-  const toggleCreateRole = (role: UserRole) => {
-    setCreateForm(f => {
-      if (f.roles.includes(role)) {
-        if (f.roles.length === 1) return f
-        return { ...f, roles: f.roles.filter(r => r !== role) }
-      }
-      return { ...f, roles: [...f.roles, role] }
-    })
+    setGeneratedPassword('')
+    setPasswordCopied(false)
   }
 
   const handleCreate = async () => {
     setCreateError('')
     setCreating(true)
     try {
-      const res = await fetch('/api/formatori', {
+      const res = await fetch('/api/admin/crea-utente', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           nome: createForm.nome,
           email: createForm.email,
-          password: createForm.password,
-          roles: createForm.roles,
+          ruolo: createForm.ruolo,
         }),
       })
       const json = await res.json()
@@ -229,8 +222,8 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
         setCreateError(json.error || 'Errore durante la creazione')
         return
       }
-      const roleLabel = createForm.roles.map(r => ROLE_LABELS[r]).join(', ')
-      setCreateSuccess(`Utente "${createForm.nome}" (${roleLabel}) creato con successo!`)
+      setGeneratedPassword(json.password ?? '')
+      setCreateSuccess(`Utente "${createForm.nome}" creato con successo.`)
       setCreateForm(initialCreateForm)
       router.refresh()
     } finally {
@@ -238,7 +231,15 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
     }
   }
 
-  const canCreate = createForm.nome.trim() && createForm.email.trim() && createForm.password.length >= 6 && createForm.roles.length > 0
+  const handleCopyPassword = () => {
+    if (!generatedPassword) return
+    navigator.clipboard.writeText(generatedPassword).then(() => {
+      setPasswordCopied(true)
+      setTimeout(() => setPasswordCopied(false), 2000)
+    })
+  }
+
+  const canCreate = createForm.nome.trim().length > 0 && createForm.email.trim().length > 0 && !!createForm.ruolo
 
   // ─── Edit handlers ─────────────────────────────────────────────────────────
   const openEdit = (u: UtenteConStats) => {
@@ -546,9 +547,35 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
               </svg>
               <p className="text-sm text-green-800">{createSuccess}</p>
             </div>
-            <p className="text-sm text-gray-500">
-              L&apos;utente può accedere alla piattaforma con le credenziali fornite.
-            </p>
+            {generatedPassword && (
+              <div className="rounded-[7px] border border-amber-200 bg-amber-50 px-4 py-3 space-y-2">
+                <p className="text-xs font-medium text-amber-700 uppercase tracking-wide">Password temporanea generata</p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 text-sm font-mono bg-white border border-amber-200 rounded px-3 py-1.5 text-gray-800 select-all">
+                    {generatedPassword}
+                  </code>
+                  <button
+                    onClick={handleCopyPassword}
+                    className="shrink-0 p-1.5 rounded text-amber-600 hover:bg-amber-100 transition-colors"
+                    title="Copia password"
+                  >
+                    {passwordCopied ? (
+                      <svg width="15" height="15" fill="none" viewBox="0 0 24 24">
+                        <polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    ) : (
+                      <svg width="15" height="15" fill="none" viewBox="0 0 24 24">
+                        <rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+                        <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                      </svg>
+                    )}
+                  </button>
+                </div>
+                <p className="text-xs text-amber-600">
+                  Comunica questa password all&apos;utente. Verrà anche inviata via email.
+                </p>
+              </div>
+            )}
           </div>
         ) : (
           <div className="space-y-4">
@@ -567,21 +594,42 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
               onChange={e => setCreateForm(f => ({ ...f, email: e.target.value }))}
               autoComplete="off"
             />
-            <Input
-              label="Password temporanea *"
-              type="password"
-              placeholder="Minimo 6 caratteri"
-              value={createForm.password}
-              onChange={e => setCreateForm(f => ({ ...f, password: e.target.value }))}
-              hint="L'utente dovrà cambiarla al primo accesso"
-              autoComplete="new-password"
-            />
-            <RoleCheckboxes
-              selected={createForm.roles}
-              onToggle={toggleCreateRole}
-              visibleRoles={visibleRoles}
-              isSuperAdmin={isSuperAdmin}
-            />
+            <div>
+              <div className="text-sm font-medium text-gray-700 mb-2">Ruolo *</div>
+              <div className="space-y-2">
+                {visibleRoles.map(({ value, label, desc }) => {
+                  const checked = createForm.ruolo === value
+                  return (
+                    <label
+                      key={value}
+                      className="flex items-start gap-3 p-3 rounded-[7px] border cursor-pointer transition-all"
+                      style={{
+                        borderColor: checked ? '#d64b55' : '#e5e5e5',
+                        backgroundColor: checked ? '#fbeced' : 'white',
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name="ruolo"
+                        checked={checked}
+                        onChange={() => setCreateForm(f => ({ ...f, ruolo: value }))}
+                        className="mt-0.5 accent-[#d64b55]"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-gray-800">{label}</span>
+                          <span className={`text-xs font-medium px-2 py-0.5 rounded-md ${ROLE_COLORS[value]}`}>{label}</span>
+                        </div>
+                        <div className="text-xs text-gray-500 mt-0.5">{desc}</div>
+                      </div>
+                    </label>
+                  )
+                })}
+              </div>
+              <p className="text-xs text-gray-400 mt-2">
+                La password temporanea verrà generata automaticamente e inviata via email.
+              </p>
+            </div>
             {createError && <ErrorBanner message={createError} />}
           </div>
         )}
