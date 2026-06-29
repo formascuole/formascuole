@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { Sidebar } from './Sidebar'
 import { UserRole } from '@/lib/types'
 
+const isStaging = process.env.NEXT_PUBLIC_STAGING_MODE === 'true'
+
 interface AppLayoutProps {
   children: React.ReactNode
   role: UserRole
@@ -19,7 +21,7 @@ export function AppLayout({ children, role, nome, email, avatarInitials, notific
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#f7f7f5]">
+    <div className={`flex overflow-hidden bg-[#f7f7f5] ${isStaging ? 'h-[calc(100vh-32px)]' : 'h-screen'}`}>
       {/* Mobile backdrop */}
       {sidebarOpen && (
         <div
