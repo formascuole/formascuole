@@ -1104,7 +1104,7 @@ export function CorsoDetailClient({
     : 0
   const pctTutor = oreTutoraggio > 0 ? Math.round((oreTutorErogate / oreTutoraggio) * 100) : 0
 
-  const canMarkComplete = !isAdmin && !corsoCompletatoLocal && oreErogate >= Number(corso.ore_totali) && Number(corso.ore_totali) > 0
+  const canMarkComplete = !isAdmin && corso.formatore_id === currentUserId && !corsoCompletatoLocal && oreErogate >= Number(corso.ore_totali) && Number(corso.ore_totali) > 0
 
   return (
     <div className="p-8 max-w-4xl mx-auto">
