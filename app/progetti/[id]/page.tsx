@@ -25,6 +25,16 @@ export default async function ProgettoDetailPage({ params }: { params: Promise<{
 
   if (!progetto) notFound()
 
+  // progetti_con_stats is a static view that may predate the partner_id column —
+  // fetch it explicitly from the base table so the badge and commission section render.
+  const { data: progettoBase } = await supabase
+    .from('progetti')
+    .select('partner_id')
+    .eq('id', id)
+    .single()
+
+  const progettoFull = { ...progetto, partner_id: progettoBase?.partner_id ?? null }
+
   const { data: corsi } = await supabase
     .from('corsi_con_ore')
     .select('*, formatore:profiles!formatore_id(id,nome,email,avatar_initials)')
@@ -102,7 +112,7 @@ export default async function ProgettoDetailPage({ params }: { params: Promise<{
       isSuperAdmin={isSuperAdmin}
     >
       <ProgettoDetailClient
-        progetto={progetto}
+        progetto={progettoFull}
         corsi={corsi || []}
         formatori={formatori || []}
         messaggi={messaggiConLetto}
