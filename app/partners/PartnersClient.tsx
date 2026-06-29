@@ -5,7 +5,6 @@ import { Partner } from '@/lib/types'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
-import { calcCommissionePartner, fmtCur } from '@/lib/economia-utils'
 
 interface Props {
   partners: Partner[]

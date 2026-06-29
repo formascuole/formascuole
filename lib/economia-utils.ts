@@ -41,9 +41,10 @@ export const REGIME_BADGE: Record<RegimeFiscale, string> = {
   notula:      'bg-orange-100 text-orange-700',
 }
 
-export function calcCommissionePartner(fatturato: number): number {
-  if (fatturato <= 100000) {
-    return fatturato * 0.10
-  }
-  return 10000 + (fatturato - 100000) * 0.12
+export function calcCommissionePartner(fatturato: number): { commissione: number; iva: number; totale: number } {
+  const commissione = fatturato <= 100000
+    ? fatturato * 0.10
+    : 10000 + (fatturato - 100000) * 0.12
+  const iva = commissione * 0.22
+  return { commissione, iva, totale: commissione + iva }
 }
