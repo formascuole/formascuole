@@ -13,6 +13,8 @@ export interface CorsoECItem {
   progetto_id: string
   finanziamento_id: string | null
   finanziamento_nome: string | null
+  partner_id: string | null
+  partner_nome: string | null
   formatore_id: string
   formatore_nome: string
   regime_fiscale: RegimeFiscale
@@ -77,15 +79,17 @@ export default async function EstrattiContoPage() {
     { data: progettiRaw },
     { data: sessioniRaw },
     { data: finanziamentiRaw },
+    { data: partnersRaw },
   ] = await Promise.all([
     admin.from('profiles').select('id, nome, tariffa_oraria_formatore, tariffa_oraria_tutor, regime_fiscale, rivalsa_iva, ha_partita_iva, inps_gestione_separata'),
     admin.from('corsi')
       .select('id, project_id, title, tipo, formatore_id, tutor_id, tutor_previsto, corso_completato, corso_completato_at, tariffa_oraria, tariffa_oraria_tutor, ore_tutoraggio, notula_id')
       .eq('corso_completato', true)
       .not('formatore_id', 'is', null),
-    admin.from('progetti').select('id, school_name, finanziamento_id'),
+    admin.from('progetti').select('id, school_name, finanziamento_id, partner_id'),
     admin.from('sessioni').select('corso_id, ore, data').eq('completata', true),
     admin.from('finanziamenti').select('id, nome, tariffa_formatore_ora, tariffa_tutor_ora'),
+    admin.from('partners').select('id, nome').order('nome'),
   ])
 
   const profiles = profilesRaw ?? []
@@ -93,9 +97,11 @@ export default async function EstrattiContoPage() {
   const progetti = progettiRaw ?? []
   const sessioni = sessioniRaw ?? []
   const finanziamenti = finanziamentiRaw ?? []
+  const partners = partnersRaw ?? []
 
   const profilesMap = new Map(profiles.map(p => [p.id as string, p]))
   const progettiMap = new Map(progetti.map(p => [p.id as string, p]))
+  const partnersMap = new Map(partners.map(p => [p.id as string, p]))
   const finanziamentiMap = new Map(finanziamenti.map(f => [f.id as string, f]))
 
   type SessionAgg = { ore_erogate: number; prima: string | null; ultima: string | null }
@@ -114,6 +120,8 @@ export default async function EstrattiContoPage() {
     const progetto = progettiMap.get(c.project_id as string)
     const finId = progetto?.finanziamento_id as string | null | undefined
     const finanziamento = finId ? finanziamentiMap.get(finId) : undefined
+    const ptnId = progetto?.partner_id as string | null | undefined
+    const partner = ptnId ? partnersMap.get(ptnId) : undefined
     const agg = sessionByCorso.get(c.id as string) ?? { ore_erogate: 0, prima: null, ultima: null }
 
     // Formatore fiscal
@@ -165,6 +173,8 @@ export default async function EstrattiContoPage() {
       progetto_id: c.project_id as string,
       finanziamento_id: finId ?? null,
       finanziamento_nome: (finanziamento?.nome as string | null) ?? null,
+      partner_id: ptnId ?? null,
+      partner_nome: (partner?.nome as string | null) ?? null,
       formatore_id: c.formatore_id as string,
       formatore_nome: (profileData?.nome as string | null) ?? '—',
       regime_fiscale: regime,
@@ -218,6 +228,10 @@ export default async function EstrattiContoPage() {
     .map(f => ({ id: f.id as string, nome: f.nome as string }))
     .sort((a, b) => a.nome.localeCompare(b.nome))
 
+  const partnersList = partners
+    .map(p => ({ id: p.id as string, nome: p.nome as string }))
+    .sort((a, b) => a.nome.localeCompare(b.nome))
+
   return (
     <AppLayout
       role={profile.role}
@@ -232,6 +246,7 @@ export default async function EstrattiContoPage() {
         formatori={formatori}
         progetti={progettiList}
         finanziamenti={finanziamentiList}
+        partners={partnersList}
       />
     </AppLayout>
   )

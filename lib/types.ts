@@ -40,6 +40,12 @@ export interface Profile {
   inps_gestione_separata?: boolean
 }
 
+export interface Partner {
+  id: string
+  nome: string
+  created_at?: string
+}
+
 export interface Finanziamento {
   id: string
   nome: string
@@ -75,6 +81,7 @@ export interface Progetto {
   provincia?: string | null  // 2-letter code
   citta?: string | null
   // 'address' remains for backward compatibility but now means via e civico
+  partner_id?: string | null
 }
 
 export interface ProgettoConStats extends Progetto {

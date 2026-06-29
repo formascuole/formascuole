@@ -1,6 +1,7 @@
 import { redirect, notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { checkIsSuperAdmin, createAdminClient } from '@/lib/supabase/admin'
+import type { Partner } from '@/lib/types'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { ProgettoDetailClient } from './ProgettoDetailClient'
 import { getUnreadNotificheCount } from '@/lib/notifiche-utils'
@@ -77,6 +78,7 @@ export default async function ProgettoDetailPage({ params }: { params: Promise<{
   // Questionari e ore erogate per tutti i corsi di questo progetto
   const corsiIds = (corsi || []).map(c => c.id)
   const adminQ = createAdminClient()
+  const { data: partners } = await adminQ.from('partners').select('id,nome,created_at').order('nome')
   const [{ data: questionari }, { data: sessioniErogate }] = await Promise.all([
     corsiIds.length > 0
       ? adminQ.from('questionari_risultati').select('*').in('corso_id', corsiIds).not('media_formatore', 'is', null).not('media_contenuti', 'is', null).not('media_apprendimento', 'is', null).order('created_at', { ascending: false })
@@ -106,6 +108,7 @@ export default async function ProgettoDetailPage({ params }: { params: Promise<{
         messaggi={messaggiConLetto}
         referenti={referenti || []}
         finanziamenti={finanziamenti || []}
+        partners={(partners || []) as Partner[]}
         catalogo={catalogo || []}
         currentUserId={user.id}
         isSuperAdmin={isSuperAdmin}

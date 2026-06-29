@@ -85,6 +85,7 @@ const adminNav: NavEntry[] = [
       { href: '/economia/corsi-completati', label: 'Corsi completati' },
       { href: '/economia/documenti-contabili', label: 'Documenti contabili' },
       { href: '/economia/lettere-incarico', label: 'Lettere d\'incarico' },
+      { href: '/partners', label: 'Partner' },
     ],
   } as NavGroup,
   {

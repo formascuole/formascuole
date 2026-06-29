@@ -1,7 +1,7 @@
 'use client'
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { ProgettoConStats, Finanziamento } from '@/lib/types'
+import { ProgettoConStats, Finanziamento, Partner } from '@/lib/types'
 import { DualProgressBar } from '@/components/ui/DualProgressBar'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { Button } from '@/components/ui/Button'
@@ -45,10 +45,11 @@ export function formatAddress(p: {
 interface ProgettiClientProps {
   progetti: ProgettoConStats[]
   finanziamenti: Finanziamento[]
+  partners: Partner[]
   inAttesaProjectIds?: string[]
 }
 
-export function ProgettiClient({ progetti, finanziamenti, inAttesaProjectIds }: ProgettiClientProps) {
+export function ProgettiClient({ progetti, finanziamenti, partners, inAttesaProjectIds }: ProgettiClientProps) {
   const router = useRouter()
   const [search, setSearch] = useState('')
   const [filterFinId, setFilterFinId] = useState('')
@@ -62,6 +63,7 @@ export function ProgettiClient({ progetti, finanziamenti, inAttesaProjectIds }: 
     provincia: '',
     citta: '',
     finanziamento_id: '',
+    partner_id: '',
     ref_name: '',
     ref_email: '',
     ref_tel: '',
@@ -97,7 +99,7 @@ export function ProgettiClient({ progetti, finanziamenti, inAttesaProjectIds }: 
 
   const resetForm = () => setForm({
     school_name: '', address: '', regione: '', provincia: '', citta: '',
-    finanziamento_id: '', ref_name: '', ref_email: '', ref_tel: '', ref_ruolo: '', status: 'active',
+    finanziamento_id: '', partner_id: '', ref_name: '', ref_email: '', ref_tel: '', ref_ruolo: '', status: 'active',
   })
 
   const handleSave = async () => {
@@ -110,6 +112,7 @@ export function ProgettiClient({ progetti, finanziamenti, inAttesaProjectIds }: 
         body: JSON.stringify({
           ...form,
           finanziamento_id: form.finanziamento_id || null,
+          partner_id: form.partner_id || null,
           regione: form.regione || null,
           provincia: form.provincia || null,
           citta: form.citta || null,
@@ -245,6 +248,19 @@ export function ProgettiClient({ progetti, finanziamenti, inAttesaProjectIds }: 
               ))}
             </select>
           </div>
+          {partners.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Partner</label>
+              <select
+                value={form.partner_id}
+                onChange={e => setForm(f => ({ ...f, partner_id: e.target.value }))}
+                className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 bg-white focus:outline-none focus:border-[#d64b55] transition-colors"
+              >
+                <option value="">Nessun partner</option>
+                {partners.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+              </select>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <Input label="Nome referente *" value={form.ref_name} onChange={e => setForm(f => ({ ...f, ref_name: e.target.value }))} />
             <Input label="Email referente *" type="email" value={form.ref_email} onChange={e => setForm(f => ({ ...f, ref_email: e.target.value }))} />

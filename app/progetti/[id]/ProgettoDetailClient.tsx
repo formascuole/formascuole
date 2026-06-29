@@ -2,7 +2,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ProgettoConStats, CorsoConOre, Profile, ChatMessaggio, Referente, Finanziamento, CatalogoCorso, QuestionarioRisultato } from '@/lib/types'
+import { ProgettoConStats, CorsoConOre, Profile, ChatMessaggio, Referente, Finanziamento, Partner, CatalogoCorso, QuestionarioRisultato } from '@/lib/types'
+import { calcCommissionePartner, fmtCur } from '@/lib/economia-utils'
 import { QuestionariBlock } from '@/components/ui/QuestionariBlock'
 import { getFinanziamentoColor, formatAddress } from '@/app/progetti/ProgettiClient'
 import { GeoSelect } from '@/components/GeoSelect'
@@ -26,6 +27,7 @@ interface ProgettoDetailClientProps {
   messaggi: ChatMessaggio[]
   referenti: Referente[]
   finanziamenti: Finanziamento[]
+  partners: Partner[]
   catalogo: CatalogoCorso[]
   currentUserId: string
   isSuperAdmin?: boolean
@@ -38,6 +40,7 @@ type EditScuolaForm = {
   address: string
   anno_scolastico: string
   finanziamento_id: string
+  partner_id: string
   status: string
   regione: string
   provincia: string
@@ -54,6 +57,7 @@ export function ProgettoDetailClient({
   messaggi: initialMessaggi,
   referenti: initialReferenti,
   finanziamenti,
+  partners,
   catalogo,
   currentUserId,
   isSuperAdmin,
@@ -94,6 +98,7 @@ export function ProgettoDetailClient({
     address: progetto.address,
     anno_scolastico: progetto.anno_scolastico || '',
     finanziamento_id: (progetto as ProgettoConStats & { finanziamento_id?: string | null }).finanziamento_id || '',
+    partner_id: progetto.partner_id || '',
     status: progetto.status,
     regione: progetto.regione ?? '',
     provincia: progetto.provincia ?? '',
@@ -386,6 +391,18 @@ export function ProgettoDetailClient({
                 if (progetto.anno_scolastico) return <span className="text-sm text-gray-400">{progetto.anno_scolastico}</span>
                 return null
               })()}
+              {progetto.partner_id && (() => {
+                const partner = partners.find(p => p.id === progetto.partner_id)
+                if (!partner) return null
+                return (
+                  <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-md bg-violet-100 text-violet-700">
+                    <svg width="10" height="10" fill="none" viewBox="0 0 24 24">
+                      <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    {partner.nome}
+                  </span>
+                )
+              })()}
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -398,6 +415,7 @@ export function ProgettoDetailClient({
                   address: progetto.address,
                   anno_scolastico: progetto.anno_scolastico || '',
                   finanziamento_id: (progetto as ProgettoConStats & { finanziamento_id?: string | null }).finanziamento_id || '',
+                  partner_id: progetto.partner_id || '',
                   status: progetto.status,
                   regione: progetto.regione ?? '',
                   provincia: progetto.provincia ?? '',
@@ -472,6 +490,72 @@ export function ProgettoDetailClient({
           </div>
         </div>
       )}
+
+      {/* ── Sezione commissione partner ── */}
+      {progetto.partner_id && (() => {
+        const partner = partners.find(p => p.id === progetto.partner_id)
+        if (!partner) return null
+        const finId = (progetto as ProgettoConStats & { finanziamento_id?: string | null }).finanziamento_id
+        const fin = finId ? finanziamenti.find(f => f.id === finId) : null
+        const tariffaF = Number(fin?.tariffa_formatore_ora ?? 0)
+        const tariffaT = Number(fin?.tariffa_tutor_ora ?? 0)
+
+        let fatturatoAttuale = 0
+        let fatturatoPotenziale = 0
+        for (const c of corsi) {
+          const oreTotali = Number(c.ore_totali ?? 0)
+          const oreErogate = oreErogatePerCorso[c.id] ?? 0
+          const hasRealTutor = c.tipo === 'PF' && !!c.tutor_id
+          const oreTutor = hasRealTutor ? Number((c as CorsoConOre & { ore_tutoraggio?: number }).ore_tutoraggio ?? 0) : 0
+          fatturatoPotenziale += oreTotali * tariffaF + oreTutor * tariffaT
+          if (c.corso_completato) {
+            fatturatoAttuale += oreErogate * tariffaF + oreTutor * tariffaT
+          }
+        }
+        const commAttuale = calcCommissionePartner(fatturatoAttuale)
+        const commPotenziale = calcCommissionePartner(fatturatoPotenziale)
+        const hasTariffe = tariffaF > 0
+
+        return (
+          <div className="bg-white rounded-xl mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
+            <div className="flex items-center gap-2 px-6 py-4 border-b border-gray-100">
+              <svg width="15" height="15" fill="none" viewBox="0 0 24 24" className="text-violet-500 shrink-0">
+                <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              <h2 className="font-semibold text-gray-900">Commissione partner</h2>
+              <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-violet-100 text-violet-700">{partner.nome}</span>
+            </div>
+            <div className="px-6 py-4">
+              {!hasTariffe ? (
+                <p className="text-sm text-gray-400">Nessuna tariffa scuola configurata per questo finanziamento — impossibile calcolare la commissione.</p>
+              ) : (
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Attuale (corsi completati)</div>
+                    <div className="text-sm text-gray-500 mb-0.5">Fatturato scuola</div>
+                    <div className="font-mono font-semibold text-gray-800 text-base">{fmtCur(fatturatoAttuale)}</div>
+                    <div className="text-sm text-gray-500 mt-2 mb-0.5">Commissione maturata</div>
+                    <div className="font-mono font-bold text-violet-700 text-lg">{fmtCur(commAttuale)}</div>
+                    <div className="text-xs text-gray-400 mt-0.5">
+                      {fatturatoAttuale <= 100000 ? '10% flat' : '10% su primi €100k + 12% sull\'eccedenza'}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Potenziale (tutti i corsi)</div>
+                    <div className="text-sm text-gray-500 mb-0.5">Fatturato scuola</div>
+                    <div className="font-mono font-semibold text-gray-600 text-base">{fmtCur(fatturatoPotenziale)}</div>
+                    <div className="text-sm text-gray-500 mt-2 mb-0.5">Commissione potenziale</div>
+                    <div className="font-mono font-bold text-violet-400 text-lg">{fmtCur(commPotenziale)}</div>
+                    <div className="text-xs text-gray-400 mt-0.5">
+                      {fatturatoPotenziale <= 100000 ? '10% flat' : '10% su primi €100k + 12% sull\'eccedenza'}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Referenti */}
       <div className="bg-white rounded-xl mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
@@ -715,6 +799,17 @@ export function ProgettoDetailClient({
               {finanziamenti.filter(f => f.attivo || f.id === editScuolaForm.finanziamento_id).map(f => (
                 <option key={f.id} value={f.id}>{f.nome}{!f.attivo ? ' (inattivo)' : ''}</option>
               ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Partner</label>
+            <select
+              value={editScuolaForm.partner_id}
+              onChange={e => setEditScuolaForm(f => ({ ...f, partner_id: e.target.value }))}
+              className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 bg-white focus:outline-none focus:border-[#d64b55] transition-colors"
+            >
+              <option value="">Nessun partner</option>
+              {partners.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
             </select>
           </div>
           <Select

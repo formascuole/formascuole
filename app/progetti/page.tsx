@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { ProgettiClient } from './ProgettiClient'
 import { getUnreadNotificheCount } from '@/lib/notifiche-utils'
@@ -22,9 +23,11 @@ export default async function ProgettiPage({ searchParams }: { searchParams: Pro
 
   const { in_attesa } = await searchParams
 
-  const [{ data: progetti }, { data: finanziamenti }, notifiche] = await Promise.all([
+  const admin = createAdminClient()
+  const [{ data: progetti }, { data: finanziamenti }, { data: partners }, notifiche] = await Promise.all([
     supabase.from('progetti_con_stats').select('*').order('created_at', { ascending: false }),
     supabase.from('finanziamenti').select('*').order('nome'),
+    admin.from('partners').select('id,nome').order('nome'),
     getUnreadNotificheCount(supabase, user.id),
   ])
 
@@ -50,6 +53,7 @@ export default async function ProgettiPage({ searchParams }: { searchParams: Pro
       <ProgettiClient
         progetti={progetti || []}
         finanziamenti={finanziamenti || []}
+        partners={partners || []}
         inAttesaProjectIds={inAttesaProjectIds}
       />
     </AppLayout>

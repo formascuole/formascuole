@@ -2,7 +2,7 @@
 import { useState, useMemo, Fragment } from 'react'
 import Link from 'next/link'
 import type { CorsoECItem } from './page'
-import { REGIME_LABELS, REGIME_BADGE, fmtCur, type RegimeFiscale } from '@/lib/economia-utils'
+import { REGIME_LABELS, REGIME_BADGE, fmtCur, calcCommissionePartner, type RegimeFiscale } from '@/lib/economia-utils'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -52,6 +52,25 @@ interface Props {
   formatori: { id: string; nome: string }[]
   progetti: { id: string; nome: string }[]
   finanziamenti: { id: string; nome: string }[]
+  partners: { id: string; nome: string }[]
+}
+
+// ─── Partner types ─────────────────────────────────────────────────────────────
+
+interface PartnerRow {
+  partner_id: string
+  partner_nome: string
+  n_progetti: number
+  fatturato_scuola: number
+  commissione: number
+}
+
+interface PartnerProgettoRow {
+  progetto_id: string
+  school_name: string
+  n_corsi: number
+  fatturato_scuola: number
+  commissione: number
 }
 
 type FilterAnno = string
@@ -62,6 +81,45 @@ const REGIME_EXPORT: Record<RegimeFiscale, string> = {
   forfettario: 'Forfettario',
   ordinario: 'Ordinario',
   notula: 'Prestazione occasionale',
+}
+
+async function exportPartnerCommissioni(
+  partnerRows: PartnerRow[],
+  progettiByPartner: Map<string, PartnerProgettoRow[]>,
+  anno: string,
+) {
+  const XLSX = await import('xlsx')
+  const filename = `Commissioni_Partner_${anno || new Date().getFullYear()}.xlsx`
+
+  // Foglio 1: dettaglio per progetto
+  const s1Headers = ['Partner', 'Progetto (Scuola)', 'N. Corsi Completati', 'Fatturato Scuola (€)', 'Commissione (€)']
+  const s1Data: (string | number)[][] = []
+  for (const pr of partnerRows) {
+    const progetti = progettiByPartner.get(pr.partner_id) ?? []
+    for (const p of progetti) {
+      s1Data.push([pr.partner_nome, p.school_name, p.n_corsi, p.fatturato_scuola, p.commissione])
+    }
+  }
+  const ws1 = XLSX.utils.aoa_to_sheet([s1Headers, ...s1Data])
+  ws1['!cols'] = s1Headers.map(h => ({ wch: Math.max(h.length + 2, 18) }))
+
+  // Foglio 2: riepilogo per partner
+  const s2Headers = ['Partner', 'N. Progetti', 'Fatturato Scuola (€)', 'Commissione Maturata (€)']
+  const s2Data: (string | number)[][] = partnerRows.map(pr => [
+    pr.partner_nome, pr.n_progetti, pr.fatturato_scuola, pr.commissione,
+  ])
+  s2Data.push(['TOTALE',
+    partnerRows.reduce((s, r) => s + r.n_progetti, 0),
+    partnerRows.reduce((s, r) => s + r.fatturato_scuola, 0),
+    partnerRows.reduce((s, r) => s + r.commissione, 0),
+  ])
+  const ws2 = XLSX.utils.aoa_to_sheet([s2Headers, ...s2Data])
+  ws2['!cols'] = s2Headers.map(h => ({ wch: Math.max(h.length + 2, 18) }))
+
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws1, 'Dettaglio per progetto')
+  XLSX.utils.book_append_sheet(wb, ws2, 'Riepilogo per partner')
+  XLSX.writeFile(wb, filename)
 }
 
 async function exportEstrattiConto(
@@ -182,13 +240,18 @@ function ExpandChevron({ expanded }: { expanded: boolean }) {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function EstrattiContoClient({ items, formatori, progetti, finanziamenti }: Props) {
+export function EstrattiContoClient({ items, formatori, progetti, finanziamenti, partners }: Props) {
   const currentYear = String(new Date().getFullYear())
+  const [activeTab, setActiveTab] = useState<'formatori' | 'partner'>('formatori')
   const [filterAnno, setFilterAnno] = useState<FilterAnno>(currentYear)
   const [filterFormatore, setFilterFormatore] = useState('')
   const [filterRegime, setFilterRegime] = useState<'' | RegimeFiscale>('')
   const [filterProgetto, setFilterProgetto] = useState('')
   const [filterFinanziamento, setFilterFinanziamento] = useState('')
+  // Partner tab filters
+  const [filterPartnerAnno, setFilterPartnerAnno] = useState<FilterAnno>(currentYear)
+  const [filterPartner, setFilterPartner] = useState('')
+  const [expandedPartners, setExpandedPartners] = useState<Set<string>>(new Set())
   const [expandedProgetti, setExpandedProgetti] = useState<Set<string>>(new Set())
   const [expandedFormatori, setExpandedFormatori] = useState<Set<string>>(new Set())
 
@@ -290,6 +353,65 @@ export function EstrattiContoClient({ items, formatori, progetti, finanziamenti 
     margine: progettiRows.reduce((s, p) => s + p.margine, 0),
   }), [filtered, progettiRows])
 
+  // ─── Partner tab data ───────────────────────────────────────────────────────
+  const partnerFiltered = useMemo(() => items.filter(i => {
+    if (!i.partner_id) return false
+    if (filterPartnerAnno && filterPartnerAnno !== 'all' && i.anno !== filterPartnerAnno) return false
+    if (filterPartner && i.partner_id !== filterPartner) return false
+    return true
+  }), [items, filterPartnerAnno, filterPartner])
+
+  const { partnerRows, partnerProgettiMap } = useMemo(() => {
+    const partnerMap = new Map<string, PartnerRow>()
+    const progettiPerPartner = new Map<string, Map<string, PartnerProgettoRow>>()
+
+    for (const i of partnerFiltered) {
+      if (!i.partner_id || !i.partner_nome) continue
+      if (!partnerMap.has(i.partner_id)) {
+        partnerMap.set(i.partner_id, {
+          partner_id: i.partner_id, partner_nome: i.partner_nome,
+          n_progetti: 0, fatturato_scuola: 0, commissione: 0,
+        })
+      }
+      if (!progettiPerPartner.has(i.partner_id)) progettiPerPartner.set(i.partner_id, new Map())
+      const progMap = progettiPerPartner.get(i.partner_id)!
+      if (!progMap.has(i.progetto_id)) {
+        progMap.set(i.progetto_id, {
+          progetto_id: i.progetto_id, school_name: i.school_name,
+          n_corsi: 0, fatturato_scuola: 0, commissione: 0,
+        })
+      }
+      const prog = progMap.get(i.progetto_id)!
+      prog.n_corsi++
+      prog.fatturato_scuola += i.totale_fattura_scuola
+    }
+
+    // Compute commissions
+    const rows: PartnerRow[] = []
+    const progettiByPartner = new Map<string, PartnerProgettoRow[]>()
+    for (const [pid, pr] of partnerMap) {
+      const progMap = progettiPerPartner.get(pid) ?? new Map()
+      let totalFatturato = 0
+      const progList: PartnerProgettoRow[] = []
+      for (const prog of progMap.values()) {
+        prog.commissione = calcCommissionePartner(prog.fatturato_scuola)
+        totalFatturato += prog.fatturato_scuola
+        progList.push(prog)
+      }
+      pr.n_progetti = progMap.size
+      pr.fatturato_scuola = totalFatturato
+      pr.commissione = calcCommissionePartner(totalFatturato)
+      rows.push(pr)
+      progettiByPartner.set(pid, progList.sort((a, b) => a.school_name.localeCompare(b.school_name)))
+    }
+    rows.sort((a, b) => a.partner_nome.localeCompare(b.partner_nome))
+    return { partnerRows: rows, partnerProgettiMap: progettiByPartner }
+  }, [partnerFiltered])
+
+  const togglePartner = (id: string) => setExpandedPartners(prev => {
+    const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next
+  })
+
   const toggleProgetto = (id: string) => setExpandedProgetti(prev => {
     const next = new Set(prev)
     next.has(id) ? next.delete(id) : next.add(id)
@@ -314,26 +436,59 @@ export function EstrattiContoClient({ items, formatori, progetti, finanziamenti 
     return parts.join('_').replace(/\s/g, '-')
   }
 
+  const ExportIcon = () => (
+    <svg width="15" height="15" fill="none" viewBox="0 0 24 24">
+      <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+
   return (
     <div className="p-8 max-w-7xl mx-auto">
-      <div className="flex items-start justify-between mb-6">
+      <div className="flex items-start justify-between mb-5">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Estratti conto formatori</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            {progettiRows.length} progett{progettiRows.length === 1 ? 'o' : 'i'} — {filtered.length} cors{filtered.length === 1 ? 'o' : 'i'}
-          </p>
+          <h1 className="text-2xl font-bold text-gray-900">Estratti conto</h1>
         </div>
-        <button
-          onClick={() => exportEstrattiConto(filtered, progettiRows, formatoriGlobalRows, buildFilterLabel())}
-          className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-[7px] border border-gray-200 hover:bg-gray-50 text-gray-600 transition-colors"
-        >
-          <svg width="15" height="15" fill="none" viewBox="0 0 24 24">
-            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-          Esporta Excel (3 fogli)
-        </button>
+        {activeTab === 'formatori' ? (
+          <button
+            onClick={() => exportEstrattiConto(filtered, progettiRows, formatoriGlobalRows, buildFilterLabel())}
+            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-[7px] border border-gray-200 hover:bg-gray-50 text-gray-600 transition-colors"
+          >
+            <ExportIcon />
+            Esporta Excel (3 fogli)
+          </button>
+        ) : (
+          <button
+            onClick={() => exportPartnerCommissioni(partnerRows, partnerProgettiMap, filterPartnerAnno !== 'all' ? filterPartnerAnno : String(new Date().getFullYear()))}
+            className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-[7px] border border-gray-200 hover:bg-gray-50 text-gray-600 transition-colors"
+          >
+            <ExportIcon />
+            Esporta Excel commissioni
+          </button>
+        )}
       </div>
 
+      {/* ── Tabs ── */}
+      <div className="flex gap-1 mb-5 border-b border-gray-200">
+        {(['formatori', 'partner'] as const).map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
+              activeTab === tab
+                ? 'border-[#d64b55] text-[#d64b55]'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {tab === 'formatori' ? 'Formatori' : 'Partner'}
+            {tab === 'partner' && partners.length > 0 && (
+              <span className="ml-1.5 text-xs bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded-full">{partners.length}</span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Tab: Formatori ── */}
+      {activeTab === 'formatori' && <>
       {/* ── Filtri ── */}
       <div className="bg-white rounded-xl p-4 mb-6 flex flex-wrap gap-3 items-end" style={{ border: '0.5px solid #e5e5e5' }}>
         <div>
@@ -632,6 +787,143 @@ export function EstrattiContoClient({ items, formatori, progetti, finanziamenti 
             </tfoot>
           </table>
           </div>
+        </div>
+      )}
+      </> /* end activeTab === 'formatori' */}
+
+      {/* ── Tab: Partner ── */}
+      {activeTab === 'partner' && (
+        <div>
+          {/* Filtri partner */}
+          <div className="bg-white rounded-xl p-4 mb-6 flex flex-wrap gap-3 items-end" style={{ border: '0.5px solid #e5e5e5' }}>
+            <div>
+              <div className="text-xs text-gray-400 mb-1">Anno</div>
+              <select value={filterPartnerAnno} onChange={e => setFilterPartnerAnno(e.target.value)} className={selCls}>
+                <option value="all">Tutti</option>
+                {anni.map(a => <option key={a} value={a}>{a}</option>)}
+              </select>
+            </div>
+            {partners.length > 0 && (
+              <div>
+                <div className="text-xs text-gray-400 mb-1">Partner</div>
+                <select value={filterPartner} onChange={e => setFilterPartner(e.target.value)} className={selCls}>
+                  <option value="">Tutti</option>
+                  {partners.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+                </select>
+              </div>
+            )}
+            {(filterPartner || (filterPartnerAnno && filterPartnerAnno !== currentYear)) && (
+              <button
+                onClick={() => { setFilterPartnerAnno(currentYear); setFilterPartner('') }}
+                className="text-xs text-gray-400 hover:text-gray-700 px-2 py-1.5"
+              >
+                Azzera filtri
+              </button>
+            )}
+          </div>
+
+          {partnerRows.length === 0 ? (
+            <div className="bg-white rounded-xl px-6 py-16 text-center text-sm text-gray-400" style={{ border: '0.5px solid #e5e5e5' }}>
+              {partners.length === 0
+                ? 'Nessun partner configurato. Aggiungili dalla pagina Partner nel menu Economia.'
+                : 'Nessun corso completato associato a partner per i filtri selezionati.'}
+            </div>
+          ) : (
+            <div className="bg-white rounded-xl" style={{ border: '0.5px solid #e5e5e5' }}>
+              <div className="overflow-x-auto w-full">
+                <table className="w-full text-[13px] min-w-[500px]">
+                  <thead>
+                    <tr className="border-b border-gray-100">
+                      <th className="text-left text-xs font-medium text-gray-400 px-5 py-2.5 min-w-[160px]">PARTNER</th>
+                      <th className="text-center text-xs font-medium text-gray-400 px-3 py-2.5 hidden md:table-cell">PROGETTI</th>
+                      <th className="text-right text-xs font-medium text-gray-400 px-3 py-2.5 hidden md:table-cell">FATTURATO SCUOLA</th>
+                      <th className="text-right text-xs font-medium text-gray-400 px-5 py-2.5">COMMISSIONE</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {partnerRows.map(pr => {
+                      const isExpanded = expandedPartners.has(pr.partner_id)
+                      const progettiList = partnerProgettiMap.get(pr.partner_id) ?? []
+                      return (
+                        <Fragment key={pr.partner_id}>
+                          <tr
+                            className="hover:bg-gray-50 cursor-pointer"
+                            onClick={() => togglePartner(pr.partner_id)}
+                          >
+                            <td className="px-5 py-2.5 font-medium text-gray-900">
+                              <div className="flex items-center gap-2">
+                                <ExpandChevron expanded={isExpanded} />
+                                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-violet-100 text-violet-700 text-[11px] font-bold shrink-0">
+                                  {pr.partner_nome.slice(0, 2).toUpperCase()}
+                                </span>
+                                {pr.partner_nome}
+                              </div>
+                            </td>
+                            <td className="px-3 py-2.5 text-center text-gray-700 hidden md:table-cell">{pr.n_progetti}</td>
+                            <td className="px-3 py-2.5 text-right font-mono text-gray-700 hidden md:table-cell">
+                              {pr.fatturato_scuola > 0 ? fmtCur(pr.fatturato_scuola) : <span className="text-gray-300">—</span>}
+                            </td>
+                            <td className="px-5 py-2.5 text-right">
+                              <span className="font-mono font-semibold text-violet-700">{fmtCur(pr.commissione)}</span>
+                              <div className="text-[11px] text-gray-400 mt-0.5">
+                                {pr.fatturato_scuola <= 100000 ? '10% flat' : '10% + 12%'}
+                              </div>
+                            </td>
+                          </tr>
+                          {isExpanded && (
+                            <tr>
+                              <td colSpan={4} className="px-0 py-0 bg-gray-50/40 border-b border-gray-100">
+                                <div className="pl-10">
+                                  <table className="w-full text-[13px]">
+                                    <thead>
+                                      <tr className="border-b border-gray-100">
+                                        <th className="text-left text-xs font-medium text-gray-400 px-4 py-2">PROGETTO</th>
+                                        <th className="text-center text-xs font-medium text-gray-400 px-3 py-2 hidden sm:table-cell">CORSI</th>
+                                        <th className="text-right text-xs font-medium text-gray-400 px-3 py-2 hidden md:table-cell">FATTURATO</th>
+                                        <th className="text-right text-xs font-medium text-gray-400 px-4 py-2">COMMISSIONE</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                      {progettiList.map(p => (
+                                        <tr key={p.progetto_id} className="hover:bg-white/70">
+                                          <td className="px-4 py-2 text-gray-800">{p.school_name}</td>
+                                          <td className="px-3 py-2 text-center text-gray-500 hidden sm:table-cell">{p.n_corsi}</td>
+                                          <td className="px-3 py-2 text-right font-mono text-gray-600 hidden md:table-cell">
+                                            {p.fatturato_scuola > 0 ? fmtCur(p.fatturato_scuola) : '—'}
+                                          </td>
+                                          <td className="px-4 py-2 text-right font-mono font-semibold text-violet-700">
+                                            {fmtCur(p.commissione)}
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
+                      )
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t border-gray-200 bg-gray-50">
+                      <td className="px-5 py-2.5 text-xs font-semibold text-gray-700 uppercase tracking-wide">Totale</td>
+                      <td className="px-3 py-2.5 text-center font-semibold text-gray-900 hidden md:table-cell">
+                        {partnerRows.reduce((s, r) => s + r.n_progetti, 0)}
+                      </td>
+                      <td className="px-3 py-2.5 text-right font-mono font-semibold text-gray-900 hidden md:table-cell">
+                        {fmtCur(partnerRows.reduce((s, r) => s + r.fatturato_scuola, 0))}
+                      </td>
+                      <td className="px-5 py-2.5 text-right font-mono font-bold text-violet-700">
+                        {fmtCur(partnerRows.reduce((s, r) => s + r.commissione, 0))}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
