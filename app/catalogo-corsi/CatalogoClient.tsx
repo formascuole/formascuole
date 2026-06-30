@@ -16,17 +16,30 @@ function isValidUrl(s: string) {
 type CorsoForm = {
   titolo: string
   tipo: string
+  finanziamento_id: string
   descrizione: string
   link_scheda: string
 }
-const emptyForm: CorsoForm = { titolo: '', tipo: 'PF', descrizione: '', link_scheda: '' }
+const emptyForm: CorsoForm = { titolo: '', tipo: 'PF', finanziamento_id: '', descrizione: '', link_scheda: '' }
 
 interface Props {
   initialCorsi: CatalogoCorso[]
   isSuperAdmin: boolean
+  finanziamenti: { id: string; nome: string }[]
 }
 
-export function CatalogoClient({ initialCorsi, isSuperAdmin }: Props) {
+function tipoBadgeClass(tipo: string) {
+  if (tipo === 'PF') return 'bg-blue-100 text-blue-700'
+  if (tipo === 'MF') return 'bg-green-100 text-green-700'
+  return 'bg-purple-100 text-purple-700'
+}
+
+function finBadgeClass(nome: string) {
+  if (nome.includes('38')) return 'bg-green-100 text-green-700'
+  return 'bg-blue-100 text-blue-700'
+}
+
+export function CatalogoClient({ initialCorsi, isSuperAdmin, finanziamenti }: Props) {
   const router = useRouter()
   const [corsi, setCorsi] = useState<CatalogoCorso[]>(initialCorsi)
   const [search, setSearch] = useState('')
@@ -44,6 +57,8 @@ export function CatalogoClient({ initialCorsi, isSuperAdmin }: Props) {
   const [deletingCorso, setDeletingCorso] = useState<CatalogoCorso | null>(null)
   const [toggling, setToggling] = useState<string | null>(null)
 
+  const finMap = useMemo(() => new Map(finanziamenti.map(f => [f.id, f.nome])), [finanziamenti])
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     if (!q) return corsi
@@ -52,7 +67,8 @@ export function CatalogoClient({ initialCorsi, isSuperAdmin }: Props) {
 
   const validateForm = (form: CorsoForm): string => {
     if (!form.titolo.trim()) return 'Il titolo è obbligatorio'
-    if (!['PF', 'Lab'].includes(form.tipo)) return 'Tipo non valido'
+    if (!['PF', 'Lab', 'MF'].includes(form.tipo)) return 'Tipo non valido'
+    if (!form.finanziamento_id) return 'La linea di finanziamento è obbligatoria'
     if (form.link_scheda.trim() && !isValidUrl(form.link_scheda.trim())) return 'Il link deve essere un URL valido'
     return ''
   }
@@ -69,6 +85,7 @@ export function CatalogoClient({ initialCorsi, isSuperAdmin }: Props) {
         body: JSON.stringify({
           titolo: addForm.titolo.trim(),
           tipo: addForm.tipo,
+          finanziamento_id: addForm.finanziamento_id,
           descrizione: addForm.descrizione.trim() || null,
           link_scheda: addForm.link_scheda.trim() || null,
           attivo: true,
@@ -87,7 +104,13 @@ export function CatalogoClient({ initialCorsi, isSuperAdmin }: Props) {
 
   const openEdit = (c: CatalogoCorso) => {
     setEditCorso(c)
-    setEditForm({ titolo: c.titolo, tipo: c.tipo, descrizione: c.descrizione || '', link_scheda: c.link_scheda || '' })
+    setEditForm({
+      titolo: c.titolo,
+      tipo: c.tipo,
+      finanziamento_id: c.finanziamento_id || '',
+      descrizione: c.descrizione || '',
+      link_scheda: c.link_scheda || '',
+    })
     setEditError('')
   }
 
@@ -104,6 +127,7 @@ export function CatalogoClient({ initialCorsi, isSuperAdmin }: Props) {
         body: JSON.stringify({
           titolo: editForm.titolo.trim(),
           tipo: editForm.tipo,
+          finanziamento_id: editForm.finanziamento_id || null,
           descrizione: editForm.descrizione.trim() || null,
           link_scheda: editForm.link_scheda.trim() || null,
         }),
@@ -201,60 +225,68 @@ export function CatalogoClient({ initialCorsi, isSuperAdmin }: Props) {
           </div>
         ) : (
           <div className="divide-y divide-gray-50">
-            {filtered.map(corso => (
-              <div key={corso.id} className="px-6 py-4 flex items-start gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap mb-1">
-                    <span className="font-medium text-gray-900">{corso.titolo}</span>
-                    <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md ${corso.tipo === 'PF' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
-                      {corso.tipo}
-                    </span>
-                    <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md ${corso.attivo ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                      {corso.attivo ? 'Attivo' : 'Inattivo'}
-                    </span>
+            {filtered.map(corso => {
+              const finNome = corso.finanziamento_id ? finMap.get(corso.finanziamento_id) : null
+              return (
+                <div key={corso.id} className="px-6 py-4 flex items-start gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <span className="font-medium text-gray-900">{corso.titolo}</span>
+                      <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md ${tipoBadgeClass(corso.tipo)}`}>
+                        {corso.tipo}
+                      </span>
+                      {finNome && (
+                        <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md ${finBadgeClass(finNome)}`}>
+                          {finNome}
+                        </span>
+                      )}
+                      <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md ${corso.attivo ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                        {corso.attivo ? 'Attivo' : 'Inattivo'}
+                      </span>
+                    </div>
+                    {corso.descrizione && (
+                      <p className="text-sm text-gray-500 mb-1.5">{corso.descrizione}</p>
+                    )}
+                    {corso.link_scheda && (
+                      <a
+                        href={corso.link_scheda}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                      >
+                        <svg width="12" height="12" fill="none" viewBox="0 0 24 24">
+                          <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                        Scheda Google Drive
+                      </a>
+                    )}
                   </div>
-                  {corso.descrizione && (
-                    <p className="text-sm text-gray-500 mb-1.5">{corso.descrizione}</p>
-                  )}
-                  {corso.link_scheda && (
-                    <a
-                      href={corso.link_scheda}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 hover:underline"
-                    >
-                      <svg width="12" height="12" fill="none" viewBox="0 0 24 24">
-                        <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                      Scheda Google Drive
-                    </a>
-                  )}
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    onClick={() => handleToggleAttivo(corso)}
-                    disabled={toggling === corso.id}
-                    className="text-xs text-gray-500 hover:text-gray-800 border border-gray-200 hover:bg-gray-50 px-2.5 py-1.5 rounded-[7px] transition-colors disabled:opacity-50"
-                  >
-                    {toggling === corso.id ? '...' : corso.attivo ? 'Disattiva' : 'Attiva'}
-                  </button>
-                  <button
-                    onClick={() => openEdit(corso)}
-                    className="text-xs text-gray-500 hover:text-gray-800 border border-gray-200 hover:bg-gray-50 px-2.5 py-1.5 rounded-[7px] transition-colors"
-                  >
-                    Modifica
-                  </button>
-                  {isSuperAdmin && (
+                  <div className="flex items-center gap-2 shrink-0">
                     <button
-                      onClick={() => setDeletingCorso(corso)}
-                      className="text-xs text-red-400 hover:text-red-600 border border-red-200 hover:bg-red-50 px-2.5 py-1.5 rounded-[7px] transition-colors"
+                      onClick={() => handleToggleAttivo(corso)}
+                      disabled={toggling === corso.id}
+                      className="text-xs text-gray-500 hover:text-gray-800 border border-gray-200 hover:bg-gray-50 px-2.5 py-1.5 rounded-[7px] transition-colors disabled:opacity-50"
                     >
-                      Elimina
+                      {toggling === corso.id ? '...' : corso.attivo ? 'Disattiva' : 'Attiva'}
                     </button>
-                  )}
+                    <button
+                      onClick={() => openEdit(corso)}
+                      className="text-xs text-gray-500 hover:text-gray-800 border border-gray-200 hover:bg-gray-50 px-2.5 py-1.5 rounded-[7px] transition-colors"
+                    >
+                      Modifica
+                    </button>
+                    {isSuperAdmin && (
+                      <button
+                        onClick={() => setDeletingCorso(corso)}
+                        className="text-xs text-red-400 hover:text-red-600 border border-red-200 hover:bg-red-50 px-2.5 py-1.5 rounded-[7px] transition-colors"
+                      >
+                        Elimina
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>
@@ -273,7 +305,7 @@ export function CatalogoClient({ initialCorsi, isSuperAdmin }: Props) {
           </>
         }
       >
-        <CorsoFormFields form={addForm} onChange={setAddForm} error={addError} />
+        <CorsoFormFields form={addForm} onChange={setAddForm} error={addError} finanziamenti={finanziamenti} />
       </Modal>
 
       {/* Edit modal */}
@@ -290,7 +322,7 @@ export function CatalogoClient({ initialCorsi, isSuperAdmin }: Props) {
           </>
         }
       >
-        <CorsoFormFields form={editForm} onChange={setEditForm} error={editError} />
+        <CorsoFormFields form={editForm} onChange={setEditForm} error={editError} finanziamenti={finanziamenti} />
       </Modal>
 
       {/* Delete confirm */}
@@ -308,10 +340,11 @@ export function CatalogoClient({ initialCorsi, isSuperAdmin }: Props) {
   )
 }
 
-function CorsoFormFields({ form, onChange, error }: {
+function CorsoFormFields({ form, onChange, error, finanziamenti }: {
   form: CorsoForm
   onChange: (f: CorsoForm) => void
   error: string
+  finanziamenti: { id: string; nome: string }[]
 }) {
   return (
     <div className="space-y-4">
@@ -322,12 +355,22 @@ function CorsoFormFields({ form, onChange, error }: {
         placeholder="Es. Sicurezza sul lavoro"
       />
       <Select
+        label="Linea di finanziamento *"
+        value={form.finanziamento_id}
+        onChange={e => onChange({ ...form, finanziamento_id: e.target.value })}
+        options={[
+          { value: '', label: '— Seleziona —' },
+          ...finanziamenti.map(f => ({ value: f.id, label: f.nome })),
+        ]}
+      />
+      <Select
         label="Tipo *"
         value={form.tipo}
         onChange={e => onChange({ ...form, tipo: e.target.value })}
         options={[
           { value: 'PF', label: 'Percorso Formativo (PF)' },
           { value: 'Lab', label: 'Laboratorio sul Campo (Lab)' },
+          { value: 'MF', label: 'Modulo Formativo (MF) — DM 38' },
         ]}
       />
       <Input

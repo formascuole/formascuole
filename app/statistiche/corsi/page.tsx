@@ -8,7 +8,7 @@ import { CorsiStatisticsClient } from './CorsiStatisticsClient'
 export interface CorsoStatRow {
   id: string
   title: string
-  tipo: 'PF' | 'Lab'
+  tipo: 'PF' | 'Lab' | 'MF'
   modalita?: string | null
   ore_totali: number
   school_name: string
@@ -119,7 +119,7 @@ export default async function CorsiStatPage() {
     return {
       id: c.id,
       title: c.title,
-      tipo: c.tipo as 'PF' | 'Lab',
+      tipo: c.tipo as 'PF' | 'Lab' | 'MF',
       modalita: c.modalita ?? null,
       ore_totali: oreTot,
       school_name: progetto?.school_name ?? '—',

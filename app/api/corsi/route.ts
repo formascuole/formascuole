@@ -52,16 +52,30 @@ export async function POST(request: NextRequest) {
   if (note) insertData.note = note.trim() || null
   if (location) insertData.location = location.trim() || null
 
-  // Pre-populate referente corso from the project's main referente
+  // Pre-populate referente corso from the project's main referente, inherit finanziamento_id
   const { data: progetto } = await supabase
     .from('progetti')
-    .select('ref_name, ref_email, ref_tel, ref_ruolo')
+    .select('ref_name, ref_email, ref_tel, ref_ruolo, finanziamento_id')
     .eq('id', project_id)
     .single()
   if (progetto?.ref_name) insertData.referente_corso_nome = progetto.ref_name
   if (progetto?.ref_email) insertData.referente_corso_email = progetto.ref_email
   if (progetto?.ref_tel) insertData.referente_corso_telefono = progetto.ref_tel
   if (progetto?.ref_ruolo) insertData.referente_corso_ruolo = progetto.ref_ruolo
+  if (progetto?.finanziamento_id) insertData.finanziamento_id = progetto.finanziamento_id
+
+  // For DM 38/2026: auto-populate tariffe from finanziamento
+  if (progetto?.finanziamento_id) {
+    const { data: fin } = await supabase
+      .from('finanziamenti')
+      .select('nome, tariffa_formatore_ora, tariffa_tutor_ora')
+      .eq('id', progetto.finanziamento_id)
+      .single()
+    if (fin?.nome?.includes('38')) {
+      if (fin.tariffa_formatore_ora != null) insertData.tariffa_oraria = fin.tariffa_formatore_ora
+      if (fin.tariffa_tutor_ora != null) insertData.tariffa_oraria_tutor = fin.tariffa_tutor_ora
+    }
+  }
 
   const { data, error } = await supabase
     .from('corsi')

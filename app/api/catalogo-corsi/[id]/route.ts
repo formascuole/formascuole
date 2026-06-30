@@ -24,9 +24,10 @@ export async function PATCH(
     updates.titolo = body.titolo.trim()
   }
   if ('tipo' in body) {
-    if (!['PF', 'Lab'].includes(body.tipo)) return NextResponse.json({ error: 'Tipo non valido' }, { status: 400 })
+    if (!['PF', 'Lab', 'MF'].includes(body.tipo)) return NextResponse.json({ error: 'Tipo non valido' }, { status: 400 })
     updates.tipo = body.tipo
   }
+  if ('finanziamento_id' in body) updates.finanziamento_id = body.finanziamento_id || null
   if ('descrizione' in body) updates.descrizione = body.descrizione?.trim() || null
   if ('link_scheda' in body) updates.link_scheda = body.link_scheda?.trim() || null
   if ('attivo' in body) updates.attivo = Boolean(body.attivo)

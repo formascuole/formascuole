@@ -152,17 +152,22 @@ export function ProgettoDetailClient({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const progettoFinanziamento = finanziamenti.find(f => f.id === progetto.finanziamento_id)
+  const isDM38 = progettoFinanziamento?.nome?.includes('38') ?? false
+  const progettoFinanziamentoNome = progettoFinanziamento?.nome ?? null
+
   const resetAddCorso = () => {
     setAddCorsoStep(1)
     setCatalogoSearch('')
-    setCorsoForm({ title: '', tipo: 'PF', ore_totali: '', modalita: 'presenza', tutor_previsto: false, tutor_nome: '', ore_tutoraggio: '', descrizione: '', link_scheda: '', edizione: '', note: '', location: '' })
+    setCorsoForm({ title: '', tipo: isDM38 ? 'MF' : 'PF', ore_totali: isDM38 ? '30' : '', modalita: 'presenza', tutor_previsto: false, tutor_nome: '', ore_tutoraggio: '', descrizione: '', link_scheda: '', edizione: '', note: '', location: '' })
   }
 
   const selectFromCatalogo = (c: CatalogoCorso) => {
     setCorsoForm(f => ({
       ...f,
       title: c.titolo,
-      tipo: c.tipo,
+      tipo: isDM38 ? 'MF' : c.tipo,
+      ore_totali: isDM38 ? '30' : '',
       modalita: 'presenza',
       descrizione: c.descrizione || '',
       link_scheda: c.link_scheda || '',
@@ -749,7 +754,7 @@ export function ProgettoDetailClient({
               Nessun corso aggiunto. Clicca &quot;Aggiungi Corso&quot; per iniziare.
             </div>
           ) : (
-            corsi.map(corso => <CourseRow key={corso.id} corso={corso} progettoId={progetto.id} oreErogate={oreErogatePerCorso[corso.id] ?? 0} />)
+            corsi.map(corso => <CourseRow key={corso.id} corso={corso} progettoId={progetto.id} oreErogate={oreErogatePerCorso[corso.id] ?? 0} finanziamentoNome={progettoFinanziamentoNome} />)
           )}
         </div>
       </div>
@@ -1200,7 +1205,7 @@ export function ProgettoDetailClient({
               <Button
                 onClick={handleAddCorso}
                 loading={savingCorso}
-                disabled={!corsoForm.title || !corsoForm.ore_totali || !corsoForm.modalita || (corsoForm.tutor_previsto && !corsoForm.tutor_nome) || (['residenziale', 'semi_residenziale'].includes(corsoForm.modalita) && !corsoForm.location.trim())}
+                disabled={!corsoForm.title || !corsoForm.ore_totali || (corsoForm.tipo === 'PF' && !corsoForm.modalita) || (corsoForm.tutor_previsto && !corsoForm.tutor_nome) || (['residenziale', 'semi_residenziale'].includes(corsoForm.modalita) && !corsoForm.location.trim())}
               >
                 Aggiungi corso
               </Button>
@@ -1225,11 +1230,21 @@ export function ProgettoDetailClient({
             </div>
             <div className="max-h-72 overflow-y-auto border border-gray-100 rounded-[7px] divide-y divide-gray-50">
               {catalogo
-                .filter(c => c.attivo && (
-                  !catalogoSearch.trim() ||
-                  c.titolo.toLowerCase().includes(catalogoSearch.trim().toLowerCase()) ||
-                  c.descrizione?.toLowerCase().includes(catalogoSearch.trim().toLowerCase())
-                ))
+                .filter(c => {
+                  if (!c.attivo) return false
+                  // Filter by finanziamento: DM38 project sees only DM38 catalog items;
+                  // other projects see items with no finanziamento or matching finanziamento.
+                  if (isDM38) {
+                    if (c.finanziamento_id !== progetto.finanziamento_id) return false
+                  } else {
+                    if (c.finanziamento_id && c.finanziamento_id !== (progetto.finanziamento_id ?? null)) return false
+                  }
+                  if (catalogoSearch.trim()) {
+                    const q = catalogoSearch.trim().toLowerCase()
+                    return c.titolo.toLowerCase().includes(q) || !!c.descrizione?.toLowerCase().includes(q)
+                  }
+                  return true
+                })
                 .map(c => (
                   <button
                     key={c.id}
@@ -1238,7 +1253,7 @@ export function ProgettoDetailClient({
                   >
                     <div className="flex items-center gap-2 mb-0.5">
                       <span className="text-sm font-medium text-gray-900">{c.titolo}</span>
-                      <span className={`inline-flex items-center text-xs font-medium px-1.5 py-0.5 rounded ${c.tipo === 'PF' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
+                      <span className={`inline-flex items-center text-xs font-medium px-1.5 py-0.5 rounded ${c.tipo === 'PF' ? 'bg-blue-100 text-blue-700' : c.tipo === 'MF' ? 'bg-green-100 text-green-700' : 'bg-purple-100 text-purple-700'}`}>
                         {c.tipo}
                       </span>
                     </div>
@@ -1255,25 +1270,52 @@ export function ProgettoDetailClient({
           </div>
         ) : (
           <div className="space-y-4">
+            {isDM38 && (
+              <div className="flex items-center gap-2 text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-[7px] px-3 py-2">
+                <svg width="13" height="13" fill="none" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                Progetto DM 38/2026 — Moduli formativi: tariffe auto-popolate (€{progettoFinanziamento?.tariffa_formatore_ora ?? 70}/h formatore, €{progettoFinanziamento?.tariffa_tutor_ora ?? 30}/h tutor)
+              </div>
+            )}
             <Input label="Titolo corso *" value={corsoForm.title} onChange={e => setCorsoForm(f => ({ ...f, title: e.target.value }))} placeholder="Es. Sicurezza sul lavoro" />
             <div className="grid grid-cols-2 gap-3">
-              <Select
-                label="Tipo *"
-                value={corsoForm.tipo}
-                onChange={e => setCorsoForm(f => {
-                  const newTipo = e.target.value
-                  const shouldReset = newTipo === 'Lab' && ['online', 'ibrido'].includes(f.modalita)
-                  return { ...f, tipo: newTipo, modalita: shouldReset ? 'presenza' : (f.modalita || 'presenza'), location: shouldReset ? '' : f.location }
-                })}
-                options={[
-                  { value: 'PF', label: 'Percorso Formativo (PF)' },
-                  { value: 'Lab', label: 'Laboratorio sul Campo (Lab)' },
-                ]}
-              />
-              <Input label="Ore totali *" type="number" min={1} value={corsoForm.ore_totali} onChange={e => setCorsoForm(f => ({ ...f, ore_totali: e.target.value }))} placeholder="Es. 20" />
+              {isDM38 ? (
+                <div>
+                  <div className="text-sm font-medium text-gray-700 mb-1.5">Tipo</div>
+                  <div className="text-sm text-gray-500 px-3 py-2 border border-gray-100 rounded-[7px] bg-gray-50">
+                    Modulo Formativo (MF)
+                  </div>
+                </div>
+              ) : (
+                <Select
+                  label="Tipo *"
+                  value={corsoForm.tipo}
+                  onChange={e => setCorsoForm(f => {
+                    const newTipo = e.target.value
+                    const shouldReset = newTipo === 'Lab' && ['online', 'ibrido'].includes(f.modalita)
+                    return { ...f, tipo: newTipo, modalita: shouldReset ? 'presenza' : (f.modalita || 'presenza'), location: shouldReset ? '' : f.location }
+                  })}
+                  options={[
+                    { value: 'PF', label: 'Percorso Formativo (PF)' },
+                    { value: 'Lab', label: 'Laboratorio sul Campo (Lab)' },
+                  ]}
+                />
+              )}
+              {isDM38 ? (
+                <Select
+                  label="Ore totali *"
+                  value={corsoForm.ore_totali}
+                  onChange={e => setCorsoForm(f => ({ ...f, ore_totali: e.target.value }))}
+                  options={[
+                    { value: '30', label: '30 ore' },
+                    { value: '60', label: '60 ore' },
+                  ]}
+                />
+              ) : (
+                <Input label="Ore totali *" type="number" min={1} value={corsoForm.ore_totali} onChange={e => setCorsoForm(f => ({ ...f, ore_totali: e.target.value }))} placeholder="Es. 20" />
+              )}
             </div>
             <Select
-              label="Modalità erogazione *"
+              label={`Modalità erogazione${corsoForm.tipo === 'PF' ? ' *' : ''}`}
               value={corsoForm.modalita}
               onChange={e => setCorsoForm(f => ({ ...f, modalita: e.target.value, location: ['residenziale', 'semi_residenziale'].includes(e.target.value) ? f.location : '' }))}
               options={corsoForm.tipo === 'Lab' ? [
@@ -1296,7 +1338,7 @@ export function ProgettoDetailClient({
                 placeholder="Nome struttura, indirizzo..."
               />
             )}
-            {corsoForm.tipo === 'PF' && (
+            {(corsoForm.tipo === 'PF' || corsoForm.tipo === 'MF') && (
               <div className="space-y-3 pt-1">
                 <label className="flex items-center gap-2.5 cursor-pointer">
                   <input
@@ -1339,7 +1381,7 @@ const ASSEGNAZIONE_BADGES: Record<string, { label: string; cls: string }> = {
   rifiutato:  { label: 'Rifiutato',  cls: 'bg-red-100 text-red-700'    },
 }
 
-function CourseRow({ corso, progettoId, oreErogate = 0 }: { corso: CorsoConOre; progettoId: string; oreErogate?: number }) {
+function CourseRow({ corso, progettoId, oreErogate = 0, finanziamentoNome }: { corso: CorsoConOre; progettoId: string; oreErogate?: number; finanziamentoNome?: string | null }) {
   const router = useRouter()
   const formatore = corso.formatore as Profile | undefined
   const badgeInfo = corso.stato_assegnazione ? ASSEGNAZIONE_BADGES[corso.stato_assegnazione] : undefined
@@ -1358,6 +1400,11 @@ function CourseRow({ corso, progettoId, oreErogate = 0 }: { corso: CorsoConOre; 
             <span className="font-medium text-sm text-gray-900">{corso.title}</span>
             <StatusBadge variant={corso.tipo} size="sm" />
             <ModalitaIcon modalita={corso.modalita} tipo={corso.tipo} size={14} />
+            {finanziamentoNome && (
+              <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${finanziamentoNome.includes('38') ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
+                {finanziamentoNome}
+              </span>
+            )}
             {corso.edizione && (
               <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700">
                 Ed. {corso.edizione}

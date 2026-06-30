@@ -267,7 +267,7 @@ export function CorsiCompletatiClient({ corsi, formatori, scuole, finanziamenti 
                     <td className="px-4 py-3 text-sm text-gray-700 max-w-[160px] truncate">{c.school_name}</td>
                     <td className="px-4 py-3 font-medium text-gray-900 max-w-[200px] truncate">{c.title}</td>
                     <td className="px-4 py-3 text-center">
-                      <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md ${c.tipo === 'PF' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
+                      <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md ${c.tipo === 'PF' ? 'bg-blue-100 text-blue-700' : c.tipo === 'MF' ? 'bg-green-100 text-green-700' : 'bg-purple-100 text-purple-700'}`}>
                         {c.tipo}
                       </span>
                     </td>

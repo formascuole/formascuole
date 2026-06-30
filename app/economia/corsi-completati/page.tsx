@@ -9,7 +9,7 @@ import { CorsiCompletatiClient } from './CorsiCompletatiClient'
 export interface CorsoEconRow {
   id: string
   title: string
-  tipo: 'PF' | 'Lab'
+  tipo: 'PF' | 'Lab' | 'MF'
   ore_totali: number
   school_name: string
   progetto_id: string
@@ -140,7 +140,7 @@ export default async function CorsiCompletatiPage() {
     return {
       id: c.id,
       title: c.title,
-      tipo: c.tipo as 'PF' | 'Lab',
+      tipo: c.tipo as 'PF' | 'Lab' | 'MF',
       ore_totali: oreTot,
       school_name: progetto?.school_name ?? '—',
       progetto_id: c.project_id,

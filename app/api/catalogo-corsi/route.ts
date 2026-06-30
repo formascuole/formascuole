@@ -25,10 +25,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const { titolo, tipo, descrizione, link_scheda, attivo } = await request.json()
+  const { titolo, tipo, descrizione, link_scheda, attivo, finanziamento_id } = await request.json()
 
   if (!titolo?.trim()) return NextResponse.json({ error: 'Titolo obbligatorio' }, { status: 400 })
-  if (!['PF', 'Lab'].includes(tipo)) return NextResponse.json({ error: 'Tipo non valido' }, { status: 400 })
+  if (!['PF', 'Lab', 'MF'].includes(tipo)) return NextResponse.json({ error: 'Tipo non valido' }, { status: 400 })
+  if (!finanziamento_id) return NextResponse.json({ error: 'Linea di finanziamento obbligatoria' }, { status: 400 })
 
   const { data, error } = await supabase
     .from('catalogo_corsi')
@@ -38,6 +39,7 @@ export async function POST(request: NextRequest) {
       descrizione: descrizione?.trim() || null,
       link_scheda: link_scheda?.trim() || null,
       attivo: attivo ?? true,
+      finanziamento_id: finanziamento_id || null,
     })
     .select()
     .single()

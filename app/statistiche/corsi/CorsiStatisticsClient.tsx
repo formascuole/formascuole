@@ -227,7 +227,7 @@ export function CorsiStatisticsClient({ corsi, formatori, scuole, finanziamenti 
                     <td className="px-4 py-3 text-center">
                       <div className="inline-flex items-center gap-1.5">
                         <ModalitaIcon modalita={c.modalita} tipo={c.tipo} size={14} />
-                        <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md ${c.tipo === 'PF' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
+                        <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md ${c.tipo === 'PF' ? 'bg-blue-100 text-blue-700' : c.tipo === 'MF' ? 'bg-green-100 text-green-700' : 'bg-purple-100 text-purple-700'}`}>
                           {c.tipo}
                         </span>
                       </div>

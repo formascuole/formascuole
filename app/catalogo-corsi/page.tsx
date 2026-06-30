@@ -15,12 +15,11 @@ export default async function CatalogoCorsiPage() {
 
   const isSuperAdmin = await checkIsSuperAdmin(user.id)
 
-  const { data: corsi } = await supabase
-    .from('catalogo_corsi')
-    .select('*')
-    .order('titolo')
-
-  const notifiche = await getUnreadNotificheCount(supabase, user.id)
+  const [{ data: corsi }, { data: finanziamenti }, notifiche] = await Promise.all([
+    supabase.from('catalogo_corsi').select('*').order('titolo'),
+    supabase.from('finanziamenti').select('id, nome').eq('attivo', true).order('nome'),
+    getUnreadNotificheCount(supabase, user.id),
+  ])
 
   return (
     <AppLayout
@@ -31,7 +30,7 @@ export default async function CatalogoCorsiPage() {
       notificheBadge={notifiche}
       isSuperAdmin={isSuperAdmin}
     >
-      <CatalogoClient initialCorsi={corsi || []} isSuperAdmin={isSuperAdmin} />
+      <CatalogoClient initialCorsi={corsi || []} isSuperAdmin={isSuperAdmin} finanziamenti={finanziamenti || []} />
     </AppLayout>
   )
 }
