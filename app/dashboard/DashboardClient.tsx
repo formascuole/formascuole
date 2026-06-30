@@ -6,6 +6,22 @@ import { StatCard } from '@/components/ui/StatCard'
 import { DualProgressBar } from '@/components/ui/DualProgressBar'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 
+const BADGE_PALETTE = [
+  { bg: '#dbeafe', text: '#1e40af' },
+  { bg: '#dcfce7', text: '#166534' },
+  { bg: '#fef3c7', text: '#92400e' },
+  { bg: '#ede9fe', text: '#5b21b6' },
+  { bg: '#fce7f3', text: '#9d174d' },
+  { bg: '#cffafe', text: '#155e75' },
+  { bg: '#ffedd5', text: '#9a3412' },
+  { bg: '#f0fdf4', text: '#14532d' },
+]
+function badgeColor(nome: string) {
+  let h = 0
+  for (let i = 0; i < nome.length; i++) h = (h * 31 + nome.charCodeAt(i)) & 0x7fffffff
+  return BADGE_PALETTE[h % BADGE_PALETTE.length]
+}
+
 export type DashCorso = {
   id: string
   project_id: string
@@ -40,6 +56,8 @@ export function DashboardClient({
   thisMonthStart,
 }: DashboardClientProps) {
   const [filterFinId, setFilterFinId] = useState('')
+
+  const finMap = useMemo(() => new Map(finanziamenti.map(f => [f.id, f.nome])), [finanziamenti])
 
   const filteredProjects = useMemo(() =>
     filterFinId ? progetti.filter(p => p.finanziamento_id === filterFinId) : progetti
@@ -261,6 +279,16 @@ export function DashboardClient({
                   <td className="px-6 py-4">
                     <div className="font-medium text-sm text-gray-900">{p.school_name}</div>
                     <div className="text-xs text-gray-400">{p.address}</div>
+                    {p.finanziamento_id && finMap.has(p.finanziamento_id) && (() => {
+                      const nome = finMap.get(p.finanziamento_id!)!
+                      const c = badgeColor(nome)
+                      return (
+                        <span className="inline-block text-xs font-medium px-2 py-0.5 rounded-md mt-1"
+                          style={{ backgroundColor: c.bg, color: c.text }}>
+                          {nome}
+                        </span>
+                      )
+                    })()}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-600">{p.anno_scolastico}</td>
                   <td className="px-6 py-4 text-center text-sm font-medium text-gray-700">{p.n_corsi}</td>
