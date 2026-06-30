@@ -9,6 +9,29 @@ import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { DeleteConfirmModal } from '@/components/ui/DeleteConfirmModal'
 
+async function exportCatalogo(rows: CatalogoCorso[], finMap: Map<string, string>, filterFinId: string, finanziamenti: { id: string; nome: string }[]) {
+  const XLSX = await import('xlsx')
+  const headers = ['Titolo corso', 'Tipo', 'Descrizione', 'Linea di finanziamento', 'Tag', 'Link scheda']
+  const data = rows.map(c => [
+    c.titolo,
+    c.tipo,
+    c.descrizione || '',
+    c.finanziamento_id ? (finMap.get(c.finanziamento_id) ?? '') : '',
+    '',
+    c.link_scheda || '',
+  ])
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...data])
+  ws['!cols'] = headers.map((h, i) => ({
+    wch: Math.min(Math.max(h.length, ...data.map(r => String(r[i] ?? '').length)) + 2, 50),
+  }))
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Catalogo')
+  const today = new Date().toISOString().split('T')[0]
+  const finNome = filterFinId ? (finanziamenti.find(f => f.id === filterFinId)?.nome ?? '').replace(/\s+/g, '_') : ''
+  const fileName = finNome ? `Catalogo_${finNome}_${today}.xlsx` : `Catalogo_Completo_${today}.xlsx`
+  XLSX.writeFile(wb, fileName)
+}
+
 function isValidUrl(s: string) {
   try { new URL(s); return true } catch { return false }
 }
@@ -56,14 +79,18 @@ export function CatalogoClient({ initialCorsi, isSuperAdmin, finanziamenti }: Pr
 
   const [deletingCorso, setDeletingCorso] = useState<CatalogoCorso | null>(null)
   const [toggling, setToggling] = useState<string | null>(null)
+  const [filterFinId, setFilterFinId] = useState('')
 
   const finMap = useMemo(() => new Map(finanziamenti.map(f => [f.id, f.nome])), [finanziamenti])
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
-    if (!q) return corsi
-    return corsi.filter(c => c.titolo.toLowerCase().includes(q) || c.descrizione?.toLowerCase().includes(q))
-  }, [corsi, search])
+    return corsi.filter(c => {
+      if (filterFinId && c.finanziamento_id !== filterFinId) return false
+      if (q) return c.titolo.toLowerCase().includes(q) || !!c.descrizione?.toLowerCase().includes(q)
+      return true
+    })
+  }, [corsi, search, filterFinId])
 
   const validateForm = (form: CorsoForm): string => {
     if (!form.titolo.trim()) return 'Il titolo è obbligatorio'
@@ -173,14 +200,28 @@ export function CatalogoClient({ initialCorsi, isSuperAdmin, finanziamenti }: Pr
     }
   }
 
+  const hasFilters = !!(search.trim() || filterFinId)
+
   return (
     <div className="p-8 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold text-gray-900">Catalogo corsi</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Template riutilizzabili per i corsi dei progetti</p>
+          <p className="text-sm text-gray-500 mt-0.5">
+            {filtered.length} cors{filtered.length === 1 ? 'o' : 'i'}
+            {hasFilters && <span className="ml-1 text-[#d64b55]">(filtrati)</span>}
+          </p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => exportCatalogo(filtered, finMap, filterFinId, finanziamenti)}
+            className="inline-flex items-center gap-2 text-sm font-medium px-3 py-2 rounded-[7px] border border-gray-200 hover:bg-gray-50 text-gray-600 transition-colors"
+          >
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Esporta Excel
+          </button>
           <Link
             href="/catalogo-corsi/tag"
             className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-gray-900 border border-gray-200 hover:bg-gray-50 px-3 py-2 rounded-[7px] transition-colors"
@@ -200,9 +241,9 @@ export function CatalogoClient({ initialCorsi, isSuperAdmin, finanziamenti }: Pr
         </div>
       </div>
 
-      {/* Search */}
-      <div className="mb-4">
-        <div className="relative">
+      {/* Filters */}
+      <div className="flex flex-wrap gap-3 items-center mb-4">
+        <div className="relative flex-1 min-w-[220px]">
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" width="15" height="15" fill="none" viewBox="0 0 24 24">
             <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="1.5"/>
             <path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
@@ -215,13 +256,31 @@ export function CatalogoClient({ initialCorsi, isSuperAdmin, finanziamenti }: Pr
             className="w-full pl-9 pr-4 py-2.5 text-sm border border-gray-200 rounded-[7px] focus:outline-none focus:border-[#d64b55] transition-colors bg-white"
           />
         </div>
+        {finanziamenti.length > 0 && (
+          <select
+            value={filterFinId}
+            onChange={e => setFilterFinId(e.target.value)}
+            className="text-sm border border-gray-200 rounded-[7px] px-3 py-2.5 focus:outline-none focus:border-[#d64b55] bg-white"
+          >
+            <option value="">Tutti i finanziamenti</option>
+            {finanziamenti.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
+          </select>
+        )}
+        {hasFilters && (
+          <button
+            onClick={() => { setSearch(''); setFilterFinId('') }}
+            className="text-xs text-gray-400 hover:text-gray-700 px-2 py-2.5"
+          >
+            Azzera filtri
+          </button>
+        )}
       </div>
 
       {/* List */}
       <div className="bg-white rounded-xl" style={{ border: '0.5px solid #e5e5e5' }}>
         {filtered.length === 0 ? (
           <div className="px-6 py-16 text-center text-sm text-gray-400">
-            {search ? 'Nessun corso trovato per questa ricerca.' : 'Nessun corso nel catalogo. Clicca "Aggiungi corso" per iniziare.'}
+            {hasFilters ? 'Nessun corso con i filtri selezionati.' : 'Nessun corso nel catalogo. Clicca "Aggiungi corso" per iniziare.'}
           </div>
         ) : (
           <div className="divide-y divide-gray-50">
