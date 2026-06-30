@@ -23,7 +23,7 @@ export async function POST(
 
   const { data: corso } = await admin
     .from('corsi')
-    .select('id, title, project_id, formatore_id, ore_totali, tipo, tariffa_oraria, lettera_incarico_url')
+    .select('id, title, project_id, formatore_id, ore_totali, tipo, tariffa_oraria, lettera_incarico_url, finanziamento_id')
     .eq('id', id)
     .single()
   if (!corso || !corso.formatore_id)
@@ -33,10 +33,17 @@ export async function POST(
 
   const [{ data: formatore }, { data: progetto }] = await Promise.all([
     admin.from('profiles').select('id, nome, email, indirizzo_via, indirizzo_cap, indirizzo_citta, indirizzo_provincia, codice_fiscale, tariffa_oraria_formatore').eq('id', corso.formatore_id as string).single(),
-    admin.from('progetti').select('school_name').eq('id', corso.project_id as string).single(),
+    admin.from('progetti').select('school_name, finanziamento_id').eq('id', corso.project_id as string).single(),
   ])
   if (!formatore || !progetto)
     return NextResponse.json({ error: 'Dati formatore o progetto mancanti' }, { status: 404 })
+
+  const finId = (corso.finanziamento_id || progetto.finanziamento_id) as string | null
+  let finanziamento_nome: string | null = null
+  if (finId) {
+    const { data: fin } = await admin.from('finanziamenti').select('nome').eq('id', finId).single()
+    finanziamento_nome = (fin?.nome as string | null) ?? null
+  }
 
   const tariffa = corso.tariffa_oraria != null
     ? Number(corso.tariffa_oraria)
@@ -60,6 +67,7 @@ export async function POST(
     ore_totali: oreTotali,
     tariffa,
     compenso_stimato: compensoStimato,
+    finanziamento_nome,
     firma_admin_nome: callerProfile?.nome as string | null,
   })
 

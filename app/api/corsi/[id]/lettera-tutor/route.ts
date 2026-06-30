@@ -23,7 +23,7 @@ export async function POST(
 
   const { data: corso } = await admin
     .from('corsi')
-    .select('id, title, project_id, tutor_id, ore_tutoraggio, tariffa_oraria_tutor, lettera_tutor_url')
+    .select('id, title, project_id, tutor_id, ore_tutoraggio, tariffa_oraria_tutor, lettera_tutor_url, finanziamento_id')
     .eq('id', id)
     .single()
   if (!corso || !corso.tutor_id)
@@ -33,10 +33,17 @@ export async function POST(
 
   const [{ data: tutor }, { data: progetto }] = await Promise.all([
     admin.from('profiles').select('id, nome, email, indirizzo_via, indirizzo_cap, indirizzo_citta, indirizzo_provincia, codice_fiscale, tariffa_oraria_tutor').eq('id', corso.tutor_id as string).single(),
-    admin.from('progetti').select('school_name').eq('id', corso.project_id as string).single(),
+    admin.from('progetti').select('school_name, finanziamento_id').eq('id', corso.project_id as string).single(),
   ])
   if (!tutor || !progetto)
     return NextResponse.json({ error: 'Dati tutor o progetto mancanti' }, { status: 404 })
+
+  const finId = (corso.finanziamento_id || progetto.finanziamento_id) as string | null
+  let finanziamento_nome: string | null = null
+  if (finId) {
+    const { data: fin } = await admin.from('finanziamenti').select('nome').eq('id', finId).single()
+    finanziamento_nome = (fin?.nome as string | null) ?? null
+  }
 
   const tariffaTutor = corso.tariffa_oraria_tutor != null
     ? Number(corso.tariffa_oraria_tutor)
@@ -59,6 +66,7 @@ export async function POST(
     ore_tutoraggio: oreTutoraggio,
     tariffa_tutor: tariffaTutor,
     compenso_stimato: compensoStimato,
+    finanziamento_nome,
     firma_admin_nome: callerProfile?.nome as string | null,
   })
 

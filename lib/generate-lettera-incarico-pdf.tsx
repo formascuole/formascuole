@@ -17,6 +17,7 @@ export interface LetteraIncaricoFormatore {
   ore_totali: number
   tariffa: number | null
   compenso_stimato: number | null
+  finanziamento_nome?: string | null
   firma_admin_nome?: string | null
   // Firma
   firmata?: boolean
@@ -37,6 +38,7 @@ export interface LetteraIncaricoTutor {
   ore_tutoraggio: number
   tariffa_tutor: number | null
   compenso_stimato: number | null
+  finanziamento_nome?: string | null
   firma_admin_nome?: string | null
   // Firma
   firmata?: boolean
@@ -119,7 +121,7 @@ function LetteraFormatorePDF({ data }: { data: LetteraIncaricoFormatore }) {
           {/* Oggetto */}
           <Text style={s.oggetto}>
             <Text style={s.oggettoLabel}>OGGETTO: </Text>
-            Lettera di incarico — {data.corso_title} — {data.school_name}
+            {`Incarico di docenza per attività di formazione${data.finanziamento_nome ? ` — ${data.finanziamento_nome}` : ''}`}
           </Text>
 
           <View style={s.divider} />
@@ -232,7 +234,7 @@ function LetteraTutorPDF({ data }: { data: LetteraIncaricoTutor }) {
           {/* Oggetto */}
           <Text style={s.oggetto}>
             <Text style={s.oggettoLabel}>OGGETTO: </Text>
-            Lettera di incarico tutoraggio — {data.corso_title} — {data.school_name}
+            {`Incarico di tutoraggio per attività di formazione${data.finanziamento_nome ? ` — ${data.finanziamento_nome}` : ''}`}
           </Text>
 
           <View style={s.divider} />
