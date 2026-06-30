@@ -23,6 +23,7 @@ export interface LetteraIncaricoFormatore {
   firmata?: boolean
   firmata_at?: string | null
   firmata_ip?: string | null
+  firmata_user_id?: string | null
 }
 
 export interface LetteraIncaricoTutor {
@@ -44,6 +45,7 @@ export interface LetteraIncaricoTutor {
   firmata?: boolean
   firmata_at?: string | null
   firmata_ip?: string | null
+  firmata_user_id?: string | null
 }
 
 function getCartaIntestataDataUrl(): string {
@@ -55,7 +57,7 @@ function getCartaIntestataDataUrl(): string {
 const s = StyleSheet.create({
   page: { paddingHorizontal: 0, paddingVertical: 0, fontSize: 10, fontFamily: 'Helvetica', color: '#111' },
   body: { paddingHorizontal: 50, paddingBottom: 48, paddingTop: 20 },
-  headerImg: { width: '100%', marginBottom: 0 },
+  headerImg: { width: '100%', height: 100, marginBottom: 0 },
   dateRow: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 20 },
   dateText: { fontSize: 9.5, color: '#444' },
   destBlock: { marginBottom: 20 },
@@ -194,6 +196,9 @@ function LetteraFormatorePDF({ data }: { data: LetteraIncaricoFormatore }) {
               {data.firmata_ip && (
                 <Text style={s.firmataText}>IP: {data.firmata_ip}</Text>
               )}
+              {data.firmata_user_id && (
+                <Text style={s.firmataText}>User ID: {data.firmata_user_id}</Text>
+              )}
               <Text style={s.firmataText}>Firmato da: {data.formatore_nome}</Text>
             </View>
           )}
@@ -298,6 +303,9 @@ function LetteraTutorPDF({ data }: { data: LetteraIncaricoTutor }) {
               </Text>
               {data.firmata_ip && (
                 <Text style={s.firmataText}>IP: {data.firmata_ip}</Text>
+              )}
+              {data.firmata_user_id && (
+                <Text style={s.firmataText}>User ID: {data.firmata_user_id}</Text>
               )}
               <Text style={s.firmataText}>Firmato da: {data.tutor_nome}</Text>
             </View>

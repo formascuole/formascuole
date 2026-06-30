@@ -16,7 +16,7 @@ export async function POST(
 
   const { data: corso } = await admin
     .from('corsi')
-    .select('id, title, project_id, formatore_id, ore_totali, tipo, tariffa_oraria, lettera_incarico_url')
+    .select('id, title, project_id, formatore_id, ore_totali, tipo, tariffa_oraria, lettera_incarico_url, finanziamento_id')
     .eq('id', id)
     .single()
   if (!corso) return NextResponse.json({ error: 'Corso non trovato' }, { status: 404 })
@@ -38,7 +38,7 @@ export async function POST(
 
   const [{ data: formatore }, { data: progetto }] = await Promise.all([
     admin.from('profiles').select('nome, email, indirizzo_via, indirizzo_cap, indirizzo_citta, indirizzo_provincia, codice_fiscale, tariffa_oraria_formatore').eq('id', corso.formatore_id as string).single(),
-    admin.from('progetti').select('school_name').eq('id', corso.project_id as string).single(),
+    admin.from('progetti').select('school_name, finanziamento_id').eq('id', corso.project_id as string).single(),
   ])
 
   if (formatore && progetto) {
@@ -48,6 +48,13 @@ export async function POST(
     const oreTotali = Number(corso.ore_totali)
     const compensoStimato = tariffa != null ? +(oreTotali * tariffa).toFixed(2) : null
     const dataFormatted = new Date().toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' })
+
+    const finId = (corso.finanziamento_id || progetto.finanziamento_id) as string | null
+    let finanziamento_nome: string | null = null
+    if (finId) {
+      const { data: fin } = await admin.from('finanziamenti').select('nome').eq('id', finId).single()
+      finanziamento_nome = (fin?.nome as string | null) ?? null
+    }
 
     const pdfBuffer = await generateLetteraIncaricoFormatorePdf({
       data: dataFormatted,
@@ -63,9 +70,11 @@ export async function POST(
       ore_totali: oreTotali,
       tariffa,
       compenso_stimato: compensoStimato,
+      finanziamento_nome,
       firmata: true,
       firmata_at: firmataAt,
       firmata_ip: ip,
+      firmata_user_id: user.id,
     })
 
     const storagePath = `lettere/${id}/lettera_formatore.pdf`

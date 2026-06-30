@@ -16,7 +16,7 @@ export async function POST(
 
   const { data: corso } = await admin
     .from('corsi')
-    .select('id, title, project_id, tutor_id, ore_tutoraggio, tariffa_oraria_tutor, lettera_tutor_url')
+    .select('id, title, project_id, tutor_id, ore_tutoraggio, tariffa_oraria_tutor, lettera_tutor_url, finanziamento_id')
     .eq('id', id)
     .single()
   if (!corso) return NextResponse.json({ error: 'Corso non trovato' }, { status: 404 })
@@ -37,7 +37,7 @@ export async function POST(
 
   const [{ data: tutor }, { data: progetto }] = await Promise.all([
     admin.from('profiles').select('nome, email, indirizzo_via, indirizzo_cap, indirizzo_citta, indirizzo_provincia, codice_fiscale, tariffa_oraria_tutor').eq('id', corso.tutor_id as string).single(),
-    admin.from('progetti').select('school_name').eq('id', corso.project_id as string).single(),
+    admin.from('progetti').select('school_name, finanziamento_id').eq('id', corso.project_id as string).single(),
   ])
 
   if (tutor && progetto) {
@@ -47,6 +47,13 @@ export async function POST(
     const oreTutoraggio = Number(corso.ore_tutoraggio || 0)
     const compensoStimato = tariffaTutor != null && oreTutoraggio > 0 ? +(oreTutoraggio * tariffaTutor).toFixed(2) : null
     const dataFormatted = new Date().toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' })
+
+    const finId = (corso.finanziamento_id || progetto.finanziamento_id) as string | null
+    let finanziamento_nome: string | null = null
+    if (finId) {
+      const { data: fin } = await admin.from('finanziamenti').select('nome').eq('id', finId).single()
+      finanziamento_nome = (fin?.nome as string | null) ?? null
+    }
 
     const pdfBuffer = await generateLetteraIncaricoTutorPdf({
       data: dataFormatted,
@@ -61,9 +68,11 @@ export async function POST(
       ore_tutoraggio: oreTutoraggio,
       tariffa_tutor: tariffaTutor,
       compenso_stimato: compensoStimato,
+      finanziamento_nome,
       firmata: true,
       firmata_at: firmataAt,
       firmata_ip: ip,
+      firmata_user_id: user.id,
     })
 
     const storagePath = `lettere/${id}/lettera_tutor.pdf`

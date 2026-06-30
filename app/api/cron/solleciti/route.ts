@@ -593,7 +593,7 @@ export async function GET(request: NextRequest) {
 
         if (lettere.length === 0) continue
 
-        const lettera_url = `${APP_URL}/formatore`
+        const lettera_url = `${APP_URL}/formatore/progetti/${progetto.id}?section=lettera`
         await sendLettereCumulativeEmail({
           to: formatore.email as string,
           persona_nome: formatore.nome as string,
@@ -638,7 +638,7 @@ export async function GET(request: NextRequest) {
       try {
         const [{ data: tutor }, { data: progetto }] = await Promise.all([
           supabase.from('profiles').select('nome, email').eq('id', group.tutor_id).single(),
-          supabase.from('progetti').select('school_name').eq('id', group.project_id).single(),
+          supabase.from('progetti').select('school_name, id').eq('id', group.project_id).single(),
         ])
         if (!tutor || !progetto) continue
 
@@ -656,7 +656,7 @@ export async function GET(request: NextRequest) {
 
         if (lettere.length === 0) continue
 
-        const lettera_url = `${APP_URL}/formatore`
+        const lettera_url = `${APP_URL}/formatore/progetti/${progetto.id}?section=lettera`
         await sendLettereCumulativeEmail({
           to: tutor.email as string,
           persona_nome: tutor.nome as string,
@@ -708,23 +708,23 @@ export async function GET(request: NextRequest) {
       try {
         const [{ data: formatore }, { data: progetto }] = await Promise.all([
           supabase.from('profiles').select('nome, email').eq('id', group.formatore_id).single(),
-          supabase.from('progetti').select('school_name').eq('id', group.project_id).single(),
+          supabase.from('progetti').select('school_name, id').eq('id', group.project_id).single(),
         ])
         if (!formatore || !progetto) continue
 
         const elenco = group.corsi.map(c => `  • ${c.title}`).join('\n')
-        const lettera_url = `${APP_URL}/formatore`
+        const lettera_url = `${APP_URL}/formatore/progetti/${progetto.id}?section=lettera`
         const body = `Gentile ${formatore.nome},
 
 le ricordiamo che ${group.corsi.length === 1 ? 'la lettera di incarico' : 'le lettere di incarico'} per i seguenti corsi presso ${progetto.school_name} ${group.corsi.length === 1 ? 'non è ancora stata firmata' : 'non sono ancora state firmate'}:
 
 ${elenco}
 
-La preghiamo di procedere con la firma digitale accedendo alla piattaforma:
+La preghiamo di procedere con la firma digitale accedendo alla sezione "Lettera di incarico" nella scheda corso:
 ${lettera_url}
 
 Cordiali saluti,
-Il team SVC Consulting Srl`
+Il team Formascuole`
 
         await sendEmail({
           to: formatore.email as string,
@@ -767,23 +767,23 @@ Il team SVC Consulting Srl`
       try {
         const [{ data: tutor }, { data: progetto }] = await Promise.all([
           supabase.from('profiles').select('nome, email').eq('id', group.tutor_id).single(),
-          supabase.from('progetti').select('school_name').eq('id', group.project_id).single(),
+          supabase.from('progetti').select('school_name, id').eq('id', group.project_id).single(),
         ])
         if (!tutor || !progetto) continue
 
         const elenco = group.corsi.map(c => `  • ${c.title}`).join('\n')
-        const lettera_url = `${APP_URL}/formatore`
+        const lettera_url = `${APP_URL}/formatore/progetti/${progetto.id}?section=lettera`
         const body = `Gentile ${tutor.nome},
 
 le ricordiamo che ${group.corsi.length === 1 ? 'la lettera di incarico di tutoraggio' : 'le lettere di incarico di tutoraggio'} per i seguenti corsi presso ${progetto.school_name} ${group.corsi.length === 1 ? 'non è ancora stata firmata' : 'non sono ancora state firmate'}:
 
 ${elenco}
 
-La preghiamo di procedere con la firma digitale accedendo alla piattaforma:
+La preghiamo di procedere con la firma digitale accedendo alla sezione "Lettera di incarico" nella scheda corso:
 ${lettera_url}
 
 Cordiali saluti,
-Il team SVC Consulting Srl`
+Il team Formascuole`
 
         await sendEmail({
           to: tutor.email as string,

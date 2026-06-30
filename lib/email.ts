@@ -1163,6 +1163,62 @@ Rispondi SOLO con il corpo dell'email in testo semplice (no HTML, no oggetto). T
   }
 }
 
+// ─── Conferma pre-assegnazione ───────────────────────────────────────────────
+
+interface ConfermaPreAssegnazioneEmailParams {
+  formatore_nome: string
+  corsi: { title: string; tipo: string; ore_totali: number; modalita?: string | null }[]
+  school_name: string
+  piattaforma_url: string
+}
+
+export async function generateEmailConfermaPreAssegnazione(p: ConfermaPreAssegnazioneEmailParams): Promise<string> {
+  const list = p.corsi.map(c => `  • ${c.title} (${c.tipo}, ${c.ore_totali}h${c.modalita ? ', ' + c.modalita : ''})`).join('\n')
+  try {
+    const message = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 500,
+      messages: [{
+        role: 'user',
+        content: `Genera un'email professionale in italiano per informare un formatore che le sue pre-assegnazioni sono state confermate in quanto il progetto è stato attivato.
+
+Dati:
+- Nome formatore: ${p.formatore_nome}
+- Scuola: ${p.school_name}
+- Corsi confermati:
+${list}
+- Link piattaforma: ${p.piattaforma_url}
+
+L'email deve:
+1. Salutare il formatore per nome
+2. Comunicare che il progetto è stato attivato e le assegnazioni sono ora definitive
+3. Includere esattamente questa frase: "Il progetto è stato attivato. Puoi ora procedere con la pianificazione del calendario contattando il referente scolastico."
+4. Elencare i corsi confermati
+5. Invitare ad accedere alla piattaforma tramite il link
+6. Chiudere con un saluto professionale
+
+Rispondi SOLO con il corpo dell'email in testo semplice (no HTML, no oggetto).`,
+      }],
+    })
+    return (message.content[0] as { type: string; text: string }).text
+  } catch {
+    return `Gentile ${p.formatore_nome},
+
+le confermiamo che le sue pre-assegnazioni per il progetto presso ${p.school_name} sono ora definitive.
+
+Il progetto è stato attivato. Puoi ora procedere con la pianificazione del calendario contattando il referente scolastico.
+
+Corsi confermati:
+${list}
+
+Accedi alla piattaforma per gestire le assegnazioni:
+${p.piattaforma_url}
+
+Cordiali saluti,
+Il team Formascuole`
+  }
+}
+
 // ─── Grouped assignment (batch) ───────────────────────────────────────────────
 
 interface AssegnazioneRaggruppataEmailParams {
@@ -1258,13 +1314,13 @@ export async function sendLetteraIncaricoEmail({
   const ruolo = tipo === 'tutor' ? 'tutoraggio' : 'formazione'
   const body = `Gentile ${persona_nome},
 
-le inviamo in allegato la lettera di incarico per l'attività di ${ruolo} relativa al corso "${corso_title}" presso ${school_name}.
+la lettera di incarico per ${ruolo === 'tutoraggio' ? "l'incarico di tutoraggio" : 'il corso'} "${corso_title}" è disponibile.
 
-La preghiamo di leggere attentamente il documento e di procedere con la firma digitale accedendo alla piattaforma:
+Accedi alla piattaforma e nella scheda del corso troverai la sezione "Lettera di incarico" con il PDF da visualizzare e firmare:
 ${lettera_url}
 
 Cordiali saluti,
-Il team SVC Consulting Srl`
+Il team Formascuole`
 
   await resend.emails.send({
     from: 'Formascuole <noreply@formascuole.it>',
@@ -1296,15 +1352,15 @@ export async function sendLettereCumulativeEmail({
   const elenco = lettere.map(l => `  • ${l.corso_title}`).join('\n')
   const body = `Gentile ${persona_nome},
 
-le inviamo in allegato ${lettere.length === 1 ? 'la lettera di incarico' : `le ${lettere.length} lettere di incarico`} relative ai corsi del progetto "${progetto_nome}" presso ${school_name}:
+${lettere.length === 1 ? 'la lettera di incarico è disponibile' : `le ${lettere.length} lettere di incarico sono disponibili`} per i corsi del progetto "${progetto_nome}" presso ${school_name}:
 
 ${elenco}
 
-La preghiamo di leggere attentamente i documenti e di procedere con la firma digitale accedendo alla piattaforma:
+Accedi alla piattaforma e nella scheda di ciascun corso troverai la sezione "Lettera di incarico" con il PDF da visualizzare e firmare:
 ${lettera_url}
 
 Cordiali saluti,
-Il team SVC Consulting Srl`
+Il team Formascuole`
 
   await resend.emails.send({
     from: 'Formascuole <noreply@formascuole.it>',
