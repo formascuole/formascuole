@@ -2140,6 +2140,75 @@ export function CorsoDetailClient({
         </div>
       )}
 
+      {/* Lettere d'incarico — vista admin (sola lettura) */}
+      {isAdmin && (letteraUrl || letteraTutorUrl) && (
+        <div id="lettera-incarico" className="bg-white rounded-xl p-6 mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
+          <h2 className="font-semibold text-gray-900 mb-4">Lettere d&apos;incarico</h2>
+          <div className="divide-y divide-gray-100">
+            {letteraUrl && (
+              <div className="flex items-start justify-between gap-4 py-3 first:pt-0 last:pb-0">
+                <div>
+                  <div className="text-sm font-medium text-gray-700 mb-1.5">Lettera d&apos;incarico formatore</div>
+                  {letteraFirmata ? (
+                    <>
+                      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-green-700 bg-green-100 px-2.5 py-1 rounded-md">
+                        <svg width="10" height="10" fill="none" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>
+                        Firmata digitalmente
+                      </span>
+                      {letteraFirmataAt && (
+                        <p className="text-xs text-gray-500 mt-1.5">
+                          {`Firmata da ${corso.formatore?.nome || '—'} il ${new Date(letteraFirmataAt).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' })} alle ${new Date(letteraFirmataAt).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}${corso.lettera_incarico_ip ? ` (IP: ${corso.lettera_incarico_ip})` : ''}`}
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <span className="inline-flex items-center text-xs font-medium text-amber-700 bg-amber-100 px-2.5 py-1 rounded-md">
+                      In attesa di firma
+                    </span>
+                  )}
+                </div>
+                <a href={letteraUrl} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-gray-900 border border-gray-200 hover:bg-gray-50 px-2.5 py-1.5 rounded-[7px] transition-colors shrink-0"
+                >
+                  <svg width="12" height="12" fill="none" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  Visualizza PDF
+                </a>
+              </div>
+            )}
+            {letteraTutorUrl && (
+              <div className="flex items-start justify-between gap-4 py-3 first:pt-0 last:pb-0">
+                <div>
+                  <div className="text-sm font-medium text-gray-700 mb-1.5">Lettera d&apos;incarico tutoraggio</div>
+                  {letteraTutorFirmata ? (
+                    <>
+                      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-green-700 bg-green-100 px-2.5 py-1 rounded-md">
+                        <svg width="10" height="10" fill="none" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>
+                        Firmata digitalmente
+                      </span>
+                      {letteraTutorFirmataAt && (
+                        <p className="text-xs text-gray-500 mt-1.5">
+                          {`Firmata da ${corso.tutor?.nome || '—'} il ${new Date(letteraTutorFirmataAt).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' })} alle ${new Date(letteraTutorFirmataAt).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}${corso.lettera_tutor_ip ? ` (IP: ${corso.lettera_tutor_ip})` : ''}`}
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <span className="inline-flex items-center text-xs font-medium text-amber-700 bg-amber-100 px-2.5 py-1 rounded-md">
+                      In attesa di firma
+                    </span>
+                  )}
+                </div>
+                <a href={letteraTutorUrl} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-gray-900 border border-gray-200 hover:bg-gray-50 px-2.5 py-1.5 rounded-[7px] transition-colors shrink-0"
+                >
+                  <svg width="12" height="12" fill="none" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  Visualizza PDF
+                </a>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Lettera d'incarico — vista formatore */}
       {!isAdmin && corso.formatore_id === currentUserId && letteraUrl && (
         <div id="lettera-incarico" className="bg-white rounded-xl p-6 mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
