@@ -366,7 +366,7 @@ function LetteraFormatorePDF({ data }: { data: LetteraIncaricoFormatore }) {
   )
 }
 
-// ── Tutor PDF (header testuale, corpo invariato) ───────────────────────────────
+// ── Tutor PDF ─────────────────────────────────────────────────────────────────
 
 function LetteraTutorPDF({ data }: { data: LetteraIncaricoTutor }) {
   const addrParts = [
@@ -398,7 +398,7 @@ function LetteraTutorPDF({ data }: { data: LetteraIncaricoTutor }) {
           </View>
           <View style={s.headerRight}>
             <Text style={s.headerTitle}>LETTERA DI INCARICO</Text>
-            <Text style={s.headerSubtitle}>Tutoraggio per attività di formazione</Text>
+            <Text style={s.headerSubtitle}>Attività di tutoraggio</Text>
           </View>
         </View>
         <View style={s.redLine} />
@@ -425,8 +425,9 @@ function LetteraTutorPDF({ data }: { data: LetteraIncaricoTutor }) {
 
           <View style={s.divider} />
 
+          {/* ── INTRO ── */}
           <Text style={s.bodyText}>
-            {'Con la presente SVC Consulting S.r.l. Le conferisce un incarico di tutoraggio come di seguito specificato:'}
+            {'Con la presente SVC Consulting S.r.l. Le conferisce incarico di tutoraggio per la seguente attività formativa:'}
           </Text>
 
           {/* ── TABELLA ── */}
@@ -434,9 +435,9 @@ function LetteraTutorPDF({ data }: { data: LetteraIncaricoTutor }) {
             <View style={s.tableHeader}>
               <Text style={[s.tableHeaderText, { width: colTutor.scuola }]}>Scuola / Progetto</Text>
               <Text style={[s.tableHeaderText, { width: colTutor.corso }]}>Corso</Text>
-              <Text style={[s.tableHeaderText, { width: colTutor.ore, textAlign: 'center' }]}>Ore</Text>
-              <Text style={[s.tableHeaderText, { width: colTutor.tariffa, textAlign: 'right' }]}>Tariffa</Text>
-              <Text style={[s.tableHeaderText, { width: colTutor.compenso, textAlign: 'right' }]}>Compenso</Text>
+              <Text style={[s.tableHeaderText, { width: colTutor.ore, textAlign: 'center' }]}>Ore tutor.</Text>
+              <Text style={[s.tableHeaderText, { width: colTutor.tariffa, textAlign: 'right' }]}>Tariffa oraria</Text>
+              <Text style={[s.tableHeaderText, { width: colTutor.compenso, textAlign: 'right' }]}>Compenso lordo</Text>
             </View>
             <View style={s.tableRow}>
               <Text style={[s.tableCell, { width: colTutor.scuola, paddingRight: 4 }]}>{data.school_name}</Text>
@@ -451,17 +452,83 @@ function LetteraTutorPDF({ data }: { data: LetteraIncaricoTutor }) {
             </View>
           </View>
           <Text style={s.bodyTextItalic}>
-            {'Il compenso è da intendersi al lordo di oneri fiscali e previdenziali. Il compenso effettivo sarà calcolato sulle ore effettivamente erogate.'}
+            {'Il compenso è da intendersi al lordo di oneri fiscali e previdenziali.'}
           </Text>
 
-          <Text style={[s.bodyText, { marginTop: 8 }]}>
-            {'La preghiamo di confermare accettazione dell\'incarico tramite firma del presente documento.'}
+          {/* ── SEZIONE 1 ── */}
+          <Text style={s.sectionTitle}>1. Modalità di svolgimento</Text>
+          <Text style={s.bodyText}>
+            {'L\'attività di tutoraggio dovrà essere realizzata nei giorni concordati con il formatore esperto incaricato da Formascuole e con l\'Istituto scolastico destinatario, in accordo con il referente di progetto dell\'Istituto.\nL\'attività potrà essere svolta in presenza oppure online (in modalità sincrona) o in modalità ibrida, coerentemente con il calendario concordato e con le finalità del percorso formativo assegnato.\nIl tutor d\'aula è tenuto a garantire la propria presenza — fisica o virtuale — durante tutte le attività didattiche, a supportare il formatore e a collaborare con l\'Istituto per la corretta gestione del modulo formativo.\nIn particolare, il tutor si impegna a:'}
+          </Text>
+          <View style={{ marginLeft: 8, marginBottom: 8 }}>
+            <Bullet text={'Garantire l\'assistenza organizzativa e logistica durante lo svolgimento delle attività, sia in presenza che online;'} />
+            <Bullet text={'Compilare e firmare il registro presenze (in formato cartaceo o digitale) unitamente ai partecipanti, laddove previsto;'} />
+            <Bullet text={'Collaborare con il referente di progetto per la raccolta e la consegna dei registri di presenza e della documentazione richiesta per la rendicontazione;'} />
+            <Bullet text={'Somministrare il questionario di gradimento tramite il link dedicato al corso, generato dalla piattaforma Formascuole e comunicato dalla Committenza, prima del termine dell\'ultima sessione del percorso di formazione/laboratorio sul campo;'} />
+            <Bullet text={'Segnalare tempestivamente eventuali assenze o variazioni rispetto al calendario previsto;'} />
+            <Bullet text={'Fornire, a conclusione delle attività, un breve report riepilogativo delle presenze e dell\'andamento del modulo (sintesi organizzativa).'} />
+          </View>
+
+          {/* ── SEZIONE 2 ── */}
+          <Text style={s.sectionTitle}>2. Documentazione obbligatoria</Text>
+          <Text style={s.bodyText}>
+            {'Ai fini dell\'attivazione del presente incarico e della successiva liquidazione dei compensi, il tutor è tenuto a compilare e trasmettere, tramite i modelli predisposti da SVC Consulting S.r.l. (Formascuole), la seguente documentazione:'}
+          </Text>
+          <View style={{ marginBottom: 8 }}>
+            <View style={s.numberedRow}>
+              <Text style={s.numberedNum}>1.</Text>
+              <View style={s.numberedContent}>
+                <Text style={s.numberedText}>
+                  {'Dichiarazione di insussistenza di cause di incompatibilità, conforme al modello disponibile al seguente link: '}
+                </Text>
+                <Link src="https://formascuole24-my.sharepoint.com/:b:/g/personal/formazione_formascuole24_onmicrosoft_com/EWWYGR9Gy4VBuYHi5-d7QxQB3HjRyeRaE2wblQHfAf591w?e=V81DjB&download=1"
+                  style={s.linkText}>
+                  {'→ Modulo Dichiarazione Insussistenza'}
+                </Link>
+              </View>
+            </View>
+            <View style={s.numberedRow}>
+              <Text style={s.numberedNum}>2.</Text>
+              <View style={s.numberedContent}>
+                <Text style={s.numberedText}>
+                  {'Curriculum vitae in formato europeo aggiornato e comprensivo di codice fiscale, firmato in calce – template disponibile al seguente link: '}
+                </Text>
+                <Link src="https://formascuole24-my.sharepoint.com/:w:/g/personal/formazione_formascuole24_onmicrosoft_com/ESvxSxp9bGNMnsFpGMVevVMBxfkEjQI-HqdW2LqNgQNgEw?web=1&action=copy"
+                  style={s.linkText}>
+                  {'→ Template CV Europeo'}
+                </Link>
+              </View>
+            </View>
+          </View>
+          <Text style={s.bodyTextItalicRed}>
+            {'La mancata compilazione o trasmissione della documentazione sopra elencata comporterà l\'impossibilità di validare la prestazione e, conseguentemente, la sospensione della liquidazione dei compensi fino all\'avvenuto adempimento.'}
           </Text>
 
-          <Text style={[s.bodyText, { marginTop: 4 }]}>
-            {'Cordiali saluti,'}
-            {'\n'}
-            <Text style={s.bold}>{'SVC Consulting S.r.l.'}</Text>
+          {/* ── SEZIONE 3 ── */}
+          <Text style={s.sectionTitle}>3. Corrispettivo e modalità di pagamento</Text>
+          <Text style={s.bodyText}>
+            {'Il corrispettivo sopra indicato sarà riconosciuto a fronte delle ore effettivamente erogate e documentate, al lordo di oneri fiscali e previdenziali.\nIl pagamento sarà effettuato da:\nSVC Consulting S.r.l. — Via A. Vallisneri 7 – 00197 Roma — P.IVA 07142321004 – Codice Univoco M5UXCR1\ntramite bonifico bancario sull\'IBAN comunicato dal professionista, entro 60 giorni data fattura fine mese, previa verifica della corretta esecuzione dell\'incarico.'}
+          </Text>
+          <Text style={s.bodyText}>
+            {'La fattura dovrà riportare la seguente dicitura:\n'}
+            <Text style={{ fontFamily: 'Helvetica-Oblique' }}>
+              {`"Attività di tutoraggio per il percorso di formazione ${data.corso_title} – ${data.ore_tutoraggio} ore – per/presso ${data.school_name}."`}
+            </Text>
+          </Text>
+          <Text style={s.bodyText}>
+            {'Ai fini del pagamento, è necessario inviare la fattura (o notula pro-forma) ai seguenti indirizzi:\npianificazione@formascuole.it\namministrazione@formascuole.it\n\nRicevuto il consenso alla liquidazione, potrà essere emessa la fattura definitiva. In caso di fattura elettronica, è richiesta copia di cortesia via e-mail a amministrazione@formascuole.it.\nLa liquidazione dei compensi è subordinata alla consegna della documentazione obbligatoria e alla validazione delle attività da parte dell\'Istituto e di SVC Consulting S.r.l.'}
+          </Text>
+
+          {/* ── SEZIONE 4 ── */}
+          <Text style={s.sectionTitle}>4. Risoluzione anticipata</Text>
+          <Text style={s.bodyText}>
+            {'La collaborazione potrà essere risolta anticipatamente in caso di interruzione del progetto o di risoluzione del contratto tra la Committenza e SVC Consulting S.r.l., quale che sia la causa da ambo i lati, ovvero in caso di mancato rispetto degli impegni assunti da una delle parti.\nIn tal caso, il compenso sarà riconosciuto esclusivamente per le attività effettivamente già svolte, in proporzione alle ore di tutoraggio prestate e debitamente documentate.'}
+          </Text>
+
+          {/* ── SEZIONE 5 ── */}
+          <Text style={s.sectionTitle}>5. Trattamento dati e accettazione</Text>
+          <Text style={s.bodyText}>
+            {'I dati personali saranno trattati nel rispetto del Reg. UE 2016/679 (GDPR Privacy) ai soli fini previsti dalla normativa vigente.\nCon la firma della presente, l\'incaricato dichiara di aver preso visione e di accettare integralmente le condizioni qui indicate.'}
           </Text>
 
           {/* ── FIRME ── */}
