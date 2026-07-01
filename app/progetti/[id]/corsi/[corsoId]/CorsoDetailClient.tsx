@@ -2142,7 +2142,7 @@ export function CorsoDetailClient({
 
       {/* Lettera d'incarico — vista formatore */}
       {!isAdmin && corso.formatore_id === currentUserId && letteraUrl && (
-        <div className="bg-white rounded-xl p-6 mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
+        <div id="lettera-incarico" className="bg-white rounded-xl p-6 mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
           <h2 className="font-semibold text-gray-900 mb-4">Lettera d&apos;incarico</h2>
           {letteraFirmata ? (
             <div className="flex items-center justify-between">
@@ -2184,7 +2184,7 @@ export function CorsoDetailClient({
 
       {/* Lettera d'incarico tutoraggio — vista tutor */}
       {!isAdmin && corso.tutor_id === currentUserId && letteraTutorUrl && (
-        <div className="bg-white rounded-xl p-6 mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
+        <div id="lettera-incarico" className="bg-white rounded-xl p-6 mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
           <h2 className="font-semibold text-gray-900 mb-4">Lettera d&apos;incarico tutoraggio</h2>
           {letteraTutorFirmata ? (
             <div className="flex items-center justify-between">

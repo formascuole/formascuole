@@ -593,7 +593,9 @@ export async function GET(request: NextRequest) {
 
         if (lettere.length === 0) continue
 
-        const lettera_url = `${APP_URL}/formatore/progetti/${progetto.id}?section=lettera`
+        const lettera_url = corsoIdsSent.length === 1
+          ? `${APP_URL}/progetti/${group.project_id}/corsi/${corsoIdsSent[0]}#lettera-incarico`
+          : `${APP_URL}/formatore/progetti/${progetto.id}?section=lettera`
         await sendLettereCumulativeEmail({
           to: formatore.email as string,
           persona_nome: formatore.nome as string,
@@ -656,7 +658,9 @@ export async function GET(request: NextRequest) {
 
         if (lettere.length === 0) continue
 
-        const lettera_url = `${APP_URL}/formatore/progetti/${progetto.id}?section=lettera`
+        const lettera_url = corsoIdsSent.length === 1
+          ? `${APP_URL}/progetti/${group.project_id}/corsi/${corsoIdsSent[0]}#lettera-incarico`
+          : `${APP_URL}/formatore/progetti/${progetto.id}?section=lettera`
         await sendLettereCumulativeEmail({
           to: tutor.email as string,
           persona_nome: tutor.nome as string,
@@ -713,7 +717,9 @@ export async function GET(request: NextRequest) {
         if (!formatore || !progetto) continue
 
         const elenco = group.corsi.map(c => `  • ${c.title}`).join('\n')
-        const lettera_url = `${APP_URL}/formatore/progetti/${progetto.id}?section=lettera`
+        const lettera_url = group.corsi.length === 1
+          ? `${APP_URL}/progetti/${group.project_id}/corsi/${group.corsi[0].id}#lettera-incarico`
+          : `${APP_URL}/formatore/progetti/${progetto.id}?section=lettera`
         const body = `Gentile ${formatore.nome},
 
 le ricordiamo che ${group.corsi.length === 1 ? 'la lettera di incarico' : 'le lettere di incarico'} per i seguenti corsi presso ${progetto.school_name} ${group.corsi.length === 1 ? 'non è ancora stata firmata' : 'non sono ancora state firmate'}:
@@ -772,7 +778,9 @@ Il team Formascuole`
         if (!tutor || !progetto) continue
 
         const elenco = group.corsi.map(c => `  • ${c.title}`).join('\n')
-        const lettera_url = `${APP_URL}/formatore/progetti/${progetto.id}?section=lettera`
+        const lettera_url = group.corsi.length === 1
+          ? `${APP_URL}/progetti/${group.project_id}/corsi/${group.corsi[0].id}#lettera-incarico`
+          : `${APP_URL}/formatore/progetti/${progetto.id}?section=lettera`
         const body = `Gentile ${tutor.nome},
 
 le ricordiamo che ${group.corsi.length === 1 ? 'la lettera di incarico di tutoraggio' : 'le lettere di incarico di tutoraggio'} per i seguenti corsi presso ${progetto.school_name} ${group.corsi.length === 1 ? 'non è ancora stata firmata' : 'non sono ancora state firmate'}:

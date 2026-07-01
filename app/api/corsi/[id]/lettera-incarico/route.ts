@@ -98,7 +98,7 @@ export async function POST(
 
   if (isRigenera) {
     try {
-      const letteraUrl = `${APP_URL}/formatore/progetti/${corso.project_id}?section=lettera`
+      const letteraUrl = `${APP_URL}/progetti/${corso.project_id}/corsi/${id}#lettera-incarico`
       await sendLetteraAggiornataEmail({
         to: formatore.email as string,
         persona_nome: formatore.nome as string,
