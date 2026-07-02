@@ -11,6 +11,8 @@ export interface LetteraIncaricoFormatore {
   formatore_codice_fiscale?: string | null
   corso_title: string
   corso_tipo: string
+  modalita?: string | null
+  location?: string | null
   school_name: string
   ore_totali: number
   tariffa: number | null
@@ -33,6 +35,9 @@ export interface LetteraIncaricoTutor {
   tutor_provincia?: string | null
   tutor_codice_fiscale?: string | null
   corso_title: string
+  corso_tipo?: string | null
+  modalita?: string | null
+  location?: string | null
   school_name: string
   ore_tutoraggio: number
   tariffa_tutor: number | null
@@ -119,6 +124,10 @@ const s = StyleSheet.create({
   signatureLine: { borderBottomWidth: 0.5, borderBottomColor: '#aaa', marginBottom: 4, marginTop: 24 },
   signatureCaption: { fontSize: 8, color: LIGHT_GREY, textAlign: 'center' },
 
+  // ── Info box (tipologia + modalità) ──
+  infoBox: { backgroundColor: '#f5f5f5', borderRadius: 3, paddingHorizontal: 10, paddingVertical: 7, marginBottom: 6 },
+  infoBoxText: { fontSize: 8.5, color: GREY, lineHeight: 1.5 },
+
   // ── Footer stamp ──
   footerStamp: { marginTop: 16, paddingTop: 10, borderTopWidth: 0.5, borderTopColor: '#ddd' },
   footerText: { fontSize: 7.5, color: LIGHT_GREY, textAlign: 'center', lineHeight: 1.5 },
@@ -139,6 +148,29 @@ const colTutor = {
   ore: '12%',
   tariffa: '12%',
   compenso: '11%',
+}
+
+// ── Label helpers ─────────────────────────────────────────────────────────────
+
+function tipoLabel(tipo?: string | null): string {
+  if (tipo === 'PF') return 'Percorso Formativo (PF)'
+  if (tipo === 'Lab') return 'Laboratorio sul Campo (Lab)'
+  if (tipo === 'MF') return 'Modulo Formativo (MF)'
+  return tipo || '—'
+}
+
+function modalitaLabel(m?: string | null, location?: string | null): string {
+  const MAP: Record<string, string> = {
+    presenza: 'In presenza',
+    online: 'Online sincrono',
+    ibrido: 'Ibrido',
+    residenziale: 'Residenziale',
+    semi_residenziale: 'Semi-residenziale',
+  }
+  const base = m ? (MAP[m] ?? m) : null
+  if (!base) return '—'
+  if ((m === 'residenziale' || m === 'semi_residenziale') && location) return `${base} — ${location}`
+  return base
 }
 
 // ── Bullet helper ──────────────────────────────────────────────────────────────
@@ -237,6 +269,15 @@ function LetteraFormatorePDF({ data }: { data: LetteraIncaricoFormatore }) {
               </Text>
             </View>
           </View>
+
+          {/* ── INFO BOX: TIPOLOGIA + MODALITÀ ── */}
+          {(data.corso_tipo || data.modalita) && (
+            <View style={s.infoBox}>
+              {data.corso_tipo ? <Text style={s.infoBoxText}>{`Tipologia: ${tipoLabel(data.corso_tipo)}`}</Text> : null}
+              {data.modalita ? <Text style={s.infoBoxText}>{`Modalità: ${modalitaLabel(data.modalita, data.location)}`}</Text> : null}
+            </View>
+          )}
+
           <Text style={s.bodyTextItalic}>
             {'Il compenso è da intendersi al lordo di oneri fiscali e previdenziali.'}
           </Text>
@@ -451,6 +492,15 @@ function LetteraTutorPDF({ data }: { data: LetteraIncaricoTutor }) {
               </Text>
             </View>
           </View>
+
+          {/* ── INFO BOX: TIPOLOGIA + MODALITÀ ── */}
+          {(data.corso_tipo || data.modalita) && (
+            <View style={s.infoBox}>
+              {data.corso_tipo ? <Text style={s.infoBoxText}>{`Tipologia: ${tipoLabel(data.corso_tipo)}`}</Text> : null}
+              {data.modalita ? <Text style={s.infoBoxText}>{`Modalità: ${modalitaLabel(data.modalita, data.location)}`}</Text> : null}
+            </View>
+          )}
+
           <Text style={s.bodyTextItalic}>
             {'Il compenso è da intendersi al lordo di oneri fiscali e previdenziali.'}
           </Text>
