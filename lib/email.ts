@@ -1060,18 +1060,33 @@ function buildEconomicBlock(
 - Netto a pagare: € ${netto.toFixed(2)}`
 }
 
-function buildPaymentInstructions(regime?: 'forfettario' | 'ordinario' | 'notula' | null, rivalsaIva?: boolean | null): string {
+function buildPaymentInstructions(
+  regime?: 'forfettario' | 'ordinario' | 'notula' | null,
+  rivalsaIva?: boolean | null,
+  corso_title?: string,
+  school_name?: string,
+  ore_erogate?: number,
+): string {
   if (regime === 'forfettario' || regime === 'ordinario') {
+    const dicitura = corso_title && school_name
+      ? `\nLa fattura dovrà riportare la seguente dicitura:\n'Docenza per attività di formazione ${corso_title} – ${ore_erogate ?? '—'}h – per/presso ${school_name}.'`
+      : ''
     return `Per procedere con il pagamento emetti fattura elettronica intestata a:
-SVC Consulting Srl
 
-La fattura deve riportare:
-- I tuoi dati anagrafici e fiscali (Partita IVA inclusa)
-- La descrizione della prestazione di formazione${rivalsaIva && regime === 'ordinario' ? '\n- IVA 22% separata' : ''}
-- Le tue coordinate bancarie (IBAN)
+SVC Consulting S.r.l.
+Via A. Vallisneri 7 – 00197 Roma
+P.IVA 07142321004 – Codice Univoco M5UXCR1
+${dicitura}
+IMPORTANTE: Prima di inviare la fattura allo SDI è necessario inviare la bozza ai seguenti indirizzi:
+📧 pianificazione@formascuole.it
+📧 amministrazione@formascuole.it
 
-Invia il file XML della fattura elettronica tramite SDI.`
+Ricevuto il consenso alla liquidazione da parte di SVC Consulting S.r.l. potrai procedere con l'invio definitivo allo SDI.
+
+In caso di fattura elettronica invia copia di cortesia a:
+📧 amministrazione@formascuole.it`
   }
+  // notula: testo invariato
   return `Per procedere con il pagamento invia la tua pro forma (notula senza marca da bollo) a:
 amministrazione@formascuole.it
 
@@ -1105,7 +1120,7 @@ RIEPILOGO INCARICO:
   hasRates ? `\n${buildEconomicBlock(p.ore_erogate, p.tariffa_oraria!, p.regime_fiscale, p.rivalsa_iva)}` : ''
 }${tutorBlock}
 
-${hasRates ? buildPaymentInstructions(p.regime_fiscale, p.rivalsa_iva) : `Per l'importo del compenso attendi comunicazione da amministrazione@formascuole.it`}
+${hasRates ? buildPaymentInstructions(p.regime_fiscale, p.rivalsa_iva, p.corso_title, p.school_name, p.ore_erogate) : `Per l'importo del compenso attendi comunicazione da amministrazione@formascuole.it`}
 
 Cordiali saluti,
 Il team Formascuole`
@@ -1148,7 +1163,7 @@ ${hasTutorRates ? `
 RIEPILOGO TUTORAGGIO (${p.tutor_nome}):
 [elenco dati tutor]
 ` : ''}
-${hasRates ? buildPaymentInstructions(p.regime_fiscale, p.rivalsa_iva) : `Per l'importo del compenso attendi comunicazione da amministrazione@formascuole.it`}
+${hasRates ? buildPaymentInstructions(p.regime_fiscale, p.rivalsa_iva, p.corso_title, p.school_name, p.ore_erogate) : `Per l'importo del compenso attendi comunicazione da amministrazione@formascuole.it`}
 
 Cordiali saluti,
 Il team Formascuole"
