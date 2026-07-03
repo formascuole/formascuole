@@ -813,8 +813,119 @@ Il team Formascuole`
       }
     }
 
+    // ── FASE 8: Riepilogo accettazioni giornaliere (solo run serale ≥ 12 UTC) ───
+    const riepilogoResults: { project_id: string; action: string }[] = []
+
+    if (now.getUTCHours() >= 12) {
+      const { data: corsiConRisposta } = await supabase
+        .from('corsi')
+        .select('id, title, ore_totali, formatore_id, project_id, stato_assegnazione, accettazione_risposta_at, rifiuto_motivazione')
+        .in('stato_assegnazione', ['accettato', 'rifiutato'])
+        .gte('accettazione_risposta_at', cutoff24h.toISOString())
+
+      if (corsiConRisposta?.length) {
+        const byProgetto = new Map<string, typeof corsiConRisposta>()
+        for (const c of corsiConRisposta) {
+          const key = c.project_id as string
+          if (!byProgetto.has(key)) byProgetto.set(key, [])
+          byProgetto.get(key)!.push(c)
+        }
+
+        const { data: admins } = await supabase
+          .from('profiles')
+          .select('email')
+          .in('role', ['admin', 'super_admin'])
+        const adminEmails = (admins || []).map(a => a.email as string).filter(Boolean)
+
+        for (const [progettoId, corsiRisposta] of byProgetto) {
+          try {
+            const [{ data: progetto }, { data: corsiInAttesa }] = await Promise.all([
+              supabase.from('progetti').select('id, school_name').eq('id', progettoId).single(),
+              supabase.from('corsi')
+                .select('id, title, ore_totali, formatore_id, accettazione_richiesta_at')
+                .eq('project_id', progettoId)
+                .eq('stato_assegnazione', 'in_attesa')
+                .not('formatore_id', 'is', null),
+            ])
+            if (!progetto) continue
+
+            const allFormatoreIds = [...new Set([
+              ...corsiRisposta.map(c => c.formatore_id as string),
+              ...(corsiInAttesa || []).map(c => c.formatore_id as string),
+            ].filter(Boolean))]
+            const { data: formatori } = allFormatoreIds.length
+              ? await supabase.from('profiles').select('id, nome').in('id', allFormatoreIds)
+              : { data: [] }
+            const nomeFmt = new Map((formatori || []).map(f => [f.id as string, f.nome as string]))
+
+            const accettati = corsiRisposta.filter(c => c.stato_assegnazione === 'accettato')
+            const rifiutati = corsiRisposta.filter(c => c.stato_assegnazione === 'rifiutato')
+            const todayFmt = now.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' })
+
+            const lines: string[] = [
+              `Riepilogo delle risposte ricevute oggi per il progetto presso ${progetto.school_name}:`,
+              '',
+            ]
+
+            if (accettati.length > 0) {
+              lines.push('✅ ACCETTATI:')
+              for (const c of accettati) {
+                lines.push(`  - ${nomeFmt.get(c.formatore_id as string) ?? '—'} — ${c.title} — ${c.ore_totali}h`)
+              }
+              lines.push('')
+            }
+
+            if (rifiutati.length > 0) {
+              lines.push('❌ RIFIUTATI:')
+              for (const c of rifiutati) {
+                lines.push(`  - ${nomeFmt.get(c.formatore_id as string) ?? '—'} — ${c.title} — ${c.ore_totali}h`)
+                if (c.rifiuto_motivazione) lines.push(`    Motivazione: ${c.rifiuto_motivazione}`)
+              }
+              lines.push('')
+            }
+
+            if ((corsiInAttesa || []).length > 0) {
+              lines.push('⏳ ANCORA IN ATTESA:')
+              for (const c of corsiInAttesa || []) {
+                const dataInvio = c.accettazione_richiesta_at
+                  ? new Date(c.accettazione_richiesta_at as string).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                  : '—'
+                lines.push(`  - ${nomeFmt.get(c.formatore_id as string) ?? '—'} — ${c.title} — ${c.ore_totali}h`)
+                lines.push(`    (inviato il ${dataInvio})`)
+              }
+              lines.push('')
+            }
+
+            const progettoUrl = `${APP_URL}/progetti/${progettoId}`
+            lines.push(`Accedi alla piattaforma per gestire le assegnazioni:\n${progettoUrl}`)
+
+            const subject = `Riepilogo accettazioni — ${progetto.school_name} — ${todayFmt}`
+            const body = lines.join('\n')
+
+            for (const email of adminEmails) {
+              await sendEmail({
+                to: email,
+                subject,
+                body,
+                actions: [{ label: 'Gestisci assegnazioni', url: progettoUrl, primary: true }],
+              }).catch(() => {})
+            }
+
+            riepilogoResults.push({
+              project_id: progettoId,
+              action: `sent (${accettati.length} acc, ${rifiutati.length} rif, ${(corsiInAttesa || []).length} att)`,
+            })
+          } catch (err) {
+            console.error('[cron] Riepilogo failed for project', progettoId, err)
+            riepilogoResults.push({ project_id: progettoId, action: 'error' })
+          }
+        }
+      }
+    }
+
     return NextResponse.json({
       success: true,
+      run_type: now.getUTCHours() >= 12 ? 'sera' : 'mattina',
       accettazione_processed: (pendingCorsi || []).length,
       accettazione_results: accettazioneResults,
       processed: (corsiIncomplete || []).length,
@@ -830,6 +941,8 @@ Il team Formascuole`
       lettere_results: letteraResults,
       solleciti_firma_processed: sollecitiFirmaResults.length,
       solleciti_firma_results: sollecitiFirmaResults,
+      riepilogo_accettazioni_processed: riepilogoResults.length,
+      riepilogo_accettazioni_results: riepilogoResults,
       timestamp: now.toISOString(),
     })
   } catch (error) {
