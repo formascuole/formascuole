@@ -1,26 +1,10 @@
--- Recreate corsi_con_ore and progetti_con_stats so that c.* expands to include
--- all lettera_incarico_* and lettera_tutor_* columns added after the view was
--- last recreated.  PostgreSQL views freeze their column list at CREATE time;
--- DROP + CREATE is required to pick up new table columns.
+-- Migration 025: Add ore_erogate to progetti_con_stats view.
+-- corsi_con_ore already has ore_erogate (added in 021) but ogni recreazione
+-- di progetti_con_stats l'ha omesso. Il risultato è che DualProgressBar
+-- riceveva NaN dalla lista progetti lato admin.
 
-DROP VIEW IF EXISTS corsi_con_ore CASCADE;
 DROP VIEW IF EXISTS progetti_con_stats CASCADE;
 
--- ── corsi_con_ore ─────────────────────────────────────────────────────────────
-CREATE VIEW corsi_con_ore AS
-SELECT
-  c.*,
-  COALESCE(SUM(s.ore), 0)                                                        AS ore_pianificate,
-  COALESCE(SUM(CASE WHEN s.completata = true THEN s.ore ELSE 0 END), 0)          AS ore_erogate,
-  c.ore_totali - COALESCE(SUM(s.ore), 0)                                         AS ore_residue,
-  CASE WHEN COALESCE(SUM(s.ore), 0) >= c.ore_totali
-       THEN true ELSE false END                                                   AS calendario_completo
-FROM corsi c
-LEFT JOIN sessioni s ON s.corso_id = c.id
-GROUP BY c.id;
-
--- ── progetti_con_stats ────────────────────────────────────────────────────────
--- (CASCADE-dropped above; must be recreated)
 CREATE VIEW progetti_con_stats AS
 SELECT
   p.*,
