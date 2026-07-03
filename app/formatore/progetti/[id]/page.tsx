@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { AppLayout } from '@/components/layout/AppLayout'
+import { getLettereCount } from '@/lib/get-lettere-count'
 import { ProgettoFormatoreClient } from './ProgettoFormatoreClient'
 
 export default async function ProgettoFormatorePage({ params }: { params: Promise<{ id: string }> }) {
@@ -56,7 +57,7 @@ export default async function ProgettoFormatorePage({ params }: { params: Promis
   const { data: finanziamenti } = await supabase.from('finanziamenti').select('id,nome').order('nome')
 
   return (
-    <AppLayout role="formatore" nome={profile.nome} email={profile.email} avatarInitials={profile.avatar_initials} regimeFiscale={profile.regime_fiscale}>
+    <AppLayout role="formatore" nome={profile.nome} email={profile.email} avatarInitials={profile.avatar_initials} regimeFiscale={profile.regime_fiscale} lettereCount={await getLettereCount(admin, user.id, 'formatore')}>
       <ProgettoFormatoreClient
         progetto={progetto}
         corsi={corsiConReferente}

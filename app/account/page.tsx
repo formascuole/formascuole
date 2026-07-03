@@ -1,9 +1,10 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { AppLayout } from '@/components/layout/AppLayout'
-import { checkIsSuperAdmin } from '@/lib/supabase/admin'
+import { checkIsSuperAdmin, createAdminClient } from '@/lib/supabase/admin'
 import { AccountClient } from './AccountClient'
 import { getUnreadNotificheCount } from '@/lib/notifiche-utils'
+import { getLettereCount } from '@/lib/get-lettere-count'
 
 export default async function AccountPage() {
   const supabase = await createClient()
@@ -24,6 +25,12 @@ export default async function AccountPage() {
     ? await getUnreadNotificheCount(supabase, user.id)
     : 0
 
+  let lettereCount: number | undefined
+  if (['formatore', 'tutor'].includes(profile.role)) {
+    const admin = createAdminClient()
+    lettereCount = await getLettereCount(admin, user.id, profile.role as 'formatore' | 'tutor')
+  }
+
   return (
     <AppLayout
       role={profile.role}
@@ -33,6 +40,7 @@ export default async function AccountPage() {
       notificheBadge={notifiche}
       isSuperAdmin={isSuperAdmin}
       regimeFiscale={profile.regime_fiscale}
+      lettereCount={lettereCount}
     >
       <AccountClient
         nome={profile.nome}

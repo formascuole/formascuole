@@ -10,7 +10,6 @@ import {
   generateCandidaturaDisponibileEmail,
   sendEmail,
   sendQuestionarioReminderEmail,
-  sendLettereCumulativeEmail,
 } from '@/lib/email'
 
 const CRON_SECRET = process.env.CRON_SECRET
@@ -580,30 +579,27 @@ export async function GET(request: NextRequest) {
         if (!formatore || !progetto) continue
         if (progetto.status !== 'attivo') continue
 
-        const lettere: Array<{ pdfBuffer: Buffer; corso_title: string; tipo: 'formatore' | 'tutor' }> = []
-        const corsoIdsSent: string[] = []
+        const corsoIdsSent = group.corsi.map(c => c.id)
 
-        for (const c of group.corsi) {
-          const storagePath = `lettere/${c.id}/lettera_formatore.pdf`
-          const { data: fileData } = await supabase.storage.from('notule').download(storagePath)
-          if (!fileData) continue
-          const pdfBuffer = Buffer.from(await fileData.arrayBuffer())
-          lettere.push({ pdfBuffer, corso_title: c.title, tipo: 'formatore' })
-          corsoIdsSent.push(c.id)
-        }
+        const elenco = group.corsi.map(c => `  • ${c.title}`).join('\n')
+        const lettereUrl = `${APP_URL}/formatore/lettere-incarico`
+        const body = `Gentile ${formatore.nome},
 
-        if (lettere.length === 0) continue
+${group.corsi.length === 1 ? 'la lettera di incarico è disponibile' : `le ${group.corsi.length} lettere di incarico sono disponibili`} per i corsi del progetto presso ${progetto.school_name}:
 
-        const lettera_url = corsoIdsSent.length === 1
-          ? `${APP_URL}/progetti/${group.project_id}/corsi/${corsoIdsSent[0]}#lettera-incarico`
-          : `${APP_URL}/formatore/progetti/${progetto.id}?section=lettera`
-        await sendLettereCumulativeEmail({
+${elenco}
+
+Accedi alla piattaforma per visualizzare e firmare ${group.corsi.length === 1 ? 'la lettera' : 'le lettere'} digitalmente:
+${lettereUrl}
+
+Cordiali saluti,
+Il team Formascuole`
+
+        await sendEmail({
           to: formatore.email as string,
-          persona_nome: formatore.nome as string,
-          school_name: progetto.school_name as string,
-          progetto_nome: progetto.school_name as string,
-          lettere,
-          lettera_url,
+          subject: `Lettera${group.corsi.length > 1 ? 're' : ''} di incarico — ${progetto.school_name}`,
+          body,
+          actions: [{ label: 'Visualizza e firma', url: lettereUrl, primary: true }],
         })
 
         const inviataAt = now.toISOString()
@@ -646,30 +642,27 @@ export async function GET(request: NextRequest) {
         if (!tutor || !progetto) continue
         if (progetto.status !== 'attivo') continue
 
-        const lettere: Array<{ pdfBuffer: Buffer; corso_title: string; tipo: 'formatore' | 'tutor' }> = []
-        const corsoIdsSent: string[] = []
+        const corsoIdsSent = group.corsi.map(c => c.id)
 
-        for (const c of group.corsi) {
-          const storagePath = `lettere/${c.id}/lettera_tutor.pdf`
-          const { data: fileData } = await supabase.storage.from('notule').download(storagePath)
-          if (!fileData) continue
-          const pdfBuffer = Buffer.from(await fileData.arrayBuffer())
-          lettere.push({ pdfBuffer, corso_title: c.title, tipo: 'tutor' })
-          corsoIdsSent.push(c.id)
-        }
+        const elenco = group.corsi.map(c => `  • ${c.title}`).join('\n')
+        const lettereUrl = `${APP_URL}/formatore/lettere-incarico`
+        const body = `Gentile ${tutor.nome},
 
-        if (lettere.length === 0) continue
+${group.corsi.length === 1 ? 'la lettera di incarico di tutoraggio è disponibile' : `le ${group.corsi.length} lettere di incarico di tutoraggio sono disponibili`} per i corsi del progetto presso ${progetto.school_name}:
 
-        const lettera_url = corsoIdsSent.length === 1
-          ? `${APP_URL}/progetti/${group.project_id}/corsi/${corsoIdsSent[0]}#lettera-incarico`
-          : `${APP_URL}/formatore/progetti/${progetto.id}?section=lettera`
-        await sendLettereCumulativeEmail({
+${elenco}
+
+Accedi alla piattaforma per visualizzare e firmare ${group.corsi.length === 1 ? 'la lettera' : 'le lettere'} digitalmente:
+${lettereUrl}
+
+Cordiali saluti,
+Il team Formascuole`
+
+        await sendEmail({
           to: tutor.email as string,
-          persona_nome: tutor.nome as string,
-          school_name: progetto.school_name as string,
-          progetto_nome: progetto.school_name as string,
-          lettere,
-          lettera_url,
+          subject: `Lettera${group.corsi.length > 1 ? 're' : ''} di incarico tutoraggio — ${progetto.school_name}`,
+          body,
+          actions: [{ label: 'Visualizza e firma', url: lettereUrl, primary: true }],
         })
 
         const inviataAt = now.toISOString()
@@ -719,16 +712,14 @@ export async function GET(request: NextRequest) {
         if (!formatore || !progetto) continue
 
         const elenco = group.corsi.map(c => `  • ${c.title}`).join('\n')
-        const lettera_url = group.corsi.length === 1
-          ? `${APP_URL}/progetti/${group.project_id}/corsi/${group.corsi[0].id}#lettera-incarico`
-          : `${APP_URL}/formatore/progetti/${progetto.id}?section=lettera`
+        const lettera_url = `${APP_URL}/formatore/lettere-incarico`
         const body = `Gentile ${formatore.nome},
 
 le ricordiamo che ${group.corsi.length === 1 ? 'la lettera di incarico' : 'le lettere di incarico'} per i seguenti corsi presso ${progetto.school_name} ${group.corsi.length === 1 ? 'non è ancora stata firmata' : 'non sono ancora state firmate'}:
 
 ${elenco}
 
-La preghiamo di procedere con la firma digitale accedendo alla sezione "Lettera di incarico" nella scheda corso:
+La preghiamo di procedere con la firma digitale accedendo alla piattaforma:
 ${lettera_url}
 
 Cordiali saluti,
@@ -780,16 +771,14 @@ Il team Formascuole`
         if (!tutor || !progetto) continue
 
         const elenco = group.corsi.map(c => `  • ${c.title}`).join('\n')
-        const lettera_url = group.corsi.length === 1
-          ? `${APP_URL}/progetti/${group.project_id}/corsi/${group.corsi[0].id}#lettera-incarico`
-          : `${APP_URL}/formatore/progetti/${progetto.id}?section=lettera`
+        const lettera_url = `${APP_URL}/formatore/lettere-incarico`
         const body = `Gentile ${tutor.nome},
 
 le ricordiamo che ${group.corsi.length === 1 ? 'la lettera di incarico di tutoraggio' : 'le lettere di incarico di tutoraggio'} per i seguenti corsi presso ${progetto.school_name} ${group.corsi.length === 1 ? 'non è ancora stata firmata' : 'non sono ancora state firmate'}:
 
 ${elenco}
 
-La preghiamo di procedere con la firma digitale accedendo alla sezione "Lettera di incarico" nella scheda corso:
+La preghiamo di procedere con la firma digitale accedendo alla piattaforma:
 ${lettera_url}
 
 Cordiali saluti,

@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { AppLayout } from '@/components/layout/AppLayout'
+import { getLettereCount } from '@/lib/get-lettere-count'
 import { NotuleClient } from './NotuleClient'
 import type { Notula } from '@/lib/types'
 
@@ -63,6 +64,7 @@ export default async function FormatoreNotulePage() {
       email={profile.email}
       avatarInitials={profile.avatar_initials}
       regimeFiscale={profile.regime_fiscale}
+      lettereCount={await getLettereCount(admin, user.id, 'formatore')}
     >
       <NotuleClient
         corsiFatturabili={corsiFatturabili}

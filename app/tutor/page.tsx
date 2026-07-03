@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { AppLayout } from '@/components/layout/AppLayout'
+import { getLettereCount } from '@/lib/get-lettere-count'
 import { TutorClient } from './TutorClient'
 
 export default async function TutorPage() {
@@ -95,6 +96,8 @@ export default async function TutorPage() {
     }
   }
 
+  const lettereCount = await getLettereCount(admin, user.id, 'tutor')
+
   return (
     <AppLayout
       role="tutor"
@@ -102,6 +105,7 @@ export default async function TutorPage() {
       email={profile.email}
       avatarInitials={profile.avatar_initials}
       regimeFiscale={profile.regime_fiscale}
+      lettereCount={lettereCount}
     >
       <TutorClient
         corsi={corsiConReferente}

@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { AppLayout } from '@/components/layout/AppLayout'
+import { getLettereCount } from '@/lib/get-lettere-count'
 import { calcFinancials } from '@/lib/economia-utils'
 import { CreditiClient } from './CreditiClient'
 
@@ -114,6 +115,7 @@ export default async function FormatoreCreditiPage() {
       email={profile.email}
       avatarInitials={profile.avatar_initials}
       regimeFiscale={profile.regime_fiscale}
+      lettereCount={['formatore'].includes(profile.role) ? await getLettereCount(admin, user.id, 'formatore') : undefined}
     >
       <CreditiClient
         items={items}

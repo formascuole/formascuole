@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { AppLayout } from '@/components/layout/AppLayout'
+import { getLettereCount } from '@/lib/get-lettere-count'
 import { FormatoreClient } from './FormatoreClient'
 import { NoProfileError } from './NoProfileError'
 
@@ -161,8 +162,10 @@ export default async function FormatorePage() {
       }, 0) / globalTot
     : null
 
+  const lettereCount = await getLettereCount(admin, user.id, 'formatore')
+
   return (
-    <AppLayout role="formatore" nome={profile.nome} email={profile.email} avatarInitials={profile.avatar_initials} regimeFiscale={profile.regime_fiscale}>
+    <AppLayout role="formatore" nome={profile.nome} email={profile.email} avatarInitials={profile.avatar_initials} regimeFiscale={profile.regime_fiscale} lettereCount={lettereCount}>
       <FormatoreClient
         corsi={corsiConReferente}
         profile={profile}

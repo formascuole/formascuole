@@ -220,11 +220,23 @@ const creditiNavItem: NavItem = {
   ),
 }
 
+const lettereNavItem: NavItem = {
+  href: '/formatore/lettere-incarico',
+  label: 'Le mie lettere',
+  icon: (
+    <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
+      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" strokeWidth="1.5"/>
+      <polyline points="14 2 14 8 20 8" stroke="currentColor" strokeWidth="1.5"/>
+      <path d="M9 12h6M9 16h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+    </svg>
+  ),
+}
+
 function buildFormatoreNav(regimeFiscale?: string): NavItem[] {
   const docItem = regimeFiscale === 'forfettario' || regimeFiscale === 'ordinario' ? creditiNavItem : notuleNavItem
-  // Insert before the last item (account)
+  // Insert lettere and docItem before the last item (account)
   const base = [...formatoreStaticNav]
-  base.splice(base.length - 1, 0, docItem)
+  base.splice(base.length - 1, 0, lettereNavItem, docItem)
   return base
 }
 
@@ -232,7 +244,7 @@ function buildTutorNav(regimeFiscale?: string): NavItem[] {
   const docItem = regimeFiscale === 'forfettario' || regimeFiscale === 'ordinario' ? creditiNavItem : notuleNavItem
   // Insert between "I miei corsi" and "Il mio account"
   const base = [...tutorStaticNav]
-  base.splice(1, 0, docItem)
+  base.splice(1, 0, lettereNavItem, docItem)
   return base
 }
 
@@ -258,9 +270,10 @@ interface SidebarProps {
   isMobileOpen?: boolean
   onMobileClose?: () => void
   regimeFiscale?: string
+  lettereCount?: number
 }
 
-export function Sidebar({ role, nome, email, avatarInitials, notificheBadge, isSuperAdmin, isMobileOpen = false, onMobileClose, regimeFiscale }: SidebarProps) {
+export function Sidebar({ role, nome, email, avatarInitials, notificheBadge, isSuperAdmin, isMobileOpen = false, onMobileClose, regimeFiscale, lettereCount }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const isSA = isSuperAdmin ?? role === 'super_admin'
@@ -364,7 +377,7 @@ export function Sidebar({ role, nome, email, avatarInitials, notificheBadge, isS
           // original item rendering (unchanged logic)
           const item = entry  // entry is NavItem here
           const isActive = pathname === item.href || (item.href !== '/formatore' && pathname.startsWith(item.href + '/'))
-          const badgeCount = item.href === '/notifiche' ? notificheBadge : undefined
+          const badgeCount = item.href === '/notifiche' ? notificheBadge : item.href === '/formatore/lettere-incarico' ? lettereCount : undefined
           return (
             <Link key={item.href} href={item.href} className={`flex items-center gap-3 px-3 py-2.5 rounded-[7px] text-sm font-medium transition-all relative ${isActive ? 'text-white' : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50'}`} style={isActive ? { backgroundColor: '#d64b55' } : {}}>
               <span className={isActive ? 'text-white' : 'text-gray-400'}>{item.icon}</span>

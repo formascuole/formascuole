@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { AppLayout } from '@/components/layout/AppLayout'
+import { getLettereCount } from '@/lib/get-lettere-count'
 import { CalendarioFormatoreClient } from './CalendarioFormatoreClient'
 
 export default async function CalendarioFormatorePage() {
@@ -77,6 +78,7 @@ export default async function CalendarioFormatorePage() {
       email={profile.email}
       avatarInitials={profile.avatar_initials}
       regimeFiscale={profile.regime_fiscale}
+      lettereCount={await getLettereCount(admin, user.id, 'formatore')}
     >
       <CalendarioFormatoreClient
         initialSessioni={sessioni}

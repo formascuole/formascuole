@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { AppLayout } from '@/components/layout/AppLayout'
+import { getLettereCount } from '@/lib/get-lettere-count'
 import { DualProgressBar } from '@/components/ui/DualProgressBar'
 import { telHref } from '@/lib/utils'
 
@@ -78,7 +79,7 @@ export default async function FormatoreProgettiPage() {
   const finMap = new Map((finanziamenti || []).map(f => [f.id, f.nome]))
 
   return (
-    <AppLayout role="formatore" nome={profile.nome} email={profile.email} avatarInitials={profile.avatar_initials} regimeFiscale={profile.regime_fiscale}>
+    <AppLayout role="formatore" nome={profile.nome} email={profile.email} avatarInitials={profile.avatar_initials} regimeFiscale={profile.regime_fiscale} lettereCount={await getLettereCount(admin, user.id, 'formatore')}>
       <div className="p-8 max-w-4xl mx-auto">
         <h1 className="text-2xl font-bold text-gray-900 mb-6">Progetti</h1>
 

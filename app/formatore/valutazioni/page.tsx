@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { AppLayout } from '@/components/layout/AppLayout'
+import { getLettereCount } from '@/lib/get-lettere-count'
 import { ValutazioniFormatoreClient } from './ValutazioniFormatoreClient'
 
 export default async function ValutazioniFormatorePage() {
@@ -63,7 +64,7 @@ export default async function ValutazioniFormatorePage() {
     .sort((a, b) => b.created_at.localeCompare(a.created_at))
 
   return (
-    <AppLayout role="formatore" nome={profile.nome} email={profile.email} avatarInitials={profile.avatar_initials} regimeFiscale={profile.regime_fiscale}>
+    <AppLayout role="formatore" nome={profile.nome} email={profile.email} avatarInitials={profile.avatar_initials} regimeFiscale={profile.regime_fiscale} lettereCount={await getLettereCount(admin, user.id, 'formatore')}>
       <ValutazioniFormatoreClient
         questionari={questionari || []}
         corsi={corsiConScuola}

@@ -5,6 +5,7 @@ import { CorsoDetailClient } from './CorsoDetailClient'
 import { Profile, Indisponibilita } from '@/lib/types'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getUnreadNotificheCount } from '@/lib/notifiche-utils'
+import { getLettereCount } from '@/lib/get-lettere-count'
 
 export default async function CorsoDetailPage({
   params,
@@ -201,6 +202,7 @@ export default async function CorsoDetailPage({
       notificheBadge={notifiche}
       isSuperAdmin={isSuperAdmin}
       regimeFiscale={profile.regime_fiscale}
+      lettereCount={['formatore', 'tutor'].includes(profile.role) ? await getLettereCount(adminQ, user.id, profile.role as 'formatore' | 'tutor') : undefined}
     >
       <CorsoDetailClient
         corso={corso}
