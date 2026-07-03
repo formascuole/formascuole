@@ -10,8 +10,8 @@ interface FinanziamentiClientProps {
   finanziamenti: Finanziamento[]
 }
 
-type FormState = { nome: string; descrizione: string; attivo: boolean; tariffa_formatore_ora: string; tariffa_tutor_ora: string }
-const emptyForm: FormState = { nome: '', descrizione: '', attivo: true, tariffa_formatore_ora: '', tariffa_tutor_ora: '' }
+type FormState = { nome: string; descrizione: string; attivo: boolean; tariffa_formatore_ora: string; tariffa_tutor_ora: string; data_termine: string }
+const emptyForm: FormState = { nome: '', descrizione: '', attivo: true, tariffa_formatore_ora: '', tariffa_tutor_ora: '', data_termine: '' }
 
 export function FinanziamentiClient({ finanziamenti: initial }: FinanziamentiClientProps) {
   const router = useRouter()
@@ -38,6 +38,7 @@ export function FinanziamentiClient({ finanziamenti: initial }: FinanziamentiCli
           ...addForm,
           tariffa_formatore_ora: addForm.tariffa_formatore_ora.trim() ? Number(addForm.tariffa_formatore_ora) : null,
           tariffa_tutor_ora: addForm.tariffa_tutor_ora.trim() ? Number(addForm.tariffa_tutor_ora) : null,
+          data_termine: addForm.data_termine || null,
         }),
       })
       const json = await res.json()
@@ -59,6 +60,7 @@ export function FinanziamentiClient({ finanziamenti: initial }: FinanziamentiCli
       attivo: f.attivo,
       tariffa_formatore_ora: f.tariffa_formatore_ora != null ? String(f.tariffa_formatore_ora) : '',
       tariffa_tutor_ora: f.tariffa_tutor_ora != null ? String(f.tariffa_tutor_ora) : '',
+      data_termine: f.data_termine || '',
     })
     setEditError('')
   }
@@ -75,6 +77,7 @@ export function FinanziamentiClient({ finanziamenti: initial }: FinanziamentiCli
           ...editForm,
           tariffa_formatore_ora: editForm.tariffa_formatore_ora.trim() ? Number(editForm.tariffa_formatore_ora) : null,
           tariffa_tutor_ora: editForm.tariffa_tutor_ora.trim() ? Number(editForm.tariffa_tutor_ora) : null,
+          data_termine: editForm.data_termine || null,
         }),
       })
       const json = await res.json()
@@ -145,10 +148,11 @@ export function FinanziamentiClient({ finanziamenti: initial }: FinanziamentiCli
                       {f.attivo ? 'Attivo' : 'Inattivo'}
                     </span>
                   </div>
-                  {(f.tariffa_formatore_ora != null || f.tariffa_tutor_ora != null) && (
+                  {(f.tariffa_formatore_ora != null || f.tariffa_tutor_ora != null || f.data_termine) && (
                     <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-400">
                       {f.tariffa_formatore_ora != null && <span>Formatore: €{Number(f.tariffa_formatore_ora).toFixed(2)}/h</span>}
                       {f.tariffa_tutor_ora != null && <span>Tutor: €{Number(f.tariffa_tutor_ora).toFixed(2)}/h</span>}
+                      {f.data_termine && <span>Termine: {new Date(f.data_termine + 'T00:00:00').toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>}
                     </div>
                   )}
                   {f.descrizione && (
@@ -233,6 +237,13 @@ export function FinanziamentiClient({ finanziamenti: initial }: FinanziamentiCli
               hint="Lascia vuoto se non applicabile"
             />
           </div>
+          <Input
+            label="Data termine attività"
+            type="date"
+            value={addForm.data_termine}
+            onChange={e => setAddForm(f => ({ ...f, data_termine: e.target.value }))}
+            hint="Blocca l'inserimento di sessioni oltre questa data"
+          />
           <label className="flex items-center gap-2.5 cursor-pointer">
             <input
               type="checkbox"
@@ -294,6 +305,13 @@ export function FinanziamentiClient({ finanziamenti: initial }: FinanziamentiCli
               hint="Lascia vuoto se non applicabile"
             />
           </div>
+          <Input
+            label="Data termine attività"
+            type="date"
+            value={editForm.data_termine}
+            onChange={e => setEditForm(f => ({ ...f, data_termine: e.target.value }))}
+            hint="Blocca l'inserimento di sessioni oltre questa data"
+          />
           <label className="flex items-center gap-2.5 cursor-pointer">
             <input
               type="checkbox"

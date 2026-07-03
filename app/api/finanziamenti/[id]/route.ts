@@ -25,6 +25,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   if (body.attivo !== undefined) updates.attivo = body.attivo
   if ('tariffa_formatore_ora' in body) updates.tariffa_formatore_ora = body.tariffa_formatore_ora != null && body.tariffa_formatore_ora !== '' ? Number(body.tariffa_formatore_ora) : null
   if ('tariffa_tutor_ora' in body) updates.tariffa_tutor_ora = body.tariffa_tutor_ora != null && body.tariffa_tutor_ora !== '' ? Number(body.tariffa_tutor_ora) : null
+  if ('data_termine' in body) updates.data_termine = body.data_termine || null
 
   const { data, error } = await supabase
     .from('finanziamenti')

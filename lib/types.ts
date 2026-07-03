@@ -53,6 +53,7 @@ export interface Finanziamento {
   attivo: boolean
   tariffa_formatore_ora?: number | null
   tariffa_tutor_ora?: number | null
+  data_termine?: string | null
   created_at: string
 }
 

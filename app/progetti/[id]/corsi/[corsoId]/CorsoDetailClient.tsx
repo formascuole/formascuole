@@ -38,9 +38,12 @@ interface CorsoDetailClientProps {
   isSuperAdmin?: boolean
   corsoTags: Tag[]
   allTags: Tag[]
+  finanziamentoDataTermine?: string | null
   formatoriSkills?: Record<string, string[]>         // formatore_id → tag_id[]
   formatoriIndisponibilita?: Indisponibilita[]
   tassoAccettazioneMap?: Record<string, number | null>
+  oreAssegnateMap?: Record<string, number>
+  formatoreAltreSessioni?: Array<{ data: string; ora_inizio: string | null; ora_fine: string | null; corso_title: string }>
   progettoAddress?: string | null
   progettoRegione?: string | null
 }
@@ -80,6 +83,7 @@ interface FormatorePickerCardProps {
   isDualRole: boolean
   isAssigning: boolean
   tasso: number | null
+  oreAssegnate?: number
   regioneRilevante: boolean
   showScore: boolean
   noTariffa: boolean
@@ -88,7 +92,7 @@ interface FormatorePickerCardProps {
 
 function FormatorePickerCard({
   f, score, skillMatches, totalCorsoTags, isAvailable, sameRegion,
-  isCurrent, isDualRole, isAssigning, tasso, regioneRilevante, showScore, noTariffa, onClick,
+  isCurrent, isDualRole, isAssigning, tasso, oreAssegnate, regioneRilevante, showScore, noTariffa, onClick,
 }: FormatorePickerCardProps) {
   return (
     <button
@@ -114,6 +118,14 @@ function FormatorePickerCard({
                 title="La tariffa verrà richiesta al momento dell'assegnazione"
               >
                 Tariffa mancante
+              </span>
+            )}
+            {oreAssegnate != null && oreAssegnate >= 200 && (
+              <span
+                className="text-xs font-medium px-1.5 py-0.5 rounded bg-orange-100 text-orange-700"
+                title={`Questo formatore ha già ${oreAssegnate}h assegnate — oltre le 200h consigliate`}
+              >
+                ⚠️ {oreAssegnate}h assegnate
               </span>
             )}
             {isCurrent && <span className="text-xs text-[#d64b55] font-medium">Corrente</span>}
@@ -194,11 +206,14 @@ export function CorsoDetailClient({
   canConfirmSessions,
   isSuperAdmin,
   finanziamentoNome,
+  finanziamentoDataTermine,
   corsoTags,
   allTags,
   formatoriSkills = {},
   formatoriIndisponibilita = [],
   tassoAccettazioneMap = {},
+  oreAssegnateMap = {},
+  formatoreAltreSessioni = [],
   progettoAddress,
   progettoRegione,
 }: CorsoDetailClientProps) {
@@ -217,6 +232,7 @@ export function CorsoDetailClient({
   const [newOre, setNewOre] = useState('')
   const [newModalitaSessione, setNewModalitaSessione] = useState<'presenza' | 'online'>('presenza')
   const [saving, setSaving] = useState(false)
+  const [sessionError, setSessionError] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [assigningId, setAssigningId] = useState<string | null>(null)
   const [assigningReferente, setAssigningReferente] = useState(false)
@@ -487,6 +503,28 @@ export function CorsoDetailClient({
     (!isIbrido || !!newModalitaSessione)
 
   const handleAddSession = async () => {
+    setSessionError(null)
+
+    // ── Client-side: data_termine check ─────────────────────────────────────────
+    if (finanziamentoDataTermine && newData > finanziamentoDataTermine) {
+      const dataFmt = new Date(finanziamentoDataTermine + 'T00:00:00').toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' })
+      setSessionError(`Non è possibile inserire sessioni oltre la data di termine prevista per il finanziamento ${finanziamentoNome ?? ''} (${dataFmt}).`)
+      return
+    }
+
+    // ── Client-side: time overlap check ─────────────────────────────────────────
+    if (newOraInizio && newOraFine && formatoreAltreSessioni.length > 0) {
+      const sessStessoGiorno = formatoreAltreSessioni.filter(s => s.data === newData && s.ora_inizio && s.ora_fine)
+      for (const s of sessStessoGiorno) {
+        const exStart = (s.ora_inizio as string).substring(0, 5)
+        const exEnd = (s.ora_fine as string).substring(0, 5)
+        if (newOraInizio < exEnd && newOraFine > exStart) {
+          setSessionError(`Il formatore ha già una sessione in questo slot per il corso "${s.corso_title}" (${exStart}–${exEnd}).`)
+          return
+        }
+      }
+    }
+
     setSaving(true)
     try {
       const res = await fetch('/api/sessioni', {
@@ -510,7 +548,11 @@ export function CorsoDetailClient({
         setNewOraInizio('')
         setNewOraFine('')
         setNewModalitaSessione('presenza')
+        setSessionError(null)
         router.refresh()
+      } else {
+        const json = await res.json().catch(() => ({}))
+        setSessionError(json.error || 'Errore durante il salvataggio della sessione.')
       }
     } finally {
       setSaving(false)
@@ -2897,11 +2939,11 @@ export function CorsoDetailClient({
       {/* Calendar Modal */}
       <Modal
         open={calendarOpen}
-        onClose={() => { setCalendarOpen(false); setNewData(''); setNewOre(''); setNewOraInizio(''); setNewOraFine(''); setNewModalitaSessione('presenza') }}
+        onClose={() => { setCalendarOpen(false); setNewData(''); setNewOre(''); setNewOraInizio(''); setNewOraFine(''); setNewModalitaSessione('presenza'); setSessionError(null) }}
         title="Aggiungi Sessione"
         footer={
           <>
-            <Button variant="secondary" onClick={() => { setCalendarOpen(false); setNewData(''); setNewOre(''); setNewOraInizio(''); setNewOraFine(''); setNewModalitaSessione('presenza') }}>Annulla</Button>
+            <Button variant="secondary" onClick={() => { setCalendarOpen(false); setNewData(''); setNewOre(''); setNewOraInizio(''); setNewOraFine(''); setNewModalitaSessione('presenza'); setSessionError(null) }}>Annulla</Button>
             <Button onClick={handleAddSession} loading={saving} disabled={!canSubmitSession}>
               Aggiungi Sessione
             </Button>
@@ -2909,12 +2951,17 @@ export function CorsoDetailClient({
         }
       >
         <div className="space-y-4">
+          {sessionError && (
+            <div className="bg-red-50 border border-red-200 rounded-[7px] px-3 py-2.5 text-sm text-red-700">
+              {sessionError}
+            </div>
+          )}
           <OreCounter oreTotali={Number(corso.ore_totali)} orePianificate={orePianificate} />
           <Input
             label="Data sessione *"
             type="date"
             value={newData}
-            onChange={e => setNewData(e.target.value)}
+            onChange={e => { setNewData(e.target.value); setSessionError(null) }}
           />
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -3026,6 +3073,7 @@ export function CorsoDetailClient({
                       isDualRole={dualRoleIds.includes(f.id)}
                       isAssigning={assigningId === f.id}
                       tasso={tassoAccettazioneMap[f.id] ?? null}
+                      oreAssegnate={oreAssegnateMap[f.id]}
                       regioneRilevante={corso.modalita === 'presenza' || corso.modalita === 'residenziale' || corso.modalita === 'semi_residenziale' || corso.tipo === 'Lab'}
                       showScore
                       noTariffa={!f.tariffa_oraria_formatore}
@@ -3060,6 +3108,7 @@ export function CorsoDetailClient({
                       isDualRole={dualRoleIds.includes(f.id)}
                       isAssigning={assigningId === f.id}
                       tasso={tassoAccettazioneMap[f.id] ?? null}
+                      oreAssegnate={oreAssegnateMap[f.id]}
                       regioneRilevante={corso.modalita === 'presenza' || corso.modalita === 'residenziale' || corso.modalita === 'semi_residenziale' || corso.tipo === 'Lab'}
                       showScore={false}
                       noTariffa={!f.tariffa_oraria_formatore}

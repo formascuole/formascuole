@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { maybeNotificaCalendarioCompleto } from '@/lib/notifiche-corso'
 
 export async function GET(request: NextRequest) {
@@ -47,10 +48,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Ore obbligatorie o non valide' }, { status: 400 })
   }
 
-  // Validate ore residue
-  const { data: corso } = await supabase
+  // Validate ore residue — use admin client to bypass RLS on the view
+  const admin = createAdminClient()
+  const { data: corso } = await admin
     .from('corsi_con_ore')
-    .select('ore_residue, formatore_id, tipo, modalita')
+    .select('ore_residue, formatore_id, tipo, modalita, project_id, finanziamento_id')
     .eq('id', corso_id)
     .single()
 
@@ -58,7 +60,7 @@ export async function POST(request: NextRequest) {
 
   // Permission check: admin OR assigned formatore
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  const isAdmin = profile?.role === 'admin'
+  const isAdmin = profile?.role === 'admin' || profile?.role === 'super_admin'
   const isAssignedFormatore = corso.formatore_id === user.id
 
   if (!isAdmin && !isAssignedFormatore) {
@@ -78,6 +80,88 @@ export async function POST(request: NextRequest) {
       { error: 'La modalità sessione è obbligatoria per i corsi ibridi' },
       { status: 400 }
     )
+  }
+
+  // ── CHECK 1: Data termine finanziamento ──────────────────────────────────────
+  const finId = (corso as any).finanziamento_id as string | null
+  if (!finId) {
+    // Check progetto's finanziamento_id
+    const { data: progetto } = await admin
+      .from('progetti')
+      .select('finanziamento_id')
+      .eq('id', (corso as any).project_id as string)
+      .single()
+    if (progetto?.finanziamento_id) {
+      const { data: fin } = await admin
+        .from('finanziamenti')
+        .select('nome, data_termine')
+        .eq('id', progetto.finanziamento_id)
+        .single()
+      if (fin?.data_termine && sessioneData > fin.data_termine) {
+        const dataFmt = new Date(fin.data_termine + 'T00:00:00').toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' })
+        return NextResponse.json(
+          { error: `Non è possibile inserire sessioni oltre la data di termine prevista per il finanziamento ${fin.nome} (${dataFmt}).` },
+          { status: 400 }
+        )
+      }
+    }
+  } else {
+    const { data: fin } = await admin
+      .from('finanziamenti')
+      .select('nome, data_termine')
+      .eq('id', finId)
+      .single()
+    if (fin?.data_termine && sessioneData > fin.data_termine) {
+      const dataFmt = new Date(fin.data_termine + 'T00:00:00').toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' })
+      return NextResponse.json(
+        { error: `Non è possibile inserire sessioni oltre la data di termine prevista per il finanziamento ${fin.nome} (${dataFmt}).` },
+        { status: 400 }
+      )
+    }
+  }
+
+  // ── CHECK 2: Conflitto orario formatore ───────────────────────────────────────
+  if (corso.formatore_id && ora_inizio && ora_fine) {
+    const { data: altriCorsi } = await admin
+      .from('corsi')
+      .select('id')
+      .eq('formatore_id', corso.formatore_id)
+      .neq('id', corso_id)
+
+    if (altriCorsi && altriCorsi.length > 0) {
+      const altriCorsiIds = altriCorsi.map((c: { id: string }) => c.id)
+      const { data: sessioniSovrapposte } = await admin
+        .from('sessioni')
+        .select('id, corso_id, ora_inizio, ora_fine')
+        .in('corso_id', altriCorsiIds)
+        .eq('data', sessioneData)
+        .not('ora_inizio', 'is', null)
+        .not('ora_fine', 'is', null)
+
+      for (const s of sessioniSovrapposte || []) {
+        const newStart = ora_inizio as string
+        const newEnd = ora_fine as string
+        const exStart = (s.ora_inizio as string).substring(0, 5)
+        const exEnd = (s.ora_fine as string).substring(0, 5)
+        if (newStart < exEnd && newEnd > exStart) {
+          // Fetch corso title for the message
+          const { data: altroCorso } = await admin
+            .from('corsi')
+            .select('title')
+            .eq('id', s.corso_id)
+            .single()
+          const { data: formatoreProfile } = await admin
+            .from('profiles')
+            .select('nome')
+            .eq('id', corso.formatore_id as string)
+            .single()
+          return NextResponse.json(
+            { error: `Il formatore ${formatoreProfile?.nome ?? ''} ha già una sessione in questo slot per il corso "${altroCorso?.title ?? s.corso_id}" (${exStart}–${exEnd}).` },
+            { status: 409 }
+          )
+        }
+      }
+    }
   }
 
   const insertData: Record<string, unknown> = { corso_id, data: sessioneData, ore: Number(ore) }

@@ -73,11 +73,12 @@ export default async function CorsoDetailPage({
 
   const { data: finanziamenti } = await supabase
     .from('finanziamenti')
-    .select('id,nome')
+    .select('id,nome,data_termine')
 
-  const finanziamentoNome = progetto?.finanziamento_id
-    ? (finanziamenti || []).find(f => f.id === progetto.finanziamento_id)?.nome || null
-    : null
+  const finId = (corsoData as any).finanziamento_id || progetto?.finanziamento_id || null
+  const finRecord = finId ? (finanziamenti || []).find(f => f.id === finId) : null
+  const finanziamentoNome = finRecord?.nome || null
+  const finanziamentoDataTermine: string | null = (finRecord as any)?.data_termine || null
 
   const { data: sessioni } = await supabase
     .from('sessioni')
@@ -111,12 +112,13 @@ export default async function CorsoDetailPage({
   let formatoriSkills: Record<string, string[]> = {}
   let formatoriIndisponibilita: Indisponibilita[] = []
   let tassoAccettazioneMap: Record<string, number | null> = {}
+  let oreAssegnateMap: Record<string, number> = {}
   if (isAdmin && formatori.length > 0) {
     const fIds = formatori.map(f => f.id)
     const [{ data: skillsRaw }, { data: indispRaw }, { data: corsiStats }] = await Promise.all([
       adminQ.from('formatori_skills').select('formatore_id, tag_id').in('formatore_id', fIds),
       adminQ.from('indisponibilita').select('*').in('formatore_id', fIds),
-      adminQ.from('corsi').select('formatore_id, stato_assegnazione').in('formatore_id', fIds),
+      adminQ.from('corsi').select('formatore_id, stato_assegnazione, ore_totali').in('formatore_id', fIds),
     ])
     for (const r of (skillsRaw || [])) {
       if (!formatoriSkills[r.formatore_id]) formatoriSkills[r.formatore_id] = []
@@ -127,6 +129,35 @@ export default async function CorsoDetailPage({
       const fCorsi = (corsiStats || []).filter(c => c.formatore_id === f.id)
       const nAccettati = fCorsi.filter(c => c.stato_assegnazione === 'accettato').length
       tassoAccettazioneMap[f.id] = fCorsi.length > 0 ? Math.round((nAccettati / fCorsi.length) * 100) : null
+      oreAssegnateMap[f.id] = fCorsi
+        .filter(c => c.stato_assegnazione === 'accettato' || c.stato_assegnazione === 'in_attesa')
+        .reduce((sum: number, c: { ore_totali: number | null }) => sum + Number(c.ore_totali ?? 0), 0)
+    }
+  }
+
+  // Formatore sessions on other corsi (for client-side overlap check)
+  let formatoreAltreSessioni: Array<{ data: string; ora_inizio: string | null; ora_fine: string | null; corso_title: string }> = []
+  if (corsoData.formatore_id) {
+    const { data: altriCorsi } = await adminQ
+      .from('corsi')
+      .select('id, title')
+      .eq('formatore_id', corsoData.formatore_id)
+      .neq('id', corsoId)
+    if (altriCorsi && altriCorsi.length > 0) {
+      const altriIds = altriCorsi.map((c: { id: string }) => c.id)
+      const titleMap = new Map((altriCorsi as { id: string; title: string }[]).map(c => [c.id, c.title]))
+      const { data: altreS } = await adminQ
+        .from('sessioni')
+        .select('corso_id, data, ora_inizio, ora_fine')
+        .in('corso_id', altriIds)
+        .not('ora_inizio', 'is', null)
+        .not('ora_fine', 'is', null)
+      formatoreAltreSessioni = (altreS || []).map(s => ({
+        data: s.data as string,
+        ora_inizio: s.ora_inizio as string | null,
+        ora_fine: s.ora_fine as string | null,
+        corso_title: titleMap.get(s.corso_id as string) ?? '',
+      }))
     }
   }
 
@@ -221,11 +252,14 @@ export default async function CorsoDetailPage({
         canConfirmSessions={canConfirmSessions}
         isSuperAdmin={isSuperAdmin}
         finanziamentoNome={finanziamentoNome}
+        finanziamentoDataTermine={finanziamentoDataTermine}
         corsoTags={corsoTags}
         allTags={allTags}
         formatoriSkills={formatoriSkills}
         formatoriIndisponibilita={formatoriIndisponibilita}
         tassoAccettazioneMap={tassoAccettazioneMap}
+        oreAssegnateMap={oreAssegnateMap}
+        formatoreAltreSessioni={formatoreAltreSessioni}
         progettoAddress={(progetto as any)?.address ?? null}
         progettoRegione={(progetto as any)?.regione ?? null}
       />
