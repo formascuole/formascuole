@@ -11,7 +11,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
   if (!['admin','super_admin'].includes(profile?.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-  const { formatore_id } = await request.json()
+  const { formatore_id, tariffa_oraria: tariffaOverride } = await request.json()
 
   // Fetch formatore's default tariffa AND current corso's tariffa to avoid overwriting
   const adminClient = createAdminClient()
@@ -22,9 +22,12 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       adminClient.from('profiles').select('nome, tariffa_oraria_formatore').eq('id', formatore_id).single(),
       adminClient.from('corsi').select('tariffa_oraria').eq('id', id).single(),
     ])
-    tariffaFormatore = fp?.tariffa_oraria_formatore != null ? Number(fp.tariffa_oraria_formatore) : null
+    const profileTariffa = fp?.tariffa_oraria_formatore != null ? Number(fp.tariffa_oraria_formatore) : null
     tariffaCorsoGiaImpostata = currentCorso?.tariffa_oraria != null
-    // Block assignment if tariffa is missing
+    // Prefer explicit override (bulk assignment), fall back to profile tariffa
+    const overrideValue = tariffaOverride != null && Number(tariffaOverride) > 0 ? Number(tariffaOverride) : null
+    tariffaFormatore = overrideValue ?? profileTariffa
+    // Block assignment if no tariffa available from any source
     if (!tariffaFormatore || tariffaFormatore <= 0) {
       return NextResponse.json({
         error: 'TARIFFA_MANCANTE',
@@ -44,8 +47,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         accettazione_risposta_at: null,
         rifiuto_motivazione: null,
         notificato: false,
-        // Only pre-fill from profile if corso doesn't already have a custom rate
-        ...(!tariffaCorsoGiaImpostata && tariffaFormatore != null ? { tariffa_oraria: tariffaFormatore } : {}),
+        // If explicit override provided: always set; otherwise only pre-fill from profile if not already set
+        ...(tariffaOverride != null
+          ? { tariffa_oraria: tariffaFormatore }
+          : (!tariffaCorsoGiaImpostata && tariffaFormatore != null ? { tariffa_oraria: tariffaFormatore } : {})),
       }
     : {
         formatore_id: null,

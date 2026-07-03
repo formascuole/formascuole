@@ -33,6 +33,7 @@ interface ProgettoDetailClientProps {
   isSuperAdmin?: boolean
   questionari?: QuestionarioRisultato[]
   oreErogatePerCorso?: Record<string, number>
+  oreAssegnateMap?: Record<string, number>
 }
 
 type EditScuolaForm = {
@@ -52,6 +53,8 @@ type EditScuolaForm = {
 type ReferenteForm = { nome: string; email: string; tel: string; ruolo: string }
 const emptyReferenteForm: ReferenteForm = { nome: '', email: '', tel: '', ruolo: '' }
 
+type BulkRowState = { formatoreId: string; tariffa: string }
+
 export function ProgettoDetailClient({
   progetto,
   corsi,
@@ -65,6 +68,7 @@ export function ProgettoDetailClient({
   isSuperAdmin,
   questionari = [],
   oreErogatePerCorso = {},
+  oreAssegnateMap = {},
 }: ProgettoDetailClientProps) {
   const router = useRouter()
 
@@ -128,6 +132,16 @@ export function ProgettoDetailClient({
   const [savingMainRef, setSavingMainRef] = useState(false)
   const [mainRefError, setMainRefError] = useState('')
   const [deletingRefId, setDeletingRefId] = useState<string | null>(null)
+
+  // ── Assegnazione massiva ─────────────────────────────────────
+  const [bulkOpen, setBulkOpen] = useState(false)
+  const [bulkFormMap, setBulkFormMap] = useState<Record<string, BulkRowState>>({})
+  const [existingFormMap, setExistingFormMap] = useState<Record<string, BulkRowState>>({})
+  const [existingExpanded, setExistingExpanded] = useState(false)
+  const [bulkSaving, setBulkSaving] = useState(false)
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null)
+  const [bulkResults, setBulkResults] = useState<{ successi: string[]; errori: { corso: string; err: string }[] } | null>(null)
+  const [bulkValidationErrors, setBulkValidationErrors] = useState<Set<string>>(new Set())
 
   // ── Chat ────────────────────────────────────────────────────
   const [messaggi, setMessaggi] = useState<ChatMessaggio[]>(initialMessaggi)
@@ -345,6 +359,101 @@ export function ProgettoDetailClient({
     } finally {
       setDeletingRefId(null)
     }
+  }
+
+  // ── Handlers: assegnazione massiva ──────────────────────────
+  const openBulkModal = () => {
+    const newMap: Record<string, BulkRowState> = {}
+    for (const c of corsi.filter(c => !c.formatore_id)) {
+      newMap[c.id] = { formatoreId: '', tariffa: '' }
+    }
+    const existMap: Record<string, BulkRowState> = {}
+    for (const c of corsi.filter(c => c.formatore_id)) {
+      existMap[c.id] = {
+        formatoreId: c.formatore_id as string,
+        tariffa: c.tariffa_oraria != null ? String(c.tariffa_oraria) : '',
+      }
+    }
+    setBulkFormMap(newMap)
+    setExistingFormMap(existMap)
+    setExistingExpanded(false)
+    setBulkResults(null)
+    setBulkProgress(null)
+    setBulkValidationErrors(new Set())
+    setBulkOpen(true)
+  }
+
+  const handleBulkFormatoreChange = (corsoId: string, formatoreId: string) => {
+    const f = formatori.find(f => f.id === formatoreId)
+    const tariffa = f?.tariffa_oraria_formatore != null ? String(f.tariffa_oraria_formatore) : ''
+    setBulkFormMap(m => ({ ...m, [corsoId]: { formatoreId, tariffa } }))
+    setBulkValidationErrors(e => { const n = new Set(e); n.delete(corsoId); return n })
+  }
+
+  const handleExistingFormatoreChange = (corsoId: string, formatoreId: string) => {
+    const f = formatori.find(f => f.id === formatoreId)
+    const existingCourse = corsi.find(c => c.id === corsoId)
+    const tariffa = formatoreId !== existingCourse?.formatore_id
+      ? (f?.tariffa_oraria_formatore != null ? String(f.tariffa_oraria_formatore) : (existingCourse?.tariffa_oraria != null ? String(existingCourse.tariffa_oraria) : ''))
+      : (existingFormMap[corsoId]?.tariffa ?? '')
+    setExistingFormMap(m => ({ ...m, [corsoId]: { formatoreId, tariffa } }))
+  }
+
+  const handleBulkTariffaChange = (corsoId: string, tariffa: string, isExisting: boolean) => {
+    if (isExisting) {
+      setExistingFormMap(m => ({ ...m, [corsoId]: { ...m[corsoId], tariffa } }))
+    } else {
+      setBulkFormMap(m => ({ ...m, [corsoId]: { ...m[corsoId], tariffa } }))
+      setBulkValidationErrors(e => { const n = new Set(e); n.delete(corsoId); return n })
+    }
+  }
+
+  const handleBulkSave = async () => {
+    const toSave: Array<{ corsoId: string; title: string; formatoreId: string; tariffa: string }> = []
+    for (const corso of corsi.filter(c => !c.formatore_id)) {
+      const row = bulkFormMap[corso.id]
+      if (row?.formatoreId) toSave.push({ corsoId: corso.id, title: corso.title, formatoreId: row.formatoreId, tariffa: row.tariffa })
+    }
+    for (const corso of corsi.filter(c => c.formatore_id)) {
+      const row = existingFormMap[corso.id]
+      if (row && row.formatoreId && row.formatoreId !== corso.formatore_id) {
+        toSave.push({ corsoId: corso.id, title: corso.title, formatoreId: row.formatoreId, tariffa: row.tariffa })
+      }
+    }
+    if (toSave.length === 0) return
+
+    const missingTariffa = new Set<string>()
+    for (const row of toSave) {
+      if (!row.tariffa || Number(row.tariffa) <= 0) {
+        const f = formatori.find(f => f.id === row.formatoreId)
+        if (!f?.tariffa_oraria_formatore || f.tariffa_oraria_formatore <= 0) missingTariffa.add(row.corsoId)
+      }
+    }
+    if (missingTariffa.size > 0) { setBulkValidationErrors(missingTariffa); return }
+
+    setBulkSaving(true)
+    setBulkProgress({ done: 0, total: toSave.length })
+    const successi: string[] = []
+    const errori: { corso: string; err: string }[] = []
+
+    for (let i = 0; i < toSave.length; i++) {
+      const { corsoId, title, formatoreId, tariffa } = toSave[i]
+      const body: Record<string, unknown> = { formatore_id: formatoreId }
+      if (tariffa && Number(tariffa) > 0) body.tariffa_oraria = Number(tariffa)
+      const res = await fetch(`/api/corsi/${corsoId}/formatore`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const json = await res.json()
+      if (res.ok) successi.push(title)
+      else errori.push({ corso: title, err: json.message || json.error || 'Errore sconosciuto' })
+      setBulkProgress({ done: i + 1, total: toSave.length })
+    }
+
+    setBulkSaving(false)
+    setBulkResults({ successi, errori })
+    if (successi.length > 0) router.refresh()
   }
 
   // ── Handlers: chat ───────────────────────────────────────────
@@ -738,6 +847,16 @@ export function ProgettoDetailClient({
                   <polyline points="22,6 12,13 2,6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
                 Invia notifiche
+              </Button>
+            )}
+            {corsi.filter(c => !c.formatore_id).length > 0 && (
+              <Button size="sm" variant="secondary" onClick={openBulkModal}>
+                <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
+                  <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  <circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                Assegnazione massiva
               </Button>
             )}
             <Button size="sm" onClick={() => setAddCorsoOpen(true)}>
@@ -1371,6 +1490,277 @@ export function ProgettoDetailClient({
           </div>
         )}
       </Modal>
+
+      {/* ── Modal: Assegnazione massiva formatori ────────────────── */}
+      {bulkOpen && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center p-4 bg-black/40 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-5xl my-8" style={{ border: '0.5px solid #e5e5e5' }}>
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h2 className="text-base font-semibold text-gray-900">Assegnazione massiva formatori</h2>
+              {!bulkSaving && (
+                <button
+                  onClick={() => setBulkOpen(false)}
+                  className="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path d="M12 4L4 12M4 4l8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  </svg>
+                </button>
+              )}
+            </div>
+
+            {/* Body */}
+            <div className="px-6 py-5">
+              {bulkResults ? (
+                <div className="space-y-4">
+                  {bulkResults.successi.length > 0 && (
+                    <div className="flex items-start gap-3 p-4 bg-green-50 border border-green-200 rounded-[7px]">
+                      <span className="text-green-600 mt-0.5">✅</span>
+                      <div>
+                        <div className="text-sm font-medium text-green-800">
+                          {bulkResults.successi.length} cors{bulkResults.successi.length === 1 ? 'o assegnato' : 'i assegnati'} con successo
+                        </div>
+                        <ul className="mt-1.5 space-y-0.5">
+                          {bulkResults.successi.map((title, i) => (
+                            <li key={i} className="text-xs text-green-700">{title}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  )}
+                  {bulkResults.errori.length > 0 && (
+                    <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-[7px]">
+                      <span className="text-red-500 mt-0.5">⚠️</span>
+                      <div>
+                        <div className="text-sm font-medium text-red-800">
+                          {bulkResults.errori.length} cors{bulkResults.errori.length === 1 ? 'o' : 'i'} con errore
+                        </div>
+                        <ul className="mt-1.5 space-y-0.5">
+                          {bulkResults.errori.map((e, i) => (
+                            <li key={i} className="text-xs text-red-700">
+                              <span className="font-medium">{e.corso}:</span> {e.err}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : bulkSaving && bulkProgress ? (
+                <div className="py-10 text-center space-y-4">
+                  <div className="text-sm text-gray-600 font-medium">
+                    Assegnazione in corso... ({bulkProgress.done}/{bulkProgress.total})
+                  </div>
+                  <div className="w-full max-w-xs mx-auto bg-gray-100 rounded-full h-2">
+                    <div
+                      className="h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${(bulkProgress.done / bulkProgress.total) * 100}%`, backgroundColor: '#d64b55' }}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Corsi senza formatore */}
+                  {corsi.filter(c => !c.formatore_id).length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-gray-100">
+                            <th className="text-left pb-2 pr-4 font-medium text-gray-500 text-xs uppercase tracking-wide">Corso</th>
+                            <th className="text-left pb-2 pr-4 font-medium text-gray-500 text-xs uppercase tracking-wide w-14">Ore</th>
+                            <th className="text-left pb-2 pr-4 font-medium text-gray-500 text-xs uppercase tracking-wide w-10">Mod.</th>
+                            <th className="text-left pb-2 pr-4 font-medium text-gray-500 text-xs uppercase tracking-wide min-w-48">Formatore</th>
+                            <th className="text-left pb-2 pr-4 font-medium text-gray-500 text-xs uppercase tracking-wide w-32">Tariffa (€/h)</th>
+                            <th className="text-left pb-2 font-medium text-gray-500 text-xs uppercase tracking-wide w-28">Stato</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                          {corsi.filter(c => !c.formatore_id).map(corso => {
+                            const row = bulkFormMap[corso.id] || { formatoreId: '', tariffa: '' }
+                            const selF = row.formatoreId ? formatori.find(f => f.id === row.formatoreId) : null
+                            const oreAssegnate = row.formatoreId ? (oreAssegnateMap[row.formatoreId] ?? 0) : 0
+                            const hasValErr = bulkValidationErrors.has(corso.id)
+                            return (
+                              <tr key={corso.id} className={hasValErr ? 'bg-red-50' : ''}>
+                                <td className="py-3 pr-4 align-top">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="font-medium text-gray-900">{corso.title}</span>
+                                    <StatusBadge variant={corso.tipo} size="sm" />
+                                  </div>
+                                </td>
+                                <td className="py-3 pr-4 align-top text-gray-600">{corso.ore_totali}h</td>
+                                <td className="py-3 pr-4 align-top pt-3.5">
+                                  <ModalitaIcon modalita={corso.modalita} tipo={corso.tipo} size={16} />
+                                </td>
+                                <td className="py-3 pr-4 align-top">
+                                  <select
+                                    value={row.formatoreId}
+                                    onChange={e => handleBulkFormatoreChange(corso.id, e.target.value)}
+                                    className="w-full text-sm border border-gray-200 rounded-[7px] px-2 py-1.5 bg-white focus:outline-none focus:border-[#d64b55] transition-colors"
+                                  >
+                                    <option value="">— Seleziona formatore —</option>
+                                    {formatori.map(f => (
+                                      <option key={f.id} value={f.id}>
+                                        {f.nome}
+                                        {!f.tariffa_oraria_formatore ? ' ⚠️ tariffa mancante' : ''}
+                                        {(oreAssegnateMap[f.id] ?? 0) >= 200 ? ` ⚠️ ${oreAssegnateMap[f.id]}h` : ''}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  {selF && !selF.tariffa_oraria_formatore && (
+                                    <span className="text-xs text-orange-600 mt-0.5 block">⚠️ Tariffa mancante nel profilo</span>
+                                  )}
+                                  {oreAssegnate >= 200 && (
+                                    <span className="text-xs text-orange-600 mt-0.5 block">⚠️ {oreAssegnate}h già assegnate</span>
+                                  )}
+                                </td>
+                                <td className="py-3 pr-4 align-top">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="0.5"
+                                    value={row.tariffa}
+                                    onChange={e => handleBulkTariffaChange(corso.id, e.target.value, false)}
+                                    placeholder="es. 70"
+                                    disabled={!row.formatoreId}
+                                    className={`w-full text-sm border rounded-[7px] px-2 py-1.5 focus:outline-none transition-colors disabled:bg-gray-50 disabled:text-gray-400 ${hasValErr && row.formatoreId ? 'border-red-400 focus:border-red-500' : 'border-gray-200 focus:border-[#d64b55]'}`}
+                                  />
+                                  {hasValErr && row.formatoreId && (
+                                    <span className="text-xs text-red-600">Tariffa obbligatoria</span>
+                                  )}
+                                </td>
+                                <td className="py-3 align-top">
+                                  <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-md whitespace-nowrap">Non assegnato</span>
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="text-sm text-gray-400 text-center py-8">
+                      Tutti i corsi hanno già un formatore assegnato.
+                    </div>
+                  )}
+
+                  {/* Sezione corsi già assegnati (collassata) */}
+                  {corsi.filter(c => c.formatore_id).length > 0 && (
+                    <div className="border border-gray-100 rounded-[7px] overflow-hidden">
+                      <button
+                        onClick={() => setExistingExpanded(v => !v)}
+                        className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors text-sm"
+                      >
+                        <span className="font-medium text-gray-700">
+                          Modifica assegnazioni esistenti ({corsi.filter(c => c.formatore_id).length} cors{corsi.filter(c => c.formatore_id).length === 1 ? 'o' : 'i'})
+                        </span>
+                        <svg
+                          width="16" height="16" fill="none" viewBox="0 0 24 24"
+                          className={`text-gray-400 transition-transform ${existingExpanded ? 'rotate-180' : ''}`}
+                        >
+                          <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      </button>
+                      {existingExpanded && (
+                        <div className="p-4 overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b border-gray-100">
+                                <th className="text-left pb-2 pr-4 font-medium text-gray-500 text-xs uppercase tracking-wide">Corso</th>
+                                <th className="text-left pb-2 pr-4 font-medium text-gray-500 text-xs uppercase tracking-wide w-14">Ore</th>
+                                <th className="text-left pb-2 pr-4 font-medium text-gray-500 text-xs uppercase tracking-wide min-w-48">Formatore</th>
+                                <th className="text-left pb-2 pr-4 font-medium text-gray-500 text-xs uppercase tracking-wide w-32">Tariffa (€/h)</th>
+                                <th className="text-left pb-2 font-medium text-gray-500 text-xs uppercase tracking-wide w-28">Stato</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-50">
+                              {corsi.filter(c => c.formatore_id).map(corso => {
+                                const row = existingFormMap[corso.id] || { formatoreId: corso.formatore_id as string, tariffa: String(corso.tariffa_oraria ?? '') }
+                                const isChanged = row.formatoreId !== corso.formatore_id
+                                const currentFormatore = corso.formatore as Profile | undefined
+                                const stato = corso.stato_assegnazione
+                                const badgeCls = stato === 'in_attesa' ? 'bg-amber-100 text-amber-700' : stato === 'accettato' ? 'bg-green-100 text-green-700' : stato === 'rifiutato' ? 'bg-red-100 text-red-700' : ''
+                                const badgeLabel = stato === 'in_attesa' ? 'In attesa' : stato === 'accettato' ? 'Accettato' : stato === 'rifiutato' ? 'Rifiutato' : null
+                                return (
+                                  <tr key={corso.id} className={isChanged ? 'bg-amber-50' : ''}>
+                                    <td className="py-3 pr-4 align-top">
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <span className="font-medium text-gray-900">{corso.title}</span>
+                                        <StatusBadge variant={corso.tipo} size="sm" />
+                                      </div>
+                                    </td>
+                                    <td className="py-3 pr-4 align-top text-gray-600">{corso.ore_totali}h</td>
+                                    <td className="py-3 pr-4 align-top">
+                                      {currentFormatore && isChanged && (
+                                        <div className="text-xs text-gray-400 line-through mb-1">{currentFormatore.nome}</div>
+                                      )}
+                                      <select
+                                        value={row.formatoreId}
+                                        onChange={e => handleExistingFormatoreChange(corso.id, e.target.value)}
+                                        className={`w-full text-sm border rounded-[7px] px-2 py-1.5 bg-white focus:outline-none focus:border-[#d64b55] transition-colors ${isChanged ? 'border-amber-400' : 'border-gray-200'}`}
+                                      >
+                                        {formatori.map(f => (
+                                          <option key={f.id} value={f.id}>
+                                            {f.nome}
+                                            {!f.tariffa_oraria_formatore ? ' ⚠️ tariffa mancante' : ''}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </td>
+                                    <td className="py-3 pr-4 align-top">
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        step="0.5"
+                                        value={row.tariffa}
+                                        onChange={e => handleBulkTariffaChange(corso.id, e.target.value, true)}
+                                        disabled={!isChanged}
+                                        className="w-full text-sm border border-gray-200 rounded-[7px] px-2 py-1.5 focus:outline-none focus:border-[#d64b55] transition-colors disabled:bg-gray-50 disabled:text-gray-400"
+                                      />
+                                    </td>
+                                    <td className="py-3 align-top">
+                                      {badgeLabel ? (
+                                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${badgeCls}`}>{badgeLabel}</span>
+                                      ) : (
+                                        <span className="text-xs text-gray-400">—</span>
+                                      )}
+                                    </td>
+                                  </tr>
+                                )
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
+              {bulkResults ? (
+                <Button onClick={() => setBulkOpen(false)}>Chiudi</Button>
+              ) : bulkSaving ? null : (
+                <>
+                  <Button variant="secondary" onClick={() => setBulkOpen(false)}>Annulla</Button>
+                  <Button
+                    onClick={handleBulkSave}
+                    disabled={
+                      !Object.values(bulkFormMap).some(r => r.formatoreId) &&
+                      !corsi.filter(c => c.formatore_id).some(c => existingFormMap[c.id]?.formatoreId !== c.formatore_id)
+                    }
+                  >
+                    Salva tutte le assegnazioni
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

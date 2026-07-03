@@ -94,17 +94,26 @@ export default async function ProgettoDetailPage({ params }: { params: Promise<{
   const corsiIds = (corsi || []).map(c => c.id)
   const adminQ = createAdminClient()
   const { data: partners } = await adminQ.from('partners').select('id,nome,created_at').order('nome')
-  const [{ data: questionari }, { data: sessioniErogate }] = await Promise.all([
+  const [{ data: questionari }, { data: sessioniErogate }, { data: corsiStatsFormatori }] = await Promise.all([
     corsiIds.length > 0
       ? adminQ.from('questionari_risultati').select('*').in('corso_id', corsiIds).not('media_formatore', 'is', null).not('media_contenuti', 'is', null).not('media_apprendimento', 'is', null).order('created_at', { ascending: false })
       : Promise.resolve({ data: [] }),
     corsiIds.length > 0
       ? adminQ.from('sessioni').select('corso_id, ore').in('corso_id', corsiIds).eq('completata', true)
       : Promise.resolve({ data: [] }),
+    (formatori?.length ?? 0) > 0
+      ? adminQ.from('corsi').select('formatore_id, stato_assegnazione, ore_totali').in('formatore_id', (formatori || []).map(f => f.id)).in('stato_assegnazione', ['accettato', 'in_attesa'])
+      : Promise.resolve({ data: [] }),
   ])
   const oreErogatePerCorso: Record<string, number> = {}
   for (const s of sessioniErogate || []) {
     oreErogatePerCorso[s.corso_id] = (oreErogatePerCorso[s.corso_id] ?? 0) + Number(s.ore)
+  }
+  const oreAssegnateMap: Record<string, number> = {}
+  for (const f of (formatori || [])) {
+    oreAssegnateMap[f.id] = (corsiStatsFormatori || [])
+      .filter(c => c.formatore_id === f.id)
+      .reduce((sum: number, c: { ore_totali: number | null }) => sum + Number(c.ore_totali ?? 0), 0)
   }
 
   return (
@@ -129,6 +138,7 @@ export default async function ProgettoDetailPage({ params }: { params: Promise<{
         isSuperAdmin={isSuperAdmin}
         questionari={questionari || []}
         oreErogatePerCorso={oreErogatePerCorso}
+        oreAssegnateMap={oreAssegnateMap}
       />
     </AppLayout>
   )
