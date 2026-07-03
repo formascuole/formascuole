@@ -37,12 +37,12 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   const [{ data: progetto }, { data: formatore }] = await Promise.all([
-    admin.from('progetti').select('school_name').eq('id', corso.project_id).single(),
+    admin.from('progetti').select('school_name, status').eq('id', corso.project_id).single(),
     admin.from('profiles').select('nome, email, indirizzo_via, indirizzo_cap, indirizzo_citta, indirizzo_provincia, codice_fiscale, tariffa_oraria_formatore').eq('id', user.id).single(),
   ])
 
-  // Auto-generate lettera incarico
-  if (formatore && progetto) {
+  // Auto-generate lettera incarico only for active projects
+  if (formatore && progetto && progetto.status === 'attivo') {
     try {
       const tariffa = corso.tariffa_oraria != null
         ? Number(corso.tariffa_oraria)

@@ -32,6 +32,7 @@ export default async function AccountPage() {
       avatarInitials={profile.avatar_initials}
       notificheBadge={notifiche}
       isSuperAdmin={isSuperAdmin}
+      regimeFiscale={profile.regime_fiscale}
     >
       <AccountClient
         nome={profile.nome}

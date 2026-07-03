@@ -221,7 +221,7 @@ const creditiNavItem: NavItem = {
 }
 
 function buildFormatoreNav(regimeFiscale?: string): NavItem[] {
-  const docItem = !regimeFiscale || regimeFiscale === 'notula' ? notuleNavItem : creditiNavItem
+  const docItem = regimeFiscale === 'forfettario' || regimeFiscale === 'ordinario' ? creditiNavItem : notuleNavItem
   // Insert before the last item (account)
   const base = [...formatoreStaticNav]
   base.splice(base.length - 1, 0, docItem)
@@ -229,7 +229,7 @@ function buildFormatoreNav(regimeFiscale?: string): NavItem[] {
 }
 
 function buildTutorNav(regimeFiscale?: string): NavItem[] {
-  const docItem = !regimeFiscale || regimeFiscale === 'notula' ? notuleNavItem : creditiNavItem
+  const docItem = regimeFiscale === 'forfettario' || regimeFiscale === 'ordinario' ? creditiNavItem : notuleNavItem
   // Insert between "I miei corsi" and "Il mio account"
   const base = [...tutorStaticNav]
   base.splice(1, 0, docItem)

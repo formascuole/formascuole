@@ -575,9 +575,10 @@ export async function GET(request: NextRequest) {
       try {
         const [{ data: formatore }, { data: progetto }] = await Promise.all([
           supabase.from('profiles').select('nome, email').eq('id', group.formatore_id).single(),
-          supabase.from('progetti').select('school_name, id').eq('id', group.project_id).single(),
+          supabase.from('progetti').select('school_name, id, status').eq('id', group.project_id).single(),
         ])
         if (!formatore || !progetto) continue
+        if (progetto.status !== 'attivo') continue
 
         const lettere: Array<{ pdfBuffer: Buffer; corso_title: string; tipo: 'formatore' | 'tutor' }> = []
         const corsoIdsSent: string[] = []
@@ -640,9 +641,10 @@ export async function GET(request: NextRequest) {
       try {
         const [{ data: tutor }, { data: progetto }] = await Promise.all([
           supabase.from('profiles').select('nome, email').eq('id', group.tutor_id).single(),
-          supabase.from('progetti').select('school_name, id').eq('id', group.project_id).single(),
+          supabase.from('progetti').select('school_name, id, status').eq('id', group.project_id).single(),
         ])
         if (!tutor || !progetto) continue
+        if (progetto.status !== 'attivo') continue
 
         const lettere: Array<{ pdfBuffer: Buffer; corso_title: string; tipo: 'formatore' | 'tutor' }> = []
         const corsoIdsSent: string[] = []

@@ -64,12 +64,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const [{ data: formatore }, { data: progetto }, { data: admins }] = await Promise.all([
     admin.from('profiles').select('nome, email, indirizzo_via, indirizzo_cap, indirizzo_citta, indirizzo_provincia, codice_fiscale, tariffa_oraria_formatore').eq('id', formatoreId).single(),
-    admin.from('progetti').select('school_name').eq('id', progettoId).single(),
+    admin.from('progetti').select('school_name, status').eq('id', progettoId).single(),
     admin.from('profiles').select('email').in('role', ['admin', 'super_admin']),
   ])
 
-  // Auto-generate lettere incarico for each accepted corso
-  if (formatore && progetto && accettatiCorsi.length > 0) {
+  // Auto-generate lettere incarico for each accepted corso (only for active projects)
+  if (formatore && progetto && progetto.status === 'attivo' && accettatiCorsi.length > 0) {
     for (const corso of accettatiCorsi) {
       try {
         const tariffa = corso.tariffa_oraria != null
