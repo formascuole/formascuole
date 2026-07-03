@@ -86,6 +86,12 @@ export function DashboardClient({
     return sum + Math.round(Number(c.ore_tutoraggio) * (oreComp / Number(c.ore_totali)))
   }, 0)
 
+  const corsiAssegnati = filteredCorsi.filter(c => c.formatore_id !== null)
+  const nCorsiAssegnati = corsiAssegnati.length
+  const oreTotaliAssegnate = corsiAssegnati.reduce((s, c) => s + c.ore_totali, 0)
+  const orePianificateAssegnate = corsiAssegnati.reduce((s, c) => s + (orePianificatePerCorso[c.id] ?? 0), 0)
+  const oreErogateAssegnate = corsiAssegnati.reduce((s, c) => s + (oreCompletatePerCorso[c.id] ?? 0), 0)
+
   const corsiDaPianificare = filteredCorsi.filter(c => {
     const orePian = orePianificatePerCorso[c.id] ?? 0
     return c.formatore_id && orePian < c.ore_totali
@@ -171,6 +177,40 @@ export function DashboardClient({
           subtitle="calendari pianificati"
           icon={<svg width="20" height="20" fill="none" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
         />
+      </div>
+
+      {/* Corsi assegnati */}
+      <div className="grid grid-cols-3 gap-4 mb-4">
+        <div className="bg-white rounded-xl p-5 flex flex-col gap-3" style={{ border: '0.5px solid #e5e5e5' }}>
+          <div className="flex items-start justify-between">
+            <span className="text-sm text-gray-500 font-medium">Corsi assegnati</span>
+            <span className="text-gray-400">
+              <svg width="20" height="20" fill="none" viewBox="0 0 24 24">
+                <circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="1.5"/>
+                <path d="M3 20a6 6 0 0112 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                <polyline points="17 11 19 13 23 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </span>
+          </div>
+          <div>
+            <div className="text-3xl font-bold text-gray-900">{nCorsiAssegnati}</div>
+            <div className="text-sm text-gray-400 mt-0.5">su {nCorsi} corsi totali</div>
+          </div>
+          {oreTotaliAssegnate > 0 ? (
+            <>
+              <DualProgressBar
+                oreTotali={oreTotaliAssegnate}
+                orePianificate={orePianificateAssegnate}
+                oreErogate={oreErogateAssegnate}
+              />
+              <div className="text-xs text-gray-400">
+                {orePianificateAssegnate}h pianificate su {oreTotaliAssegnate}h totali assegnate
+              </div>
+            </>
+          ) : (
+            <div className="text-xs text-gray-400">Nessun corso con ore assegnate</div>
+          )}
+        </div>
       </div>
 
       {/* Tutoraggio */}
