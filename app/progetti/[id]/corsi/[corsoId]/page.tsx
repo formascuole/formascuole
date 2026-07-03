@@ -200,6 +200,7 @@ export default async function CorsoDetailPage({
       avatarInitials={profile.avatar_initials}
       notificheBadge={notifiche}
       isSuperAdmin={isSuperAdmin}
+      regimeFiscale={profile.regime_fiscale}
     >
       <CorsoDetailClient
         corso={corso}

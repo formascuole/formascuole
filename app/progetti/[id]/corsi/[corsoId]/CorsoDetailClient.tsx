@@ -2329,15 +2329,27 @@ export function CorsoDetailClient({
         </div>
       )}
 
-      {/* Notula note — solo formatore assegnato quando corso completato */}
+      {/* Notula/crediti note — solo formatore assegnato quando corso completato */}
       {!isAdmin && corso.formatore_id === currentUserId && corsoCompletatoLocal && (
         <div className="bg-gray-50 rounded-xl p-5 mb-4 border border-gray-200">
           <p className="text-sm text-gray-600">
-            Corso completato. Vai a{' '}
-            <Link href="/formatore/notule" className="text-[#d64b55] hover:underline font-medium">
-              Le mie notule
-            </Link>{' '}
-            per generare la ricevuta di pagamento.
+            {corso.formatore?.ha_partita_iva && corso.formatore?.regime_fiscale !== 'notula' ? (
+              <>
+                Corso completato. Vai a{' '}
+                <Link href="/formatore/crediti" className="text-[#d64b55] hover:underline font-medium">
+                  I miei crediti
+                </Link>{' '}
+                per visualizzare il tuo estratto conto e procedere con l&apos;emissione della fattura.
+              </>
+            ) : (
+              <>
+                Corso completato. Vai a{' '}
+                <Link href="/formatore/notule" className="text-[#d64b55] hover:underline font-medium">
+                  Le mie notule
+                </Link>{' '}
+                per generare la ricevuta di pagamento.
+              </>
+            )}
           </p>
         </div>
       )}
