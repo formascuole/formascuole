@@ -262,8 +262,10 @@ Il team Formascuole`
 
 // ─── Generators ───────────────────────────────────────────────────────────────
 
-export function generateBenvenutoEmail({ nome, email, password }: BenvenutoEmailParams): string {
-  return `Gentile ${nome},
+export function generateBenvenutoEmail({ nome, email, password }: BenvenutoEmailParams): { body: string; htmlBody: string } {
+  const manualeUrl = 'https://drive.google.com/file/d/1PO81FUsaHWiHxEToHE4QG8iC7nTAlaMq/view?usp=sharing'
+
+  const body = `Gentile ${nome},
 
 il tuo account sulla piattaforma Formascuole è stato creato con successo.
 
@@ -275,6 +277,15 @@ Di seguito trovi le tue credenziali di accesso:
 Accedi alla piattaforma cliccando sul seguente link:
 ${APP_URL}
 
+---
+📖 MANUALE UTENTE — LEGGI PRIMA DI INIZIARE
+
+Prima di accedere ti consigliamo di leggere il Manuale Utente:
+${manualeUrl}
+
+Troverai istruzioni dettagliate su tutte le funzionalità, le email che riceverai e come procedere con i pagamenti.
+---
+
 ISTRUZIONI PER IL PRIMO ACCESSO:
 1. Vai su ${APP_URL}
 2. Inserisci email e password indicati sopra
@@ -285,15 +296,53 @@ Ti consigliamo di conservare queste credenziali in modo sicuro e di non condivid
 In caso di problemi di accesso, contatta il tuo amministratore di sistema.
 ${pwaInstallBlock()}
 
-📖 Per iniziare a usare la piattaforma ti consigliamo di leggere il Manuale Utente:
-https://drive.google.com/file/d/1PO81FUsaHWiHxEToHE4QG8iC7nTAlaMq/view?usp=sharing
-
-Troverai istruzioni dettagliate su tutte le funzionalità, le email che riceverai e come procedere con i pagamenti.
-
 Benvenuto/a nel team Formascuole!
 
 Cordiali saluti,
 Il team Formascuole`
+
+  const htmlBody = `<p>Gentile ${nome},</p>
+<p>il tuo account sulla piattaforma Formascuole è stato creato con successo.</p>
+<p>Di seguito trovi le tue credenziali di accesso:</p>
+<table style="border-collapse:collapse;margin:12px 0;">
+  <tr><td style="padding:4px 16px 4px 0;font-weight:600;">Email</td><td style="padding:4px 0;">${email}</td></tr>
+  <tr><td style="padding:4px 16px 4px 0;font-weight:600;">Password</td><td style="padding:4px 0;">${password}</td></tr>
+</table>
+<p>Accedi alla piattaforma: <a href="${APP_URL}" style="color:#d64b55;">${APP_URL}</a></p>
+
+<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:16px 20px;margin:20px 0;">
+  <p style="margin:0 0 8px 0;font-weight:700;font-size:15px;">📖 Manuale Utente — leggilo prima di iniziare</p>
+  <p style="margin:0 0 12px 0;color:#374151;">Prima di accedere ti consigliamo di leggere il <strong>Manuale Utente</strong>: troverai istruzioni dettagliate su tutte le funzionalità, le email che riceverai e come procedere con i pagamenti.</p>
+  <a href="${manualeUrl}" style="display:inline-block;padding:9px 18px;background:#2563eb;color:#ffffff;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px;">Apri il Manuale Utente</a>
+</div>
+
+<p><strong>Istruzioni per il primo accesso:</strong></p>
+<ol style="padding-left:20px;margin:8px 0;">
+  <li>Vai su <a href="${APP_URL}" style="color:#d64b55;">${APP_URL}</a></li>
+  <li>Inserisci email e password indicati sopra</li>
+  <li>Nella sezione "Il mio account" cambia immediatamente la password con una di tua scelta (minimo 8 caratteri)</li>
+</ol>
+<p style="color:#6b7280;font-size:13px;">Ti consigliamo di conservare queste credenziali in modo sicuro e di non condividerle con nessuno.<br>In caso di problemi di accesso, contatta il tuo amministratore di sistema.</p>
+
+<hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0;"/>
+<p style="font-weight:600;">📱 Installa l'app sul tuo telefono</p>
+<p><strong>iPhone/iPad:</strong><br>
+1. Apri Safari e vai su <a href="${APP_URL}" style="color:#d64b55;">${APP_URL}</a><br>
+2. Tocca l'icona Condividi (quadrato con freccia)<br>
+3. Scorri e tocca "Aggiungi a schermata Home"<br>
+4. Tocca "Aggiungi"</p>
+<p><strong>Android:</strong><br>
+1. Apri Chrome e vai su <a href="${APP_URL}" style="color:#d64b55;">${APP_URL}</a><br>
+2. Tocca i tre puntini in alto a destra<br>
+3. Tocca "Aggiungi a schermata Home"<br>
+4. Tocca "Aggiungi"</p>
+<p>L'app apparirà sulla tua schermata home come una normale app!</p>
+<hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0;"/>
+
+<p>Benvenuto/a nel team Formascuole!</p>
+<p>Cordiali saluti,<br>Il team Formascuole</p>`
+
+  return { body, htmlBody }
 }
 
 export function generateReinvioCredenzialiEmail({ nome, email, password }: BenvenutoEmailParams): string {

@@ -145,14 +145,16 @@ export async function POST(request: NextRequest) {
   // Send welcome email (non-blocking)
   try {
     const isAdminUser = primaryRole === 'admin'
+    const benvenutoEmail = isAdminUser
+      ? { body: generateAdminBenvenutoEmail({ nome, email, password }), htmlBody: undefined }
+      : generateBenvenutoEmail({ nome, email, password })
     await sendEmail({
       to: email,
       subject: isAdminUser
         ? 'Benvenuto in Formascuole — Accesso alla piattaforma'
         : 'Benvenuto in Formascuole — Le tue credenziali di accesso',
-      body: isAdminUser
-        ? generateAdminBenvenutoEmail({ nome, email, password })
-        : generateBenvenutoEmail({ nome, email, password }),
+      body: benvenutoEmail.body,
+      htmlBody: benvenutoEmail.htmlBody,
     })
   } catch (emailErr) {
     console.error('Welcome email failed (non-fatal):', emailErr)

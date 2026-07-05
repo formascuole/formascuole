@@ -103,9 +103,9 @@ export async function POST(request: NextRequest) {
       subject: ruolo === 'admin'
         ? 'Benvenuto in Formascuole — Accesso alla piattaforma'
         : 'Benvenuto in Formascuole — Le tue credenziali di accesso',
-      body: ruolo === 'admin'
-        ? generateAdminBenvenutoEmail({ nome: nomeTrimmed, email: emailTrimmed, password })
-        : generateBenvenutoEmail({ nome: nomeTrimmed, email: emailTrimmed, password }),
+      ...(ruolo === 'admin'
+        ? { body: generateAdminBenvenutoEmail({ nome: nomeTrimmed, email: emailTrimmed, password }) }
+        : generateBenvenutoEmail({ nome: nomeTrimmed, email: emailTrimmed, password })),
     })
   } catch (err) {
     console.error('[crea-utente] welcome email (non-fatal):', err)
