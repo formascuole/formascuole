@@ -513,16 +513,23 @@ export function CorsoDetailClient({
     }
 
     // ── Client-side: time overlap check ─────────────────────────────────────────
+    console.log('[overlap-client] formatore_id:', corso.formatore_id)
+    console.log('[overlap-client] formatoreAltreSessioni:', formatoreAltreSessioni)
+    console.log('[overlap-client] data:', newData, '| ora_inizio:', newOraInizio, '| ora_fine:', newOraFine)
     if (newOraInizio && newOraFine && formatoreAltreSessioni.length > 0) {
       const sessStessoGiorno = formatoreAltreSessioni.filter(s => s.data === newData && s.ora_inizio && s.ora_fine)
+      console.log('[overlap-client] sessioni stesso giorno con orari:', sessStessoGiorno.length)
       for (const s of sessStessoGiorno) {
         const exStart = (s.ora_inizio as string).substring(0, 5)
         const exEnd = (s.ora_fine as string).substring(0, 5)
+        console.log('[overlap-client] confronto:', newOraInizio, newOraFine, 'vs', exStart, exEnd)
         if (newOraInizio < exEnd && newOraFine > exStart) {
           setSessionError(`Il formatore ha già una sessione in questo slot per il corso "${s.corso_title}" (${exStart}–${exEnd}).`)
           return
         }
       }
+    } else {
+      console.log('[overlap-client] check saltato — times empty:', !newOraInizio || !newOraFine, '| altreSessioni:', formatoreAltreSessioni.length)
     }
 
     setSaving(true)

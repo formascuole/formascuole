@@ -138,11 +138,14 @@ export async function POST(request: NextRequest) {
         .not('ora_inizio', 'is', null)
         .not('ora_fine', 'is', null)
 
+      console.log('[overlap] formatore_id:', corso.formatore_id, '| data:', sessioneData, '| ora_inizio:', ora_inizio, '| ora_fine:', ora_fine)
+      console.log('[overlap] altriCorsiIds:', altriCorsiIds, '| sessioniSovrapposte:', sessioniSovrapposte?.length ?? 0)
       for (const s of sessioniSovrapposte || []) {
-        const newStart = ora_inizio as string
-        const newEnd = ora_fine as string
+        const newStart = (ora_inizio as string).substring(0, 5)
+        const newEnd = (ora_fine as string).substring(0, 5)
         const exStart = (s.ora_inizio as string).substring(0, 5)
         const exEnd = (s.ora_fine as string).substring(0, 5)
+        console.log('[overlap] check:', newStart, newEnd, 'vs', exStart, exEnd, '→ overlap:', newStart < exEnd && newEnd > exStart)
         if (newStart < exEnd && newEnd > exStart) {
           // Fetch corso title for the message
           const { data: altroCorso } = await admin
