@@ -390,6 +390,25 @@ export function Sidebar({ role, nome, email, avatarInitials, notificheBadge, isS
             </Link>
           )
         })}
+
+        {(role === 'formatore' || role === 'tutor') && (
+          <div className="mt-3 pt-3 border-t border-gray-100">
+            <a
+              href="https://drive.google.com/file/d/1PO81FUsaHWiHxEToHE4QG8iC7nTAlaMq/view?usp=sharing"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-[7px] text-sm font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-50 transition-colors"
+            >
+              <span className="text-gray-400">
+                <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
+                  <path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </span>
+              Manuale utente
+            </a>
+          </div>
+        )}
       </nav>
 
       {/* User section */}

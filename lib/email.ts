@@ -285,6 +285,11 @@ Ti consigliamo di conservare queste credenziali in modo sicuro e di non condivid
 In caso di problemi di accesso, contatta il tuo amministratore di sistema.
 ${pwaInstallBlock()}
 
+📖 Per iniziare a usare la piattaforma ti consigliamo di leggere il Manuale Utente:
+https://drive.google.com/file/d/1PO81FUsaHWiHxEToHE4QG8iC7nTAlaMq/view?usp=sharing
+
+Troverai istruzioni dettagliate su tutte le funzionalità, le email che riceverai e come procedere con i pagamenti.
+
 Benvenuto/a nel team Formascuole!
 
 Cordiali saluti,
