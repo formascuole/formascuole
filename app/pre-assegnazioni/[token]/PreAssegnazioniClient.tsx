@@ -38,7 +38,7 @@ const MODALITA_LABELS: Record<string, string> = {
   semi_residenziale: 'Semi-residenziale',
 }
 
-const MOTIVAZIONI_RIFIUTO = [
+const MOTIVAZIONI_NON_DISPONIBILE = [
   'Indisponibile nelle date previste',
   'Materia non di mia competenza',
   'Sede troppo lontana',
@@ -46,7 +46,7 @@ const MOTIVAZIONI_RIFIUTO = [
   'Altro',
 ]
 
-export function AssegnazioniClient({ corsi, progetto, token, scadenzaAt }: Props) {
+export function PreAssegnazioniClient({ corsi, progetto, token, scadenzaAt }: Props) {
   const pending = corsi.filter(c => c.stato_assegnazione === 'in_attesa')
   const responded = corsi.filter(c => c.stato_assegnazione !== 'in_attesa')
 
@@ -60,8 +60,8 @@ export function AssegnazioniClient({ corsi, progetto, token, scadenzaAt }: Props
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
-  const nAccettati = pending.filter(c => decisions[c.id] === 'accettato').length
-  const nRifiutati = pending.filter(c => decisions[c.id] === 'rifiutato').length
+  const nDisponibili = pending.filter(c => decisions[c.id] === 'accettato').length
+  const nNonDisponibili = pending.filter(c => decisions[c.id] === 'rifiutato').length
   const nPending = pending.filter(c => decisions[c.id] === null).length
   const allAnswered = nPending === 0
 
@@ -107,7 +107,7 @@ export function AssegnazioniClient({ corsi, progetto, token, scadenzaAt }: Props
             </svg>
           </div>
           <h1 className="text-lg font-bold text-gray-900 mb-2">Risposte inviate!</h1>
-          <p className="text-sm text-gray-500">Il coordinatore è stato notificato delle tue scelte. Puoi chiudere questa pagina.</p>
+          <p className="text-sm text-gray-500">Il coordinatore è stato notificato delle tue disponibilità. Puoi chiudere questa pagina.</p>
         </div>
       </div>
     )
@@ -123,7 +123,7 @@ export function AssegnazioniClient({ corsi, progetto, token, scadenzaAt }: Props
             </svg>
           </div>
           <h1 className="text-lg font-bold text-gray-900 mb-2">Hai già risposto</h1>
-          <p className="text-sm text-gray-500">Hai già risposto a tutte le assegnazioni per questa scuola.</p>
+          <p className="text-sm text-gray-500">Hai già indicato la tua disponibilità per tutti i corsi di questa scuola.</p>
         </div>
       </div>
     )
@@ -137,18 +137,18 @@ export function AssegnazioniClient({ corsi, progetto, token, scadenzaAt }: Props
         <div className="bg-white rounded-xl p-6 mb-4 border border-gray-100 shadow-sm">
           <div className="flex items-start justify-between gap-4 mb-1">
             <div>
-              <h1 className="text-xl font-bold text-gray-900 mb-0.5">Gestisci le tue assegnazioni</h1>
+              <h1 className="text-xl font-bold text-gray-900 mb-0.5">Gestisci le tue pre-assegnazioni</h1>
               <p className="text-sm text-gray-600">{progetto.school_name}</p>
               {progetto.address && <p className="text-xs text-gray-400 mt-0.5">{progetto.address}</p>}
             </div>
             {pending.length > 1 && (
               <div className="flex items-center gap-2.5 shrink-0 mt-1">
                 <button onClick={acceptAll} className="text-xs font-medium text-green-700 hover:underline">
-                  Accetta tutti
+                  Disponibile per tutti
                 </button>
                 <span className="text-gray-300 text-xs">|</span>
                 <button onClick={rejectAll} className="text-xs font-medium text-red-600 hover:underline">
-                  Rifiuta tutti
+                  Non disponibile per nessuno
                 </button>
               </div>
             )}
@@ -189,11 +189,6 @@ export function AssegnazioniClient({ corsi, progetto, token, scadenzaAt }: Props
                 }`}>
                   {corso.tipo}
                 </span>
-                {corso.pre_assegnazione && (
-                  <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-purple-100 text-purple-700">
-                    Pre-assegnazione
-                  </span>
-                )}
               </div>
               <div className="flex items-center gap-3 text-sm text-gray-500">
                 <span>{corso.ore_totali}h totali</span>
@@ -241,7 +236,7 @@ export function AssegnazioniClient({ corsi, progetto, token, scadenzaAt }: Props
                   className="accent-green-600"
                 />
                 <span className={`text-sm font-medium ${decisions[corso.id] === 'accettato' ? 'text-green-700' : 'text-gray-700'}`}>
-                  ✅ Accetto
+                  ✅ Disponibile
                 </span>
               </label>
               <label className={`flex items-center gap-3 p-3 rounded-[8px] border cursor-pointer transition-colors ${
@@ -258,7 +253,7 @@ export function AssegnazioniClient({ corsi, progetto, token, scadenzaAt }: Props
                   className="accent-red-600"
                 />
                 <span className={`text-sm font-medium ${decisions[corso.id] === 'rifiutato' ? 'text-red-700' : 'text-gray-700'}`}>
-                  ❌ Rifiuto
+                  ❌ Non disponibile
                 </span>
               </label>
             </div>
@@ -274,7 +269,7 @@ export function AssegnazioniClient({ corsi, progetto, token, scadenzaAt }: Props
                   className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 bg-white focus:outline-none focus:border-red-300 transition-colors"
                 >
                   <option value="">— nessuna motivazione —</option>
-                  {MOTIVAZIONI_RIFIUTO.map(m => (
+                  {MOTIVAZIONI_NON_DISPONIBILE.map(m => (
                     <option key={m} value={m}>{m}</option>
                   ))}
                 </select>
@@ -296,7 +291,7 @@ export function AssegnazioniClient({ corsi, progetto, token, scadenzaAt }: Props
                       ? 'bg-green-100 text-green-700'
                       : 'bg-red-100 text-red-700'
                   }`}>
-                    {corso.stato_assegnazione === 'accettato' ? 'Accettato' : 'Rifiutato'}
+                    {corso.stato_assegnazione === 'accettato' ? 'Disponibile' : 'Non disponibile'}
                   </span>
                 </div>
               ))}
@@ -311,10 +306,10 @@ export function AssegnazioniClient({ corsi, progetto, token, scadenzaAt }: Props
         {/* Summary + Submit */}
         <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
           <div className="flex items-center gap-5 text-sm mb-4 flex-wrap">
-            <span className="text-gray-700">✅ <strong>{nAccettati}</strong> accettati</span>
-            <span className="text-gray-700">❌ <strong>{nRifiutati}</strong> rifiutati</span>
+            <span className="text-gray-700">✅ <strong>{nDisponibili}</strong> disponibile</span>
+            <span className="text-gray-700">❌ <strong>{nNonDisponibili}</strong> non disponibile</span>
             {nPending > 0 && (
-              <span className="text-amber-600">⏳ <strong>{nPending}</strong> in attesa di risposta</span>
+              <span className="text-amber-600">⏳ <strong>{nPending}</strong> in attesa</span>
             )}
           </div>
           <button

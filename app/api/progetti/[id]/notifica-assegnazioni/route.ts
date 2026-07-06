@@ -62,8 +62,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     // Generate one shared token for this formatore batch
     const token = randomUUID()
-    const tokenUrl = `${APP_URL}/assegnazioni/${token}`
     const isPreBatch = fCorsi.every(c => c.pre_assegnazione)
+    const tokenUrl = isPreBatch ? `${APP_URL}/pre-assegnazioni/${token}` : `${APP_URL}/assegnazioni/${token}`
 
     const emailBody = await generateAssegnazioneRaggruppataEmail({
       formatore_nome: formatore.nome,

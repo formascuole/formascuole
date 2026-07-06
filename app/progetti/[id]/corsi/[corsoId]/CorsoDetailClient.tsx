@@ -1395,11 +1395,10 @@ export function CorsoDetailClient({
             </button>
           </div>
         )}
-        {corso.stato_assegnazione === 'rifiutato' && corso.rifiuto_motivazione && (
-          <div className="mb-4 bg-red-50 border border-red-200 rounded-[7px] px-4 py-3 text-sm text-red-700">
-            <div className="font-medium mb-0.5">Motivazione rifiuto</div>
-            <div>{corso.rifiuto_motivazione}</div>
-          </div>
+        {isAdmin && corso.stato_assegnazione === 'rifiutato' && corso.rifiuto_motivazione && (
+          <p className="text-xs text-gray-400 italic mb-4">
+            Motivazione: {corso.rifiuto_motivazione}
+          </p>
         )}
         {corso.formatore ? (
           <div className="flex items-center justify-between">
