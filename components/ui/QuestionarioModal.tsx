@@ -143,6 +143,7 @@ export function QuestionarioModal({ open, onClose, url, titoloCorso, corsoId, ha
 // ── Helper: costruisce l'URL del questionario ──────────────────────────────────
 
 export function buildQuestionarioUrl(params: {
+  corsoId: string
   scuola: string
   titoloCorso: string
   formatore: string
@@ -154,6 +155,7 @@ export function buildQuestionarioUrl(params: {
   const today = new Date().toISOString().split('T')[0]
   const base = new URL('https://www.formascuole.it/')
   base.searchParams.set('ff_landing', '13')
+  base.searchParams.set('corso_id', params.corsoId || '')
   base.searchParams.set('scuola', params.scuola || '')
   base.searchParams.set('titolo_corso', params.titoloCorso || '')
   base.searchParams.set('formatore', params.formatore || '')

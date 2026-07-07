@@ -67,7 +67,7 @@ export default async function CorsoDetailPage({
 
   const { data: progetto } = await supabase
     .from('progetti')
-    .select('school_name,anno_scolastico,ref_name,ref_email,ref_tel,finanziamento_id,address,status')
+    .select('school_name,anno_scolastico,ref_name,ref_email,ref_tel,finanziamento_id,address,status,regione,provincia')
     .eq('id', id)
     .single()
 
@@ -262,6 +262,7 @@ export default async function CorsoDetailPage({
         formatoreAltreSessioni={formatoreAltreSessioni}
         progettoAddress={(progetto as any)?.address ?? null}
         progettoRegione={(progetto as any)?.regione ?? null}
+        progettoProvince={(progetto as any)?.provincia ?? null}
       />
     </AppLayout>
   )

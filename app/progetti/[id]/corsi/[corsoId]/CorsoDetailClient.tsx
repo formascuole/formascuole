@@ -46,6 +46,7 @@ interface CorsoDetailClientProps {
   formatoreAltreSessioni?: Array<{ data: string; ora_inizio: string | null; ora_fine: string | null; corso_title: string }>
   progettoAddress?: string | null
   progettoRegione?: string | null
+  progettoProvince?: string | null
 }
 
 // ── Formatore picker card ─────────────────────────────────────────────────────
@@ -216,6 +217,7 @@ export function CorsoDetailClient({
   formatoreAltreSessioni = [],
   progettoAddress,
   progettoRegione,
+  progettoProvince,
 }: CorsoDetailClientProps) {
   const router = useRouter()
   const [sessioni, setSessioni] = useState<Sessione[]>(initialSessioni)
@@ -344,7 +346,20 @@ export function CorsoDetailClient({
   const otherScores = formatoriScores.filter(s => s.score === 0)
   // ─────────────────────────────────────────────────────────────────────────────
 
+  // Block questionario if today is before the last scheduled session date
+  const ultimaSessioneDate = sessioni.length > 0
+    ? sessioni.reduce((max, s) => (s.data > max ? s.data : max), sessioni[0].data)
+    : null
+  const todayDate = new Date().toISOString().split('T')[0]
+  const questionarioBloccato = !ultimaSessioneDate || todayDate < ultimaSessioneDate
+  const questionarioTooltip = !ultimaSessioneDate
+    ? 'Aggiungi almeno una sessione prima di generare il questionario'
+    : questionarioBloccato
+      ? `Disponibile dal ${ultimaSessioneDate}`
+      : undefined
+
   const handleOpenQuestionario = () => {
+    if (questionarioBloccato) return
     const nowIso = new Date().toISOString()
     setLocalQCount(c => c + 1)
     setLocalQAt(nowIso)
@@ -1288,7 +1303,9 @@ export function CorsoDetailClient({
             )}
             <button
               onClick={handleOpenQuestionario}
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-gray-900 bg-white hover:bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-[7px] transition-colors"
+              disabled={questionarioBloccato}
+              title={questionarioTooltip}
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-gray-900 bg-white hover:bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-[7px] transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:text-gray-600"
             >
               <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
                 <path d="M9 12h6M9 16h4M17 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V5a2 2 0 00-2-2z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
@@ -3374,10 +3391,13 @@ export function CorsoDetailClient({
         open={questionarioOpen}
         onClose={() => setQuestionarioOpen(false)}
         url={buildQuestionarioUrl({
+          corsoId: corso.id,
           scuola: progetto?.school_name || '',
           titoloCorso: corso.title,
           formatore: corso.formatore?.nome || '',
           tipoCorso: corso.tipo || '',
+          regione: progettoRegione || '',
+          provincia: progettoProvince || '',
           lineaFinanziamento: finanziamentoNome || '',
         })}
         titoloCorso={corso.title}

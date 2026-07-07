@@ -43,6 +43,8 @@ interface ProgettoInfo {
   ref_email: string
   ref_tel?: string
   finanziamento_id?: string | null
+  regione?: string | null
+  provincia?: string | null
 }
 
 interface Props {
@@ -537,10 +539,13 @@ export function ProgettoFormatoreClient({ progetto, corsi, finanziamenti, format
             open={!!questionarioCorsoId}
             onClose={() => setQuestionarioCorsoId(null)}
             url={buildQuestionarioUrl({
+              corsoId: qCorso.id,
               scuola: progetto.school_name,
               titoloCorso: qCorso.title,
               formatore: formatoreNome,
               tipoCorso: qCorso.tipo || '',
+              regione: progetto.regione || '',
+              provincia: progetto.provincia || '',
               lineaFinanziamento: finNome || '',
             })}
             titoloCorso={qCorso.title}

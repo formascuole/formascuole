@@ -22,7 +22,7 @@ export default async function ProgettoFormatorePage({ params }: { params: Promis
   // Fetch project details
   const { data: progetto } = await admin
     .from('progetti')
-    .select('id,school_name,address,ref_name,ref_email,ref_tel,finanziamento_id')
+    .select('id,school_name,address,ref_name,ref_email,ref_tel,finanziamento_id,regione,provincia')
     .eq('id', progettoId)
     .single()
 

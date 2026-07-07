@@ -83,7 +83,7 @@ Il team Formascuole`
   return NextResponse.json({ success: true })
 }
 
-// Called when admin opens the modal — increments counter immediately
+// Called when admin opens the modal — checks date constraint, then increments counter
 export async function PATCH(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: corsoId } = await params
 
@@ -92,6 +92,25 @@ export async function PATCH(_request: NextRequest, { params }: { params: Promise
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const admin = createAdminClient()
+
+  // Check: must not be before the last scheduled session date
+  const { data: sessioni } = await admin
+    .from('sessioni')
+    .select('data')
+    .eq('corso_id', corsoId)
+    .order('data', { ascending: false })
+    .limit(1)
+
+  if (!sessioni || sessioni.length === 0) {
+    return NextResponse.json({ error: 'Aggiungi almeno una sessione prima di generare il questionario' }, { status: 403 })
+  }
+
+  const ultimaData = sessioni[0].data as string
+  const todayDate = new Date().toISOString().split('T')[0]
+  if (todayDate < ultimaData) {
+    return NextResponse.json({ error: `Il questionario è disponibile dal ${ultimaData}` }, { status: 403 })
+  }
+
   const { data: currentCorso } = await admin.from('corsi').select('questionario_generato_count').eq('id', corsoId).single()
   await admin.from('corsi').update({
     questionario_generato_at: new Date().toISOString(),
