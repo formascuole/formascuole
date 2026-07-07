@@ -35,7 +35,9 @@ export async function middleware(request: NextRequest) {
   if (
     pathname.startsWith('/api/') ||        // API routes handle their own auth
     pathname === '/auth/callback' ||        // Supabase PKCE / email confirmation
-    pathname.startsWith('/auth/')
+    pathname.startsWith('/auth/') ||
+    pathname.startsWith('/assegnazioni/') ||       // token-based public acceptance page
+    pathname.startsWith('/pre-assegnazioni/')       // token-based public pre-assignment page
   ) {
     return supabaseResponse
   }
