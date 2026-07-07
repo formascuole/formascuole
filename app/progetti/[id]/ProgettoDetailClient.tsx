@@ -1,5 +1,5 @@
 'use client'
-import { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ProgettoConStats, CorsoConOre, Profile, ChatMessaggio, Referente, Finanziamento, Partner, CatalogoCorso, QuestionarioRisultato } from '@/lib/types'
@@ -54,6 +54,12 @@ type ReferenteForm = { nome: string; email: string; tel: string; ruolo: string }
 const emptyReferenteForm: ReferenteForm = { nome: '', email: '', tel: '', ruolo: '' }
 
 type BulkRowState = { formatoreId: string; tariffa: string }
+type BulkAddRow = {
+  catalogoId: string; title: string; tipo: string
+  ore_totali: string; modalita: string; tutor_previsto: boolean
+  ore_tutoraggio: string; edizione: string; location: string
+  descrizione: string; link_scheda: string
+}
 
 export function ProgettoDetailClient({
   progetto,
@@ -142,6 +148,23 @@ export function ProgettoDetailClient({
   const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null)
   const [bulkResults, setBulkResults] = useState<{ successi: string[]; errori: { corso: string; err: string }[] } | null>(null)
   const [bulkValidationErrors, setBulkValidationErrors] = useState<Set<string>>(new Set())
+
+  // ── Cancellazione massiva ────────────────────────────────────
+  const [deleteSelected, setDeleteSelected] = useState<Set<string>>(new Set())
+  const [deleteBulkOpen, setDeleteBulkOpen] = useState(false)
+  const [deleteBulkConfirmText, setDeleteBulkConfirmText] = useState('')
+  const [deletingBulk, setDeletingBulk] = useState(false)
+  const [deleteBulkError, setDeleteBulkError] = useState('')
+
+  // ── Aggiunta massiva corsi ───────────────────────────────────
+  const [bulkAddOpen, setBulkAddOpen] = useState(false)
+  const [bulkAddStep, setBulkAddStep] = useState<1 | 2>(1)
+  const [bulkAddSearch, setBulkAddSearch] = useState('')
+  const [bulkAddSelected, setBulkAddSelected] = useState<Set<string>>(new Set())
+  const [bulkAddRows, setBulkAddRows] = useState<Record<string, BulkAddRow>>({})
+  const [savingBulkAdd, setSavingBulkAdd] = useState(false)
+  const [bulkAddProgress, setBulkAddProgress] = useState<{ done: number; total: number } | null>(null)
+  const [bulkAddResults, setBulkAddResults] = useState<{ successi: string[]; errori: string[] } | null>(null)
 
   // ── Chat ────────────────────────────────────────────────────
   const [messaggi, setMessaggi] = useState<ChatMessaggio[]>(initialMessaggi)
@@ -359,6 +382,116 @@ export function ProgettoDetailClient({
     } finally {
       setDeletingRefId(null)
     }
+  }
+
+  // ── Helpers: cancellazione ──────────────────────────────────
+  const isDeletable = (c: CorsoConOre) =>
+    (oreErogatePerCorso[c.id] ?? 0) === 0 && !c.lettera_incarico_firmata && !c.corso_completato
+
+  const nonDeletableReason = (c: CorsoConOre): string | null => {
+    if ((oreErogatePerCorso[c.id] ?? 0) > 0) return 'Ha sessioni già erogate'
+    if (c.lettera_incarico_firmata) return 'Ha lettera di incarico firmata'
+    if (c.corso_completato) return 'Il corso è completato'
+    return null
+  }
+
+  // ── Handlers: cancellazione massiva ─────────────────────────
+  const handleBulkDelete = async () => {
+    const toDelete = corsi.filter(c => deleteSelected.has(c.id) && isDeletable(c))
+    if (toDelete.length === 0) return
+    setDeletingBulk(true)
+    setDeleteBulkError('')
+    let errorMsg = ''
+    for (const corso of toDelete) {
+      const res = await fetch(`/api/corsi/${corso.id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const json = await res.json()
+        errorMsg = json.error || "Errore durante l'eliminazione"
+        break
+      }
+    }
+    setDeletingBulk(false)
+    if (errorMsg) { setDeleteBulkError(errorMsg); return }
+    setDeleteBulkOpen(false)
+    setDeleteSelected(new Set())
+    setDeleteBulkConfirmText('')
+    router.refresh()
+  }
+
+  // ── Handlers: aggiunta massiva corsi ────────────────────────
+  const openBulkAddModal = () => {
+    setBulkAddStep(1)
+    setBulkAddSearch('')
+    setBulkAddSelected(new Set())
+    setBulkAddRows({})
+    setSavingBulkAdd(false)
+    setBulkAddProgress(null)
+    setBulkAddResults(null)
+    setBulkAddOpen(true)
+  }
+
+  const initBulkAddRows = () => {
+    const rows: Record<string, BulkAddRow> = {}
+    for (const id of bulkAddSelected) {
+      const cat = catalogo.find(c => c.id === id)
+      if (!cat) continue
+      rows[id] = {
+        catalogoId: id,
+        title: cat.titolo,
+        tipo: isDM38 ? 'MF' : cat.tipo,
+        ore_totali: isDM38 ? '30' : '',
+        modalita: 'presenza',
+        tutor_previsto: false,
+        ore_tutoraggio: '',
+        edizione: '',
+        location: '',
+        descrizione: cat.descrizione || '',
+        link_scheda: cat.link_scheda || '',
+      }
+    }
+    setBulkAddRows(rows)
+    setBulkAddStep(2)
+  }
+
+  const handleBulkAddSave = async () => {
+    const rowList = Object.values(bulkAddRows)
+    setSavingBulkAdd(true)
+    setBulkAddProgress({ done: 0, total: rowList.length })
+    const successi: string[] = []
+    const errori: string[] = []
+    for (let i = 0; i < rowList.length; i++) {
+      const row = rowList[i]
+      try {
+        const res = await fetch('/api/corsi', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            project_id: progetto.id,
+            title: row.title,
+            tipo: row.tipo,
+            ore_totali: Number(row.ore_totali),
+            modalita: row.modalita || null,
+            tutor_previsto: row.tutor_previsto,
+            ...(row.tutor_previsto && row.ore_tutoraggio ? { ore_tutoraggio: Number(row.ore_tutoraggio) } : {}),
+            ...(row.descrizione ? { descrizione: row.descrizione } : {}),
+            ...(row.link_scheda ? { link_scheda: row.link_scheda } : {}),
+            ...(row.edizione ? { edizione: row.edizione } : {}),
+            ...(row.location ? { location: row.location } : {}),
+          }),
+        })
+        if (res.ok) successi.push(row.title)
+        else {
+          const json = await res.json()
+          errori.push(`${row.title}: ${json.error || 'Errore'}`)
+        }
+      } catch {
+        errori.push(`${row.title}: Errore di rete`)
+      }
+      setBulkAddProgress({ done: i + 1, total: rowList.length })
+    }
+    setBulkAddResults({ successi, errori })
+    setSavingBulkAdd(false)
+    if (successi.length > 0) router.refresh()
   }
 
   // ── Handlers: assegnazione massiva ──────────────────────────
@@ -859,6 +992,13 @@ export function ProgettoDetailClient({
                 Assegnazione massiva
               </Button>
             )}
+            <Button size="sm" variant="secondary" onClick={openBulkAddModal}>
+              <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
+                <path d="M4 6h16M4 10h16M4 14h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                <path d="M16 17h6M19 14v6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+              Aggiungi più corsi
+            </Button>
             <Button size="sm" onClick={() => setAddCorsoOpen(true)}>
               <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
                 <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
@@ -867,13 +1007,42 @@ export function ProgettoDetailClient({
             </Button>
           </div>
         </div>
+        {deleteSelected.size > 0 && (
+          <div className="px-6 pt-3 pb-0">
+            <button
+              onClick={() => { setDeleteBulkError(''); setDeleteBulkConfirmText(''); setDeleteBulkOpen(true) }}
+              className="flex items-center gap-1.5 text-sm font-medium text-red-600 bg-red-50 border border-red-200 hover:bg-red-100 px-3 py-1.5 rounded-[7px] transition-colors"
+            >
+              <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
+                <polyline points="3 6 5 6 21 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Elimina selezionati ({deleteSelected.size})
+            </button>
+          </div>
+        )}
         <div className="divide-y divide-gray-50">
           {corsi.length === 0 ? (
             <div className="px-6 py-12 text-center text-sm text-gray-400">
               Nessun corso aggiunto. Clicca &quot;Aggiungi Corso&quot; per iniziare.
             </div>
           ) : (
-            corsi.map(corso => <CourseRow key={corso.id} corso={corso} progettoId={progetto.id} oreErogate={oreErogatePerCorso[corso.id] ?? 0} finanziamentoNome={progettoFinanziamentoNome} />)
+            corsi.map(corso => (
+              <CourseRow
+                key={corso.id}
+                corso={corso}
+                progettoId={progetto.id}
+                oreErogate={oreErogatePerCorso[corso.id] ?? 0}
+                finanziamentoNome={progettoFinanziamentoNome}
+                selected={deleteSelected.has(corso.id)}
+                onToggle={id => setDeleteSelected(prev => {
+                  const next = new Set(prev)
+                  if (next.has(id)) next.delete(id); else next.add(id)
+                  return next
+                })}
+                deletable={isDeletable(corso)}
+              />
+            ))
           )}
         </div>
       </div>
@@ -1761,6 +1930,349 @@ export function ProgettoDetailClient({
           </div>
         </div>
       )}
+
+      {/* ── Modal: Cancellazione massiva corsi ───────────────────── */}
+      {deleteBulkOpen && (() => {
+        const selectedCorsi = corsi.filter(c => deleteSelected.has(c.id))
+        const deletableCorsi = selectedCorsi.filter(c => isDeletable(c))
+        const canConfirm = deleteBulkConfirmText === 'CANCELLA' && deletableCorsi.length > 0
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-md" style={{ border: '0.5px solid #e5e5e5' }}>
+              <div className="px-6 py-4 border-b border-gray-100">
+                <h2 className="text-base font-semibold text-gray-900">Elimina corsi selezionati</h2>
+              </div>
+              <div className="px-6 py-5 space-y-4">
+                <div className="space-y-2">
+                  {selectedCorsi.map(c => {
+                    const reason = nonDeletableReason(c)
+                    return (
+                      <div key={c.id} className="flex items-center justify-between text-sm">
+                        <span className={reason ? 'text-gray-400 line-through' : 'text-gray-800'}>{c.title}</span>
+                        {reason ? (
+                          <span title={reason} className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-400 cursor-help ml-2 shrink-0">
+                            Non eliminabile
+                          </span>
+                        ) : (
+                          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-red-100 text-red-600 ml-2 shrink-0">Verrà eliminato</span>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+                {deletableCorsi.length === 0 ? (
+                  <p className="text-sm text-gray-500 bg-amber-50 border border-amber-200 rounded-[7px] px-3 py-2">
+                    Nessuno dei corsi selezionati può essere eliminato (hanno sessioni erogate, lettera firmata o sono completati).
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-sm text-red-600 font-medium">Questa azione è irreversibile.</p>
+                    <div>
+                      <label className="block text-sm text-gray-700 mb-1.5">
+                        Digita <strong>CANCELLA</strong> per confermare
+                      </label>
+                      <input
+                        type="text"
+                        value={deleteBulkConfirmText}
+                        onChange={e => setDeleteBulkConfirmText(e.target.value)}
+                        placeholder="CANCELLA"
+                        className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 focus:outline-none focus:border-red-400 transition-colors"
+                      />
+                    </div>
+                  </>
+                )}
+                {deleteBulkError && (
+                  <p className="text-sm text-red-600 bg-red-50 rounded-[7px] px-3 py-2">{deleteBulkError}</p>
+                )}
+              </div>
+              <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
+                <Button variant="secondary" onClick={() => setDeleteBulkOpen(false)} disabled={deletingBulk}>Annulla</Button>
+                <Button
+                  onClick={handleBulkDelete}
+                  loading={deletingBulk}
+                  disabled={!canConfirm || deletingBulk}
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                >
+                  Elimina definitivamente
+                </Button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* ── Modal: Aggiunta massiva corsi ────────────────────────── */}
+      {bulkAddOpen && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center p-4 bg-black/40 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-5xl my-8" style={{ border: '0.5px solid #e5e5e5' }}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h2 className="text-base font-semibold text-gray-900">
+                {bulkAddStep === 1 ? 'Aggiungi più corsi — Seleziona dal catalogo' : `Aggiungi più corsi — Configura (${Object.keys(bulkAddRows).length})`}
+              </h2>
+              {!savingBulkAdd && (
+                <button
+                  onClick={() => setBulkAddOpen(false)}
+                  className="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path d="M12 4L4 12M4 4l8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  </svg>
+                </button>
+              )}
+            </div>
+
+            <div className="px-6 py-5">
+              {/* Step 1: catalog */}
+              {bulkAddStep === 1 && (
+                <div className="space-y-3">
+                  <div className="relative">
+                    <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" width="14" height="14" fill="none" viewBox="0 0 24 24">
+                      <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="1.5"/>
+                      <path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                    </svg>
+                    <input
+                      type="text"
+                      value={bulkAddSearch}
+                      onChange={e => setBulkAddSearch(e.target.value)}
+                      placeholder="Cerca nel catalogo…"
+                      className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-[7px] focus:outline-none focus:border-[#d64b55] transition-colors"
+                    />
+                  </div>
+                  {bulkAddSelected.size > 0 && (
+                    <p className="text-xs text-blue-600">{bulkAddSelected.size} cors{bulkAddSelected.size === 1 ? 'o selezionato' : 'i selezionati'}</p>
+                  )}
+                  <div className="max-h-80 overflow-y-auto border border-gray-100 rounded-[7px] divide-y divide-gray-50">
+                    {catalogo
+                      .filter(c => {
+                        if (!c.attivo) return false
+                        if (isDM38) {
+                          if (c.finanziamento_id !== progetto.finanziamento_id) return false
+                        } else {
+                          if (c.finanziamento_id && c.finanziamento_id !== (progetto as ProgettoConStats & { finanziamento_id?: string | null }).finanziamento_id) return false
+                        }
+                        if (bulkAddSearch.trim()) {
+                          const q = bulkAddSearch.trim().toLowerCase()
+                          return c.titolo.toLowerCase().includes(q) || !!c.descrizione?.toLowerCase().includes(q)
+                        }
+                        return true
+                      })
+                      .map(c => (
+                        <label key={c.id} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors">
+                          <input
+                            type="checkbox"
+                            checked={bulkAddSelected.has(c.id)}
+                            onChange={() => setBulkAddSelected(prev => {
+                              const next = new Set(prev)
+                              if (next.has(c.id)) next.delete(c.id); else next.add(c.id)
+                              return next
+                            })}
+                            className="w-4 h-4 accent-[#d64b55]"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-gray-900">{c.titolo}</span>
+                              <span className={`inline-flex items-center text-xs font-medium px-1.5 py-0.5 rounded ${c.tipo === 'PF' ? 'bg-blue-100 text-blue-700' : c.tipo === 'MF' ? 'bg-green-100 text-green-700' : 'bg-purple-100 text-purple-700'}`}>
+                                {c.tipo}
+                              </span>
+                            </div>
+                            {c.descrizione && <p className="text-xs text-gray-400 truncate mt-0.5">{c.descrizione}</p>}
+                          </div>
+                        </label>
+                      ))}
+                    {catalogo.filter(c => c.attivo).length === 0 && (
+                      <div className="px-4 py-6 text-sm text-gray-400 text-center">Nessun corso attivo nel catalogo.</div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Step 2: configure table */}
+              {bulkAddStep === 2 && (
+                <>
+                  {bulkAddResults ? (
+                    <div className="space-y-3">
+                      {bulkAddResults.successi.length > 0 && (
+                        <div className="flex items-start gap-3 p-4 bg-green-50 border border-green-200 rounded-[7px]">
+                          <span className="text-green-600 mt-0.5">✅</span>
+                          <div>
+                            <div className="text-sm font-medium text-green-800">
+                              {bulkAddResults.successi.length} cors{bulkAddResults.successi.length === 1 ? 'o aggiunto' : 'i aggiunti'} con successo
+                            </div>
+                            <ul className="mt-1.5 space-y-0.5">
+                              {bulkAddResults.successi.map((t, i) => <li key={i} className="text-xs text-green-700">{t}</li>)}
+                            </ul>
+                          </div>
+                        </div>
+                      )}
+                      {bulkAddResults.errori.length > 0 && (
+                        <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-[7px]">
+                          <span className="text-red-500 mt-0.5">⚠️</span>
+                          <div>
+                            <div className="text-sm font-medium text-red-800">{bulkAddResults.errori.length} errori</div>
+                            <ul className="mt-1.5 space-y-0.5">
+                              {bulkAddResults.errori.map((e, i) => <li key={i} className="text-xs text-red-700">{e}</li>)}
+                            </ul>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : savingBulkAdd && bulkAddProgress ? (
+                    <div className="py-10 text-center space-y-4">
+                      <div className="text-sm text-gray-600 font-medium">
+                        Aggiunta in corso… ({bulkAddProgress.done}/{bulkAddProgress.total})
+                      </div>
+                      <div className="w-full max-w-xs mx-auto bg-gray-100 rounded-full h-2">
+                        <div
+                          className="h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${(bulkAddProgress.done / bulkAddProgress.total) * 100}%`, backgroundColor: '#d64b55' }}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-gray-100">
+                            <th className="text-left pb-2 pr-4 font-medium text-gray-500 text-xs uppercase tracking-wide">Corso</th>
+                            <th className="text-left pb-2 pr-4 font-medium text-gray-500 text-xs uppercase tracking-wide w-24">Ore totali</th>
+                            <th className="text-left pb-2 pr-4 font-medium text-gray-500 text-xs uppercase tracking-wide w-44">Modalità</th>
+                            <th className="text-left pb-2 pr-4 font-medium text-gray-500 text-xs uppercase tracking-wide w-24">Tutor</th>
+                            <th className="text-left pb-2 font-medium text-gray-500 text-xs uppercase tracking-wide w-32">Edizione</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                          {Object.values(bulkAddRows).map(row => {
+                            const needsLocation = ['residenziale', 'semi_residenziale'].includes(row.modalita)
+                            const needsOreTut = row.tutor_previsto
+                            const updateRow = (patch: Partial<BulkAddRow>) =>
+                              setBulkAddRows(m => ({ ...m, [row.catalogoId]: { ...m[row.catalogoId], ...patch } }))
+                            return (
+                              <React.Fragment key={row.catalogoId}>
+                                <tr>
+                                  <td className="py-3 pr-4 align-top">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="font-medium text-gray-900">{row.title}</span>
+                                      <span className={`inline-flex text-xs font-medium px-1.5 py-0.5 rounded ${row.tipo === 'PF' ? 'bg-blue-100 text-blue-700' : row.tipo === 'MF' ? 'bg-green-100 text-green-700' : 'bg-purple-100 text-purple-700'}`}>
+                                        {row.tipo}
+                                      </span>
+                                    </div>
+                                  </td>
+                                  <td className="py-3 pr-4 align-top">
+                                    {isDM38 ? (
+                                      <select
+                                        value={row.ore_totali}
+                                        onChange={e => updateRow({ ore_totali: e.target.value })}
+                                        className="w-full text-sm border border-gray-200 rounded-[7px] px-2 py-1.5 bg-white focus:outline-none focus:border-[#d64b55]"
+                                      >
+                                        <option value="30">30h</option>
+                                        <option value="60">60h</option>
+                                      </select>
+                                    ) : (
+                                      <input
+                                        type="number"
+                                        min={1}
+                                        value={row.ore_totali}
+                                        onChange={e => updateRow({ ore_totali: e.target.value })}
+                                        placeholder="Es. 20"
+                                        className={`w-full text-sm border rounded-[7px] px-2 py-1.5 focus:outline-none focus:border-[#d64b55] transition-colors ${!row.ore_totali ? 'border-red-300' : 'border-gray-200'}`}
+                                      />
+                                    )}
+                                  </td>
+                                  <td className="py-3 pr-4 align-top">
+                                    <select
+                                      value={row.modalita}
+                                      onChange={e => updateRow({
+                                        modalita: e.target.value,
+                                        location: ['residenziale', 'semi_residenziale'].includes(e.target.value) ? row.location : '',
+                                      })}
+                                      className="w-full text-sm border border-gray-200 rounded-[7px] px-2 py-1.5 bg-white focus:outline-none focus:border-[#d64b55]"
+                                    >
+                                      <option value="presenza">In presenza</option>
+                                      {row.tipo !== 'Lab' && <option value="online">Online</option>}
+                                      {row.tipo !== 'Lab' && <option value="ibrido">Ibrido</option>}
+                                      <option value="residenziale">Residenziale</option>
+                                      <option value="semi_residenziale">Semi-residenziale</option>
+                                    </select>
+                                    {needsLocation && (
+                                      <input
+                                        type="text"
+                                        value={row.location}
+                                        onChange={e => updateRow({ location: e.target.value })}
+                                        placeholder="Location *"
+                                        className="mt-1.5 w-full text-sm border border-gray-200 rounded-[7px] px-2 py-1.5 focus:outline-none focus:border-[#d64b55]"
+                                      />
+                                    )}
+                                  </td>
+                                  <td className="py-3 pr-4 align-top">
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                      <input
+                                        type="checkbox"
+                                        checked={row.tutor_previsto}
+                                        onChange={e => updateRow({ tutor_previsto: e.target.checked, ore_tutoraggio: '' })}
+                                        className="w-4 h-4 accent-[#d64b55]"
+                                      />
+                                      <span className="text-sm text-gray-700">Sì</span>
+                                    </label>
+                                    {needsOreTut && (
+                                      <input
+                                        type="number"
+                                        min={1}
+                                        value={row.ore_tutoraggio}
+                                        onChange={e => updateRow({ ore_tutoraggio: e.target.value })}
+                                        placeholder="Ore tut."
+                                        className="mt-1.5 w-full text-sm border border-gray-200 rounded-[7px] px-2 py-1.5 focus:outline-none focus:border-[#d64b55]"
+                                      />
+                                    )}
+                                  </td>
+                                  <td className="py-3 align-top">
+                                    <input
+                                      type="text"
+                                      value={row.edizione}
+                                      onChange={e => updateRow({ edizione: e.target.value })}
+                                      placeholder="Es. 2025"
+                                      className="w-full text-sm border border-gray-200 rounded-[7px] px-2 py-1.5 focus:outline-none focus:border-[#d64b55]"
+                                    />
+                                  </td>
+                                </tr>
+                              </React.Fragment>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
+              {bulkAddResults ? (
+                <Button onClick={() => setBulkAddOpen(false)}>Chiudi</Button>
+              ) : savingBulkAdd ? null : bulkAddStep === 1 ? (
+                <>
+                  <Button variant="secondary" onClick={() => setBulkAddOpen(false)}>Annulla</Button>
+                  <Button
+                    onClick={initBulkAddRows}
+                    disabled={bulkAddSelected.size === 0}
+                  >
+                    Configura corsi selezionati →
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button variant="secondary" onClick={() => setBulkAddStep(1)}>← Indietro</Button>
+                  <Button
+                    onClick={handleBulkAddSave}
+                    disabled={Object.values(bulkAddRows).some(r => !r.ore_totali || Number(r.ore_totali) <= 0)}
+                  >
+                    Aggiungi tutti i corsi
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -1771,7 +2283,10 @@ const ASSEGNAZIONE_BADGES: Record<string, { label: string; cls: string }> = {
   rifiutato:  { label: 'Rifiutato',  cls: 'bg-red-100 text-red-700'    },
 }
 
-function CourseRow({ corso, progettoId, oreErogate = 0, finanziamentoNome }: { corso: CorsoConOre; progettoId: string; oreErogate?: number; finanziamentoNome?: string | null }) {
+function CourseRow({ corso, progettoId, oreErogate = 0, finanziamentoNome, selected, onToggle, deletable }: {
+  corso: CorsoConOre; progettoId: string; oreErogate?: number; finanziamentoNome?: string | null
+  selected?: boolean; onToggle?: (id: string) => void; deletable?: boolean
+}) {
   const router = useRouter()
   const formatore = corso.formatore as Profile | undefined
   const badgeInfo = corso.stato_assegnazione ? ASSEGNAZIONE_BADGES[corso.stato_assegnazione] : undefined
@@ -1781,10 +2296,21 @@ function CourseRow({ corso, progettoId, oreErogate = 0, finanziamentoNome }: { c
 
   return (
     <div
-      className="px-6 py-4 hover:bg-gray-50 transition-colors cursor-pointer"
+      className={`px-6 py-4 hover:bg-gray-50 transition-colors cursor-pointer ${selected ? 'bg-red-50/60' : ''}`}
       onClick={() => router.push(`/progetti/${progettoId}/corsi/${corso.id}`)}
     >
       <div className="flex items-center gap-4">
+        {onToggle && (
+          <div onClick={e => e.stopPropagation()} className="shrink-0">
+            <input
+              type="checkbox"
+              checked={selected ?? false}
+              onChange={() => onToggle(corso.id)}
+              title={deletable === false ? 'Non eliminabile' : undefined}
+              className="w-4 h-4 accent-[#d64b55] cursor-pointer"
+            />
+          </div>
+        )}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
             <span className="font-medium text-sm text-gray-900">{corso.title}</span>
