@@ -54,11 +54,24 @@ type ReferenteForm = { nome: string; email: string; tel: string; ruolo: string }
 const emptyReferenteForm: ReferenteForm = { nome: '', email: '', tel: '', ruolo: '' }
 
 type BulkRowState = { formatoreId: string; tariffa: string }
+
+type BulkAddEdizione = {
+  ore_totali: string
+  modalita: string
+  tutor_previsto: boolean
+  ore_tutoraggio: string
+  edizione: string
+  location: string
+}
+
 type BulkAddRow = {
-  catalogoId: string; title: string; tipo: string
-  ore_totali: string; modalita: string; tutor_previsto: boolean
-  ore_tutoraggio: string; edizione: string; location: string
-  descrizione: string; link_scheda: string
+  catalogoId: string
+  title: string
+  tipo: string
+  descrizione: string
+  link_scheda: string
+  qty: number
+  editions: BulkAddEdizione[]
 }
 
 export function ProgettoDetailClient({
@@ -439,14 +452,17 @@ export function ProgettoDetailClient({
         catalogoId: id,
         title: cat.titolo,
         tipo: isDM38 ? 'MF' : cat.tipo,
-        ore_totali: isDM38 ? '30' : '',
-        modalita: 'presenza',
-        tutor_previsto: false,
-        ore_tutoraggio: '',
-        edizione: '',
-        location: '',
         descrizione: cat.descrizione || '',
         link_scheda: cat.link_scheda || '',
+        qty: 1,
+        editions: [{
+          ore_totali: isDM38 ? '30' : '',
+          modalita: 'presenza',
+          tutor_previsto: false,
+          ore_tutoraggio: '',
+          edizione: '',
+          location: '',
+        }],
       }
     }
     setBulkAddRows(rows)
@@ -454,13 +470,21 @@ export function ProgettoDetailClient({
   }
 
   const handleBulkAddSave = async () => {
-    const rowList = Object.values(bulkAddRows)
+    // Flatten all editions across all rows into individual course-creation requests
+    type SaveItem = { row: BulkAddRow; ed: BulkAddEdizione; label: string }
+    const items: SaveItem[] = []
+    for (const row of Object.values(bulkAddRows)) {
+      for (const ed of row.editions) {
+        const label = row.qty > 1 ? `${row.title} (${ed.edizione || '?'})` : row.title
+        items.push({ row, ed, label })
+      }
+    }
     setSavingBulkAdd(true)
-    setBulkAddProgress({ done: 0, total: rowList.length })
+    setBulkAddProgress({ done: 0, total: items.length })
     const successi: string[] = []
     const errori: string[] = []
-    for (let i = 0; i < rowList.length; i++) {
-      const row = rowList[i]
+    for (let i = 0; i < items.length; i++) {
+      const { row, ed, label } = items[i]
       try {
         const res = await fetch('/api/corsi', {
           method: 'POST',
@@ -469,25 +493,25 @@ export function ProgettoDetailClient({
             project_id: progetto.id,
             title: row.title,
             tipo: row.tipo,
-            ore_totali: Number(row.ore_totali),
-            modalita: row.modalita || null,
-            tutor_previsto: row.tutor_previsto,
-            ...(row.tutor_previsto && row.ore_tutoraggio ? { ore_tutoraggio: Number(row.ore_tutoraggio) } : {}),
+            ore_totali: Number(ed.ore_totali),
+            modalita: ed.modalita || null,
+            tutor_previsto: ed.tutor_previsto,
+            ...(ed.tutor_previsto && ed.ore_tutoraggio ? { ore_tutoraggio: Number(ed.ore_tutoraggio) } : {}),
             ...(row.descrizione ? { descrizione: row.descrizione } : {}),
             ...(row.link_scheda ? { link_scheda: row.link_scheda } : {}),
-            ...(row.edizione ? { edizione: row.edizione } : {}),
-            ...(row.location ? { location: row.location } : {}),
+            ...(ed.edizione ? { edizione: ed.edizione } : {}),
+            ...(ed.location ? { location: ed.location } : {}),
           }),
         })
-        if (res.ok) successi.push(row.title)
+        if (res.ok) successi.push(label)
         else {
           const json = await res.json()
-          errori.push(`${row.title}: ${json.error || 'Errore'}`)
+          errori.push(`${label}: ${json.error || 'Errore'}`)
         }
       } catch {
-        errori.push(`${row.title}: Errore di rete`)
+        errori.push(`${label}: Errore di rete`)
       }
-      setBulkAddProgress({ done: i + 1, total: rowList.length })
+      setBulkAddProgress({ done: i + 1, total: items.length })
     }
     setBulkAddResults({ successi, errori })
     setSavingBulkAdd(false)
@@ -2144,35 +2168,61 @@ export function ProgettoDetailClient({
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="border-b border-gray-100">
-                            <th className="text-left pb-2 pr-4 font-medium text-gray-500 text-xs uppercase tracking-wide">Corso</th>
-                            <th className="text-left pb-2 pr-4 font-medium text-gray-500 text-xs uppercase tracking-wide w-24">Ore totali</th>
-                            <th className="text-left pb-2 pr-4 font-medium text-gray-500 text-xs uppercase tracking-wide w-44">Modalità</th>
-                            <th className="text-left pb-2 pr-4 font-medium text-gray-500 text-xs uppercase tracking-wide w-24">Tutor</th>
+                            <th className="text-left pb-2 pr-3 font-medium text-gray-500 text-xs uppercase tracking-wide">Corso</th>
+                            <th className="text-left pb-2 pr-3 font-medium text-gray-500 text-xs uppercase tracking-wide w-16">Qtà</th>
+                            <th className="text-left pb-2 pr-3 font-medium text-gray-500 text-xs uppercase tracking-wide w-24">Ore totali</th>
+                            <th className="text-left pb-2 pr-3 font-medium text-gray-500 text-xs uppercase tracking-wide w-44">Modalità</th>
+                            <th className="text-left pb-2 pr-3 font-medium text-gray-500 text-xs uppercase tracking-wide w-24">Tutor</th>
                             <th className="text-left pb-2 font-medium text-gray-500 text-xs uppercase tracking-wide w-32">Edizione</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
                           {Object.values(bulkAddRows).map(row => {
-                            const needsLocation = ['residenziale', 'semi_residenziale'].includes(row.modalita)
-                            const needsOreTut = row.tutor_previsto
-                            const updateRow = (patch: Partial<BulkAddRow>) =>
-                              setBulkAddRows(m => ({ ...m, [row.catalogoId]: { ...m[row.catalogoId], ...patch } }))
-                            return (
-                              <React.Fragment key={row.catalogoId}>
-                                <tr>
-                                  <td className="py-3 pr-4 align-top">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                      <span className="font-medium text-gray-900">{row.title}</span>
-                                      <span className={`inline-flex text-xs font-medium px-1.5 py-0.5 rounded ${row.tipo === 'PF' ? 'bg-blue-100 text-blue-700' : row.tipo === 'MF' ? 'bg-green-100 text-green-700' : 'bg-purple-100 text-purple-700'}`}>
-                                        {row.tipo}
-                                      </span>
-                                    </div>
-                                  </td>
-                                  <td className="py-3 pr-4 align-top">
+                            const isMulti = row.qty > 1
+
+                            const updateEdition = (idx: number, patch: Partial<BulkAddEdizione>) =>
+                              setBulkAddRows(m => ({
+                                ...m,
+                                [row.catalogoId]: {
+                                  ...m[row.catalogoId],
+                                  editions: m[row.catalogoId].editions.map((e, i) => i === idx ? { ...e, ...patch } : e),
+                                },
+                              }))
+
+                            const updateQtyForRow = (newQty: number) => {
+                              if (newQty < 1 || newQty > 20) return
+                              setBulkAddRows(m => {
+                                const cur = m[row.catalogoId]
+                                const eds = cur.editions
+                                let newEds: BulkAddEdizione[]
+                                if (newQty > eds.length) {
+                                  // Label first edition when first expanding from 1
+                                  const base = eds.length === 1 && cur.qty === 1
+                                    ? [{ ...eds[0], edizione: eds[0].edizione || 'Edizione 1' }]
+                                    : eds
+                                  const last = base[base.length - 1]
+                                  const toAdd = Array.from({ length: newQty - base.length }, (_, i) => ({
+                                    ...last,
+                                    edizione: `Edizione ${base.length + i + 1}`,
+                                  }))
+                                  newEds = [...base, ...toAdd]
+                                } else {
+                                  newEds = eds.slice(0, newQty)
+                                }
+                                return { ...m, [row.catalogoId]: { ...cur, qty: newQty, editions: newEds } }
+                              })
+                            }
+
+                            const renderEditionCells = (ed: BulkAddEdizione, idx: number, compact: boolean) => {
+                              const needsLocation = ['residenziale', 'semi_residenziale'].includes(ed.modalita)
+                              const py = compact ? 'py-2' : 'py-3'
+                              return (
+                                <>
+                                  <td className={`${py} pr-3 align-top`}>
                                     {isDM38 ? (
                                       <select
-                                        value={row.ore_totali}
-                                        onChange={e => updateRow({ ore_totali: e.target.value })}
+                                        value={ed.ore_totali}
+                                        onChange={e => updateEdition(idx, { ore_totali: e.target.value })}
                                         className="w-full text-sm border border-gray-200 rounded-[7px] px-2 py-1.5 bg-white focus:outline-none focus:border-[#d64b55]"
                                       >
                                         <option value="30">30h</option>
@@ -2182,19 +2232,19 @@ export function ProgettoDetailClient({
                                       <input
                                         type="number"
                                         min={1}
-                                        value={row.ore_totali}
-                                        onChange={e => updateRow({ ore_totali: e.target.value })}
+                                        value={ed.ore_totali}
+                                        onChange={e => updateEdition(idx, { ore_totali: e.target.value })}
                                         placeholder="Es. 20"
-                                        className={`w-full text-sm border rounded-[7px] px-2 py-1.5 focus:outline-none focus:border-[#d64b55] transition-colors ${!row.ore_totali ? 'border-red-300' : 'border-gray-200'}`}
+                                        className={`w-full text-sm border rounded-[7px] px-2 py-1.5 focus:outline-none focus:border-[#d64b55] transition-colors ${!ed.ore_totali ? 'border-red-300' : 'border-gray-200'}`}
                                       />
                                     )}
                                   </td>
-                                  <td className="py-3 pr-4 align-top">
+                                  <td className={`${py} pr-3 align-top`}>
                                     <select
-                                      value={row.modalita}
-                                      onChange={e => updateRow({
+                                      value={ed.modalita}
+                                      onChange={e => updateEdition(idx, {
                                         modalita: e.target.value,
-                                        location: ['residenziale', 'semi_residenziale'].includes(e.target.value) ? row.location : '',
+                                        location: ['residenziale', 'semi_residenziale'].includes(e.target.value) ? ed.location : '',
                                       })}
                                       className="w-full text-sm border border-gray-200 rounded-[7px] px-2 py-1.5 bg-white focus:outline-none focus:border-[#d64b55]"
                                     >
@@ -2207,44 +2257,93 @@ export function ProgettoDetailClient({
                                     {needsLocation && (
                                       <input
                                         type="text"
-                                        value={row.location}
-                                        onChange={e => updateRow({ location: e.target.value })}
+                                        value={ed.location}
+                                        onChange={e => updateEdition(idx, { location: e.target.value })}
                                         placeholder="Location *"
                                         className="mt-1.5 w-full text-sm border border-gray-200 rounded-[7px] px-2 py-1.5 focus:outline-none focus:border-[#d64b55]"
                                       />
                                     )}
                                   </td>
-                                  <td className="py-3 pr-4 align-top">
+                                  <td className={`${py} pr-3 align-top`}>
                                     <label className="flex items-center gap-2 cursor-pointer">
                                       <input
                                         type="checkbox"
-                                        checked={row.tutor_previsto}
-                                        onChange={e => updateRow({ tutor_previsto: e.target.checked, ore_tutoraggio: '' })}
+                                        checked={ed.tutor_previsto}
+                                        onChange={e => updateEdition(idx, { tutor_previsto: e.target.checked, ore_tutoraggio: '' })}
                                         className="w-4 h-4 accent-[#d64b55]"
                                       />
                                       <span className="text-sm text-gray-700">Sì</span>
                                     </label>
-                                    {needsOreTut && (
+                                    {ed.tutor_previsto && (
                                       <input
                                         type="number"
                                         min={1}
-                                        value={row.ore_tutoraggio}
-                                        onChange={e => updateRow({ ore_tutoraggio: e.target.value })}
+                                        value={ed.ore_tutoraggio}
+                                        onChange={e => updateEdition(idx, { ore_tutoraggio: e.target.value })}
                                         placeholder="Ore tut."
                                         className="mt-1.5 w-full text-sm border border-gray-200 rounded-[7px] px-2 py-1.5 focus:outline-none focus:border-[#d64b55]"
                                       />
                                     )}
                                   </td>
-                                  <td className="py-3 align-top">
+                                  <td className={`${py} align-top`}>
                                     <input
                                       type="text"
-                                      value={row.edizione}
-                                      onChange={e => updateRow({ edizione: e.target.value })}
-                                      placeholder="Es. 2025"
+                                      value={ed.edizione}
+                                      onChange={e => updateEdition(idx, { edizione: e.target.value })}
+                                      placeholder={isMulti ? `Edizione ${idx + 1}` : 'Es. 2025'}
                                       className="w-full text-sm border border-gray-200 rounded-[7px] px-2 py-1.5 focus:outline-none focus:border-[#d64b55]"
                                     />
                                   </td>
+                                </>
+                              )
+                            }
+
+                            return (
+                              <React.Fragment key={row.catalogoId}>
+                                {/* Main row */}
+                                <tr className={isMulti ? 'bg-gray-50/40' : ''}>
+                                  <td className="py-3 pr-3 align-top">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="font-medium text-gray-900">{row.title}</span>
+                                      <span className={`inline-flex text-xs font-medium px-1.5 py-0.5 rounded ${row.tipo === 'PF' ? 'bg-blue-100 text-blue-700' : row.tipo === 'MF' ? 'bg-green-100 text-green-700' : 'bg-purple-100 text-purple-700'}`}>
+                                        {row.tipo}
+                                      </span>
+                                    </div>
+                                  </td>
+                                  {/* Qty spinner */}
+                                  <td className="py-3 pr-3 align-top">
+                                    <input
+                                      type="number"
+                                      min={1}
+                                      max={20}
+                                      value={row.qty}
+                                      onChange={e => updateQtyForRow(Number(e.target.value))}
+                                      className="w-full text-sm border border-gray-200 rounded-[7px] px-2 py-1.5 focus:outline-none focus:border-[#d64b55]"
+                                    />
+                                  </td>
+                                  {/* When qty=1 show fields inline; when qty>1 leave cells empty */}
+                                  {isMulti ? (
+                                    <>
+                                      <td className="py-3 pr-3" />
+                                      <td className="py-3 pr-3" />
+                                      <td className="py-3 pr-3" />
+                                      <td className="py-3" />
+                                    </>
+                                  ) : (
+                                    renderEditionCells(row.editions[0], 0, false)
+                                  )}
                                 </tr>
+
+                                {/* Edition sub-rows when qty > 1 */}
+                                {isMulti && row.editions.map((ed, idx) => (
+                                  <tr key={idx} className="border-l-4 border-blue-300">
+                                    <td className="py-2 pr-3 pl-5 align-top">
+                                      <span className="text-xs font-medium text-blue-600">↳ Edizione {idx + 1}</span>
+                                    </td>
+                                    <td className="py-2 pr-3" />
+                                    {renderEditionCells(ed, idx, true)}
+                                  </tr>
+                                ))}
                               </React.Fragment>
                             )
                           })}
@@ -2274,7 +2373,12 @@ export function ProgettoDetailClient({
                   <Button variant="secondary" onClick={() => setBulkAddStep(1)}>← Indietro</Button>
                   <Button
                     onClick={handleBulkAddSave}
-                    disabled={Object.values(bulkAddRows).some(r => !r.ore_totali || Number(r.ore_totali) <= 0)}
+                    disabled={Object.values(bulkAddRows).some(row =>
+                      row.editions.some(ed =>
+                        !ed.ore_totali || Number(ed.ore_totali) <= 0 ||
+                        (['residenziale', 'semi_residenziale'].includes(ed.modalita) && !ed.location)
+                      )
+                    )}
                   >
                     Aggiungi tutti i corsi
                   </Button>
