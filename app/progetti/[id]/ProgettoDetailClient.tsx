@@ -957,19 +957,19 @@ export function ProgettoDetailClient({
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <div className="flex items-center gap-3">
             <h2 className="font-semibold text-gray-900">Corsi ({corsi.length})</h2>
-            {corsi.filter(c => c.formatore_id && !c.notificato).length > 0 && (
+            {corsi.filter(c => !!c.formatore_id && (!c.notificato || c.stato_assegnazione === 'in_attesa') && !['accettato', 'rifiutato', 'pre_accettato', 'pre_rifiutato'].includes(c.stato_assegnazione ?? '')).length > 0 && (
               <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
-                {corsi.filter(c => c.formatore_id && !c.notificato).length} da notificare
+                {corsi.filter(c => !!c.formatore_id && (!c.notificato || c.stato_assegnazione === 'in_attesa') && !['accettato', 'rifiutato', 'pre_accettato', 'pre_rifiutato'].includes(c.stato_assegnazione ?? '')).length} da notificare
               </span>
             )}
           </div>
           <div className="flex items-center gap-2">
-            {corsi.filter(c => c.formatore_id && !c.notificato).length > 0 && (
+            {corsi.filter(c => !!c.formatore_id && (!c.notificato || c.stato_assegnazione === 'in_attesa') && !['accettato', 'rifiutato', 'pre_accettato', 'pre_rifiutato'].includes(c.stato_assegnazione ?? '')).length > 0 && (
               <Button
                 size="sm"
                 variant="secondary"
                 onClick={() => {
-                  const daNotificare = corsi.filter(c => c.formatore_id && !c.notificato)
+                  const daNotificare = corsi.filter(c => !!c.formatore_id && (!c.notificato || c.stato_assegnazione === 'in_attesa') && !['accettato', 'rifiutato', 'pre_accettato', 'pre_rifiutato'].includes(c.stato_assegnazione ?? ''))
                   setNotificaSelected(new Set(daNotificare.map(c => c.id)))
                   setNotificaError('')
                   setNotificaOpen(true)
@@ -1309,7 +1309,18 @@ export function ProgettoDetailClient({
             Verrà inviata un&apos;unica email riepilogativa per ogni formatore con i corsi selezionati.
           </p>
           {(() => {
-            const daNotificare = corsi.filter(c => c.formatore_id && !c.notificato)
+            const daNotificare = corsi.filter(c =>
+              !!c.formatore_id &&
+              (!c.notificato || c.stato_assegnazione === 'in_attesa') &&
+              !['accettato', 'rifiutato', 'pre_accettato', 'pre_rifiutato'].includes(c.stato_assegnazione ?? '')
+            )
+            if (daNotificare.length === 0) {
+              return (
+                <p className="text-sm text-gray-500 text-center py-6">
+                  Tutti i corsi hanno già ricevuto una risposta dal formatore.
+                </p>
+              )
+            }
             const byFormatore = new Map<string, typeof daNotificare>()
             for (const c of daNotificare) {
               const fId = c.formatore_id as string
