@@ -2169,11 +2169,11 @@ export function ProgettoDetailClient({
                         <thead>
                           <tr className="border-b border-gray-100">
                             <th className="text-left pb-2 pr-3 font-medium text-gray-500 text-xs uppercase tracking-wide">Corso</th>
-                            <th className="text-left pb-2 pr-3 font-medium text-gray-500 text-xs uppercase tracking-wide w-16">Qtà</th>
                             <th className="text-left pb-2 pr-3 font-medium text-gray-500 text-xs uppercase tracking-wide w-24">Ore totali</th>
                             <th className="text-left pb-2 pr-3 font-medium text-gray-500 text-xs uppercase tracking-wide w-44">Modalità</th>
                             <th className="text-left pb-2 pr-3 font-medium text-gray-500 text-xs uppercase tracking-wide w-24">Tutor</th>
-                            <th className="text-left pb-2 font-medium text-gray-500 text-xs uppercase tracking-wide w-32">Edizione</th>
+                            <th className="text-left pb-2 pr-3 font-medium text-gray-500 text-xs uppercase tracking-wide w-32">Edizione</th>
+                            <th className="text-left pb-2 font-medium text-gray-500 text-xs uppercase tracking-wide w-16">Qtà</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
@@ -2295,7 +2295,7 @@ export function ProgettoDetailClient({
                                       />
                                     )}
                                   </td>
-                                  <td className={`${py} align-top`}>
+                                  <td className={`${py} pr-3 align-top`}>
                                     <input
                                       type="text"
                                       value={ed.edizione}
@@ -2320,8 +2320,19 @@ export function ProgettoDetailClient({
                                       </span>
                                     </div>
                                   </td>
-                                  {/* Qty spinner */}
-                                  <td className="py-3 pr-3 align-top">
+                                  {/* Ore / Modalità / Tutor / Edizione — inline when qty=1, empty when qty>1 */}
+                                  {isMulti ? (
+                                    <>
+                                      <td className="py-3 pr-3" />
+                                      <td className="py-3 pr-3" />
+                                      <td className="py-3 pr-3" />
+                                      <td className="py-3 pr-3" />
+                                    </>
+                                  ) : (
+                                    renderEditionCells(row.editions[0], 0, false)
+                                  )}
+                                  {/* Qty spinner — last column so user fills data first */}
+                                  <td className="py-3 align-top">
                                     <input
                                       type="number"
                                       min={1}
@@ -2331,17 +2342,6 @@ export function ProgettoDetailClient({
                                       className="w-full text-sm border border-gray-200 rounded-[7px] px-2 py-1.5 focus:outline-none focus:border-[#d64b55]"
                                     />
                                   </td>
-                                  {/* When qty=1 show fields inline; when qty>1 leave cells empty */}
-                                  {isMulti ? (
-                                    <>
-                                      <td className="py-3 pr-3" />
-                                      <td className="py-3 pr-3" />
-                                      <td className="py-3 pr-3" />
-                                      <td className="py-3" />
-                                    </>
-                                  ) : (
-                                    renderEditionCells(row.editions[0], 0, false)
-                                  )}
                                 </tr>
 
                                 {/* Edition sub-rows when qty > 1 */}
@@ -2350,8 +2350,8 @@ export function ProgettoDetailClient({
                                     <td className="py-2 pr-3 pl-5 align-top">
                                       <span className="text-xs font-medium text-blue-600">↳ Edizione {idx + 1}</span>
                                     </td>
-                                    <td className="py-2 pr-3" />
                                     {renderEditionCells(ed, idx, true)}
+                                    <td className="py-2" />
                                   </tr>
                                 ))}
                               </React.Fragment>
