@@ -2191,33 +2191,36 @@ export function ProgettoDetailClient({
 
                             const updateQtyForRow = (newQty: number) => {
                               if (newQty < 1 || newQty > 20) return
-                              setBulkAddRows(m => {
-                                const cur = m[row.catalogoId]
-                                const eds = cur.editions
-                                let newEds: BulkAddEdizione[]
-                                if (newQty > eds.length) {
-                                  // Start from a mutable copy; label first edition when first expanding
-                                  const working: BulkAddEdizione[] = eds.length === 1 && cur.qty === 1
-                                    ? [{ ...eds[0], edizione: eds[0].edizione || 'Edizione 1' }]
-                                    : eds.map(e => ({ ...e }))
-                                  // Add new editions one at a time, each copying ALL fields from the previous
-                                  while (working.length < newQty) {
-                                    const prev = working[working.length - 1]
-                                    working.push({
-                                      ore_totali: prev.ore_totali,
-                                      modalita: prev.modalita,
-                                      tutor_previsto: prev.tutor_previsto,
-                                      ore_tutoraggio: prev.ore_tutoraggio,
-                                      location: prev.location,
-                                      edizione: `Edizione ${working.length + 1}`,
-                                    })
-                                  }
-                                  newEds = working
-                                } else {
-                                  newEds = eds.slice(0, newQty)
+                              // Read from render-time committed state (bulkAddRows), NOT from the
+                              // functional-updater's m, so we always see the latest typed values
+                              // from the inline fields (ore_totali, modalita, etc.) which have
+                              // already committed via their own onChange calls before this fires.
+                              const cur = bulkAddRows[row.catalogoId]
+                              if (!cur) return
+                              const eds = cur.editions
+                              let newEds: BulkAddEdizione[]
+                              if (newQty > eds.length) {
+                                // Start from a mutable copy; label first edition when first expanding
+                                const working: BulkAddEdizione[] = eds.length === 1 && cur.qty === 1
+                                  ? [{ ...eds[0], edizione: eds[0].edizione || 'Edizione 1' }]
+                                  : eds.map(e => ({ ...e }))
+                                // Add new editions one at a time, each copying ALL fields from the previous
+                                while (working.length < newQty) {
+                                  const prev = working[working.length - 1]
+                                  working.push({
+                                    ore_totali: prev.ore_totali,
+                                    modalita: prev.modalita,
+                                    tutor_previsto: prev.tutor_previsto,
+                                    ore_tutoraggio: prev.ore_tutoraggio,
+                                    location: prev.location,
+                                    edizione: `Edizione ${working.length + 1}`,
+                                  })
                                 }
-                                return { ...m, [row.catalogoId]: { ...cur, qty: newQty, editions: newEds } }
-                              })
+                                newEds = working
+                              } else {
+                                newEds = eds.slice(0, newQty)
+                              }
+                              setBulkAddRows(prev => ({ ...prev, [row.catalogoId]: { ...cur, qty: newQty, editions: newEds } }))
                             }
 
                             const renderEditionCells = (ed: BulkAddEdizione, idx: number, compact: boolean) => {
