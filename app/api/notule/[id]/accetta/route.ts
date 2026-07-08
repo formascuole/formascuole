@@ -62,7 +62,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 la tua notula n. ${notula.numero} è stata accettata.
 
 Netto da ricevere: € ${netto.toFixed(2)}
-${marcaDaBollo ? '\nATTENZIONE: Applica una marca da bollo da € 2,00 sull\'originale cartaceo. Annullala con data e firma e consegnala all\'ufficio amministrativo.\n' : ''}
+${marcaDaBollo ? `
+⚠️ MARCA DA BOLLO:
+Se l'importo della notula supera € 77,47 è obbligatorio apporre una marca da bollo da € 2,00 sull'originale cartaceo.
+La marca da bollo deve essere annullata con data e firma prima dell'invio dell'originale a:
+SVC Consulting S.r.l.
+Via A. Vallisneri 7 – 00197 Roma
+` : ''}
 Il pagamento sarà effettuato nei tempi previsti tramite bonifico bancario.
 
 Grazie,

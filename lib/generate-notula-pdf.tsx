@@ -213,15 +213,17 @@ function NotulaPDF({ data }: { data: NotulaData }) {
           </>
         )}
 
-        {/* Modalità di pagamento */}
-        {data.iban && (
+        {/* Modalità di pagamento (solo notula) */}
+        {data.regime === 'notula' && data.iban && (
           <>
             <View style={s.divider} />
             <Text style={s.sectionTitle}>Modalità di pagamento</Text>
-            <Text style={[s.small, { marginBottom: 4 }]}>Il pagamento dovrà essere effettuato tramite bonifico bancario entro 30 gg f.m. alle seguenti coordinate:</Text>
-            <Text style={[s.small, s.bold]}>IBAN: {data.iban}</Text>
-            {data.banca && <Text style={s.small}>Banca: {data.banca}</Text>}
-            {data.intestatario_conto && <Text style={s.small}>Intestatario: {data.intestatario_conto}</Text>}
+            <Text style={[s.small, { marginBottom: 6 }]}>Il pagamento dovrà essere effettuato tramite bonifico bancario entro 30 gg f.m. alle seguenti coordinate bancarie:</Text>
+            <View style={{ marginLeft: 8 }}>
+              <Text style={[s.small, s.bold]}>IBAN: {data.iban}</Text>
+              {data.banca && <Text style={s.small}>Banca: {data.banca}</Text>}
+              {data.intestatario_conto && <Text style={s.small}>Intestatario: {data.intestatario_conto}</Text>}
+            </View>
           </>
         )}
 
@@ -234,12 +236,16 @@ function NotulaPDF({ data }: { data: NotulaData }) {
         )}
 
         {/* Firma */}
-        <View style={[s.divider, { marginTop: 24 }]} />
-        <View style={{ alignItems: 'flex-end', marginTop: 30 }}>
-          <View style={{ width: 180, borderBottomWidth: 0.5, borderBottomColor: '#999', marginBottom: 4 }} />
-          <Text style={{ fontSize: 8.5, color: '#888', textAlign: 'center', width: 180 }}>Firma</Text>
-          <Text style={{ fontSize: 8, color: '#888', textAlign: 'center', width: 180, marginTop: 2 }}>{data.formatore_nome}</Text>
-        </View>
+        {data.regime === 'notula' && (
+          <>
+            <View style={[s.divider, { marginTop: 24 }]} />
+            <View style={{ alignItems: 'flex-end', marginTop: 30 }}>
+              <View style={{ width: 180, borderBottomWidth: 0.5, borderBottomColor: '#999', marginBottom: 4 }} />
+              <Text style={{ fontSize: 8.5, color: '#888', textAlign: 'center', width: 180 }}>Firma</Text>
+              <Text style={{ fontSize: 8, color: '#888', textAlign: 'center', width: 180, marginTop: 2 }}>{data.formatore_nome}</Text>
+            </View>
+          </>
+        )}
 
       </Page>
     </Document>
