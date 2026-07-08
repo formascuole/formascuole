@@ -2196,16 +2196,23 @@ export function ProgettoDetailClient({
                                 const eds = cur.editions
                                 let newEds: BulkAddEdizione[]
                                 if (newQty > eds.length) {
-                                  // Label first edition when first expanding from 1
-                                  const base = eds.length === 1 && cur.qty === 1
+                                  // Start from a mutable copy; label first edition when first expanding
+                                  const working: BulkAddEdizione[] = eds.length === 1 && cur.qty === 1
                                     ? [{ ...eds[0], edizione: eds[0].edizione || 'Edizione 1' }]
-                                    : eds
-                                  const last = base[base.length - 1]
-                                  const toAdd = Array.from({ length: newQty - base.length }, (_, i) => ({
-                                    ...last,
-                                    edizione: `Edizione ${base.length + i + 1}`,
-                                  }))
-                                  newEds = [...base, ...toAdd]
+                                    : eds.map(e => ({ ...e }))
+                                  // Add new editions one at a time, each copying ALL fields from the previous
+                                  while (working.length < newQty) {
+                                    const prev = working[working.length - 1]
+                                    working.push({
+                                      ore_totali: prev.ore_totali,
+                                      modalita: prev.modalita,
+                                      tutor_previsto: prev.tutor_previsto,
+                                      ore_tutoraggio: prev.ore_tutoraggio,
+                                      location: prev.location,
+                                      edizione: `Edizione ${working.length + 1}`,
+                                    })
+                                  }
+                                  newEds = working
                                 } else {
                                   newEds = eds.slice(0, newQty)
                                 }
