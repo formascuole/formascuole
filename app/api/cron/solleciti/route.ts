@@ -828,6 +828,19 @@ Il team Formascuole`
 
         for (const [progettoId, corsiRisposta] of byProgetto) {
           try {
+            // De-duplication: send at most one riepilogo per project per calendar day
+            const { data: alreadySent } = await supabase
+              .from('solleciti_log')
+              .select('id')
+              .eq('corso_id', progettoId)
+              .eq('tipo', 'riepilogo_accettazioni')
+              .gte('sent_at', `${todayStr}T00:00:00Z`)
+              .maybeSingle()
+            if (alreadySent) {
+              riepilogoResults.push({ project_id: progettoId, action: 'already_sent_today' })
+              continue
+            }
+
             const [{ data: progetto }, { data: corsiInAttesa }] = await Promise.all([
               supabase.from('progetti').select('id, school_name').eq('id', progettoId).single(),
               supabase.from('corsi')
@@ -898,6 +911,17 @@ Il team Formascuole`
                 body,
                 actions: [{ label: 'Gestisci assegnazioni', url: progettoUrl, primary: true }],
               }).catch(() => {})
+            }
+
+            // Log so subsequent cron runs skip this project today
+            const { data: firstAdmin } = await supabase
+              .from('profiles').select('id').in('role', ['admin', 'super_admin']).limit(1).single()
+            if (firstAdmin) {
+              await supabase.from('solleciti_log').insert({
+                corso_id: progettoId,
+                formatore_id: firstAdmin.id,
+                tipo: 'riepilogo_accettazioni',
+              })
             }
 
             riepilogoResults.push({
