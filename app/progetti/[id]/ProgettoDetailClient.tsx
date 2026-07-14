@@ -161,6 +161,14 @@ export function ProgettoDetailClient({
   const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null)
   const [bulkResults, setBulkResults] = useState<{ successi: string[]; errori: { corso: string; err: string }[] } | null>(null)
   const [bulkValidationErrors, setBulkValidationErrors] = useState<Set<string>>(new Set())
+  const [tariffaQueue, setTariffaQueue] = useState<Array<{ formatoreId: string; formatoreName: string }>>([])
+  const [tariffaInput, setTariffaInput] = useState('')
+  const [tariffaSaving, setTariffaSaving] = useState(false)
+  const [tariffaError, setTariffaError] = useState('')
+  const [pendingToSave, setPendingToSave] = useState<Array<{ corsoId: string; title: string; formatoreId: string; tariffa: string }>>([])
+  const [localTariffeOverrides, setLocalTariffeOverrides] = useState<Record<string, number>>({})
+  const [oreWarningOpen, setOreWarningOpen] = useState(false)
+  const [oreWarningList, setOreWarningList] = useState<Array<{ nome: string; oreGia: number; oreNuove: number; oreTotal: number }>>([])
 
   // ── Cancellazione massiva ────────────────────────────────────
   const [deleteSelected, setDeleteSelected] = useState<Set<string>>(new Set())
@@ -565,29 +573,9 @@ export function ProgettoDetailClient({
     }
   }
 
-  const handleBulkSave = async () => {
-    const toSave: Array<{ corsoId: string; title: string; formatoreId: string; tariffa: string }> = []
-    for (const corso of corsi.filter(c => !c.formatore_id)) {
-      const row = bulkFormMap[corso.id]
-      if (row?.formatoreId) toSave.push({ corsoId: corso.id, title: corso.title, formatoreId: row.formatoreId, tariffa: row.tariffa })
-    }
-    for (const corso of corsi.filter(c => c.formatore_id)) {
-      const row = existingFormMap[corso.id]
-      if (row && row.formatoreId && row.formatoreId !== corso.formatore_id) {
-        toSave.push({ corsoId: corso.id, title: corso.title, formatoreId: row.formatoreId, tariffa: row.tariffa })
-      }
-    }
-    if (toSave.length === 0) return
+  type BulkSaveItem = { corsoId: string; title: string; formatoreId: string; tariffa: string }
 
-    const missingTariffa = new Set<string>()
-    for (const row of toSave) {
-      if (!row.tariffa || Number(row.tariffa) <= 0) {
-        const f = formatori.find(f => f.id === row.formatoreId)
-        if (!f?.tariffa_oraria_formatore || f.tariffa_oraria_formatore <= 0) missingTariffa.add(row.corsoId)
-      }
-    }
-    if (missingTariffa.size > 0) { setBulkValidationErrors(missingTariffa); return }
-
+  const executeBulkSave = async (toSave: BulkSaveItem[], tariffeOverrides: Record<string, number>) => {
     setBulkSaving(true)
     setBulkProgress({ done: 0, total: toSave.length })
     const successi: string[] = []
@@ -595,8 +583,11 @@ export function ProgettoDetailClient({
 
     for (let i = 0; i < toSave.length; i++) {
       const { corsoId, title, formatoreId, tariffa } = toSave[i]
+      const resolvedTariffa = (tariffa && Number(tariffa) > 0)
+        ? Number(tariffa)
+        : (tariffeOverrides[formatoreId] ?? null)
       const body: Record<string, unknown> = { formatore_id: formatoreId }
-      if (tariffa && Number(tariffa) > 0) body.tariffa_oraria = Number(tariffa)
+      if (resolvedTariffa) body.tariffa_oraria = resolvedTariffa
       const res = await fetch(`/api/corsi/${corsoId}/formatore`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -611,6 +602,105 @@ export function ProgettoDetailClient({
     setBulkSaving(false)
     setBulkResults({ successi, errori })
     if (successi.length > 0) router.refresh()
+  }
+
+  const proceedWithOreCheck = (toSave: BulkSaveItem[], tariffeOverrides: Record<string, number>) => {
+    const oreNuovePerFormatore: Record<string, number> = {}
+    for (const item of toSave) {
+      const corso = corsi.find(c => c.id === item.corsoId)
+      const ore = Number(corso?.ore_totali ?? 0)
+      oreNuovePerFormatore[item.formatoreId] = (oreNuovePerFormatore[item.formatoreId] ?? 0) + ore
+    }
+    const overLimit: Array<{ nome: string; oreGia: number; oreNuove: number; oreTotal: number }> = []
+    for (const [fId, oreNuove] of Object.entries(oreNuovePerFormatore)) {
+      const oreGia = oreAssegnateMap[fId] ?? 0
+      const oreTotal = oreGia + oreNuove
+      if (oreTotal > 200) {
+        const f = formatori.find(f => f.id === fId)
+        overLimit.push({ nome: f?.nome ?? fId, oreGia, oreNuove, oreTotal })
+      }
+    }
+    if (overLimit.length > 0) {
+      setPendingToSave(toSave)
+      setOreWarningList(overLimit)
+      setOreWarningOpen(true)
+    } else {
+      executeBulkSave(toSave, tariffeOverrides)
+    }
+  }
+
+  const handleTariffaModalSave = async () => {
+    if (!tariffaInput || Number(tariffaInput) <= 0) {
+      setTariffaError('Inserisci una tariffa valida')
+      return
+    }
+    const current = tariffaQueue[0]
+    if (!current) return
+    setTariffaSaving(true)
+    setTariffaError('')
+    try {
+      const res = await fetch(`/api/utenti/${current.formatoreId}/tariffa`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tariffa_oraria_formatore: Number(tariffaInput) }),
+      })
+      if (!res.ok) {
+        const json = await res.json()
+        setTariffaError(json.error || 'Errore durante il salvataggio')
+        setTariffaSaving(false)
+        return
+      }
+      const newOverrides = { ...localTariffeOverrides, [current.formatoreId]: Number(tariffaInput) }
+      setLocalTariffeOverrides(newOverrides)
+      const newQueue = tariffaQueue.slice(1)
+      setTariffaQueue(newQueue)
+      setTariffaInput('')
+      setTariffaError('')
+      setTariffaSaving(false)
+      if (newQueue.length === 0) proceedWithOreCheck(pendingToSave, newOverrides)
+    } catch {
+      setTariffaError('Errore di rete')
+      setTariffaSaving(false)
+    }
+  }
+
+  const handleBulkSave = () => {
+    const toSave: BulkSaveItem[] = []
+    for (const corso of corsi.filter(c => !c.formatore_id)) {
+      const row = bulkFormMap[corso.id]
+      if (row?.formatoreId) toSave.push({ corsoId: corso.id, title: corso.title, formatoreId: row.formatoreId, tariffa: row.tariffa })
+    }
+    for (const corso of corsi.filter(c => c.formatore_id)) {
+      const row = existingFormMap[corso.id]
+      if (row && row.formatoreId && row.formatoreId !== corso.formatore_id) {
+        toSave.push({ corsoId: corso.id, title: corso.title, formatoreId: row.formatoreId, tariffa: row.tariffa })
+      }
+    }
+    if (toSave.length === 0) return
+    setBulkValidationErrors(new Set())
+
+    const seen = new Set<string>()
+    const missing: Array<{ formatoreId: string; formatoreName: string }> = []
+    for (const item of toSave) {
+      if (seen.has(item.formatoreId)) continue
+      seen.add(item.formatoreId)
+      const rowHasTariffa = item.tariffa && Number(item.tariffa) > 0
+      const profileTariffa = formatori.find(f => f.id === item.formatoreId)?.tariffa_oraria_formatore
+      const localOverride = localTariffeOverrides[item.formatoreId]
+      if (!rowHasTariffa && !profileTariffa && !localOverride) {
+        const f = formatori.find(f => f.id === item.formatoreId)
+        missing.push({ formatoreId: item.formatoreId, formatoreName: f?.nome ?? item.formatoreId })
+      }
+    }
+    if (missing.length > 0) {
+      setPendingToSave(toSave)
+      setTariffaQueue(missing)
+      setTariffaInput('')
+      setTariffaError('')
+      return
+    }
+
+    proceedWithOreCheck(toSave, localTariffeOverrides)
   }
 
   // ── Handlers: chat ───────────────────────────────────────────
@@ -1961,6 +2051,83 @@ export function ProgettoDetailClient({
                   </Button>
                 </>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Tariffa oraria mancante ──────────────────────── */}
+      {tariffaQueue.length > 0 && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md" style={{ border: '0.5px solid #e5e5e5' }}>
+            <div className="px-6 py-4 border-b border-gray-100">
+              <h2 className="text-base font-semibold text-gray-900">Tariffa oraria mancante</h2>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <p className="text-sm text-gray-700">
+                <span className="font-medium">{tariffaQueue[0]?.formatoreName}</span> non ha una tariffa oraria impostata.
+                Inseriscila per procedere con l&apos;assegnazione.
+              </p>
+              {tariffaQueue.length > 1 && (
+                <p className="text-xs text-gray-400">{tariffaQueue.length - 1} altro/i formatore/i da configurare dopo questo.</p>
+              )}
+              <div>
+                <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5">Tariffa oraria</label>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-500">€</span>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    value={tariffaInput}
+                    onChange={e => { setTariffaInput(e.target.value); setTariffaError('') }}
+                    placeholder="es. 50"
+                    className="flex-1"
+                  />
+                  <span className="text-sm text-gray-500">/h</span>
+                </div>
+                {tariffaError && <p className="text-xs text-red-600 mt-1.5">{tariffaError}</p>}
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
+              <Button variant="secondary" onClick={() => { setTariffaQueue([]); setPendingToSave([]) }}>Annulla</Button>
+              <Button onClick={handleTariffaModalSave} disabled={tariffaSaving}>
+                {tariffaSaving ? 'Salvataggio...' : 'Salva e continua'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Superamento 200 ore ────────────────────────────── */}
+      {oreWarningOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg" style={{ border: '0.5px solid #e5e5e5' }}>
+            <div className="px-6 py-4 border-b border-gray-100">
+              <h2 className="text-base font-semibold text-gray-900">⚠️ Attenzione — Superamento 200 ore</h2>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <div className="divide-y divide-gray-100">
+                {oreWarningList.map((item, i) => (
+                  <div key={i} className="flex items-baseline justify-between py-2.5">
+                    <span className="text-sm font-medium text-gray-800">{item.nome}</span>
+                    <span className="text-xs text-gray-500 ml-4">
+                      {item.oreGia}h già assegnate + {item.oreNuove}h nuove ={' '}
+                      <span className="font-semibold text-amber-700">{item.oreTotal}h totali</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-sm text-gray-600">
+                {oreWarningList.length === 1 ? 'Questo formatore supera' : 'Questi formatori superano'} le 200 ore consigliate.
+                Vuoi procedere comunque?
+              </p>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
+              <Button variant="secondary" onClick={() => setOreWarningOpen(false)}>Annulla</Button>
+              <Button onClick={() => { setOreWarningOpen(false); executeBulkSave(pendingToSave, localTariffeOverrides) }}>
+                Confermo e procedo
+              </Button>
             </div>
           </div>
         </div>
