@@ -28,7 +28,10 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json()
-  const { nome, email, ruolo } = body as { nome?: string; email?: string; ruolo?: UserRole }
+  const { nome, email, ruolo, tariffa_oraria_formatore, tariffa_oraria_tutor } = body as {
+    nome?: string; email?: string; ruolo?: UserRole
+    tariffa_oraria_formatore?: number; tariffa_oraria_tutor?: number
+  }
 
   if (!nome?.trim() || !email?.trim() || !ruolo) {
     return NextResponse.json({ error: 'Nome, email e ruolo sono obbligatori' }, { status: 400 })
@@ -38,6 +41,12 @@ export async function POST(request: NextRequest) {
   }
   if (ruolo === 'admin' && callerRole !== 'super_admin') {
     return NextResponse.json({ error: 'Solo il Super Admin può creare account Admin' }, { status: 403 })
+  }
+  if (ruolo === 'formatore' && (!tariffa_oraria_formatore || tariffa_oraria_formatore <= 0)) {
+    return NextResponse.json({ error: 'La tariffa oraria è obbligatoria per formatori e tutor' }, { status: 400 })
+  }
+  if (ruolo === 'tutor' && (!tariffa_oraria_tutor || tariffa_oraria_tutor <= 0)) {
+    return NextResponse.json({ error: 'La tariffa oraria è obbligatoria per formatori e tutor' }, { status: 400 })
   }
 
   const nomeTrimmed = nome.trim()
@@ -94,6 +103,17 @@ export async function POST(request: NextRequest) {
     .upsert({ profile_id: userId, role: ruolo }, { onConflict: 'profile_id,role' })
   if (rolesError) {
     console.error('[crea-utente] profiles_roles upsert (non-fatal):', rolesError.message)
+  }
+
+  // Set tariffa for formatori/tutori
+  if (ruolo === 'formatore' || ruolo === 'tutor') {
+    const tariffeUpdate: Record<string, number> = {}
+    if (ruolo === 'formatore' && tariffa_oraria_formatore) tariffeUpdate.tariffa_oraria_formatore = tariffa_oraria_formatore
+    if (ruolo === 'tutor' && tariffa_oraria_tutor) tariffeUpdate.tariffa_oraria_tutor = tariffa_oraria_tutor
+    if (Object.keys(tariffeUpdate).length > 0) {
+      const { error: tariffaError } = await admin.from('profiles').update(tariffeUpdate).eq('id', userId)
+      if (tariffaError) console.error('[crea-utente] tariffa update (non-fatal):', tariffaError.message)
+    }
   }
 
   // Welcome email (non-blocking)

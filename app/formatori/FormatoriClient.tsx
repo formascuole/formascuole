@@ -138,7 +138,7 @@ async function exportFormatori(utenti: UtenteConStats[], statsMap: Record<string
   XLSX.writeFile(wb, `Formatori_Formascuole_${today}.xlsx`)
 }
 
-const initialCreateForm = { nome: '', email: '', ruolo: 'formatore' as UserRole }
+const initialCreateForm = { nome: '', email: '', ruolo: 'formatore' as UserRole, tariffa: '' }
 
 type EditForm = { nome: string; roles: UserRole[] }
 
@@ -215,6 +215,8 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
           nome: createForm.nome,
           email: createForm.email,
           ruolo: createForm.ruolo,
+          ...(createForm.ruolo === 'formatore' && { tariffa_oraria_formatore: Number(createForm.tariffa) }),
+          ...(createForm.ruolo === 'tutor' && { tariffa_oraria_tutor: Number(createForm.tariffa) }),
         }),
       })
       const json = await res.json()
@@ -239,7 +241,11 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
     })
   }
 
-  const canCreate = createForm.nome.trim().length > 0 && createForm.email.trim().length > 0 && !!createForm.ruolo
+  const needsTariffa = createForm.ruolo === 'formatore' || createForm.ruolo === 'tutor'
+  const canCreate = createForm.nome.trim().length > 0
+    && createForm.email.trim().length > 0
+    && !!createForm.ruolo
+    && (!needsTariffa || Number(createForm.tariffa) > 0)
 
   // ─── Edit handlers ─────────────────────────────────────────────────────────
   const openEdit = (u: UtenteConStats) => {
@@ -612,7 +618,7 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
                         type="radio"
                         name="ruolo"
                         checked={checked}
-                        onChange={() => setCreateForm(f => ({ ...f, ruolo: value }))}
+                        onChange={() => setCreateForm(f => ({ ...f, ruolo: value, tariffa: '' }))}
                         className="mt-0.5 accent-[#d64b55]"
                       />
                       <div className="flex-1 min-w-0">
@@ -630,6 +636,17 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
                 La password temporanea verrà generata automaticamente e inviata via email.
               </p>
             </div>
+            {needsTariffa && (
+              <Input
+                label={createForm.ruolo === 'formatore' ? 'Tariffa come formatore (€/h) *' : 'Tariffa come tutor (€/h) *'}
+                type="number"
+                min="1"
+                step="0.5"
+                placeholder="es. 40.00"
+                value={createForm.tariffa}
+                onChange={e => setCreateForm(f => ({ ...f, tariffa: e.target.value }))}
+              />
+            )}
             {createError && <ErrorBanner message={createError} />}
           </div>
         )}
