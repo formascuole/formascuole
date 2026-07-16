@@ -80,17 +80,21 @@ export function CatalogoClient({ initialCorsi, isSuperAdmin, finanziamenti }: Pr
   const [deletingCorso, setDeletingCorso] = useState<CatalogoCorso | null>(null)
   const [toggling, setToggling] = useState<string | null>(null)
   const [filterFinId, setFilterFinId] = useState('')
+  const [filterTipo, setFilterTipo] = useState('')
 
   const finMap = useMemo(() => new Map(finanziamenti.map(f => [f.id, f.nome])), [finanziamenti])
+
+  const isDM219 = filterFinId ? (finMap.get(filterFinId) ?? '').includes('219') : false
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     return corsi.filter(c => {
       if (filterFinId && c.finanziamento_id !== filterFinId) return false
+      if (filterTipo && c.tipo !== filterTipo) return false
       if (q) return c.titolo.toLowerCase().includes(q) || !!c.descrizione?.toLowerCase().includes(q)
       return true
     })
-  }, [corsi, search, filterFinId])
+  }, [corsi, search, filterFinId, filterTipo])
 
   const validateForm = (form: CorsoForm): string => {
     if (!form.titolo.trim()) return 'Il titolo è obbligatorio'
@@ -200,7 +204,7 @@ export function CatalogoClient({ initialCorsi, isSuperAdmin, finanziamenti }: Pr
     }
   }
 
-  const hasFilters = !!(search.trim() || filterFinId)
+  const hasFilters = !!(search.trim() || filterFinId || filterTipo)
 
   return (
     <div className="p-8 max-w-5xl mx-auto">
@@ -259,16 +263,31 @@ export function CatalogoClient({ initialCorsi, isSuperAdmin, finanziamenti }: Pr
         {finanziamenti.length > 0 && (
           <select
             value={filterFinId}
-            onChange={e => setFilterFinId(e.target.value)}
+            onChange={e => {
+              const newId = e.target.value
+              setFilterFinId(newId)
+              if (!(newId ? (finMap.get(newId) ?? '').includes('219') : false)) setFilterTipo('')
+            }}
             className="text-sm border border-gray-200 rounded-[7px] px-3 py-2.5 focus:outline-none focus:border-[#d64b55] bg-white"
           >
             <option value="">Tutti i finanziamenti</option>
             {finanziamenti.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
           </select>
         )}
+        {isDM219 && (
+          <select
+            value={filterTipo}
+            onChange={e => setFilterTipo(e.target.value)}
+            className="text-sm border border-gray-200 rounded-[7px] px-3 py-2.5 focus:outline-none focus:border-[#d64b55] bg-white"
+          >
+            <option value="">Tutti i tipi</option>
+            <option value="PF">Percorso Formativo (PF)</option>
+            <option value="Lab">Laboratorio sul Campo (Lab)</option>
+          </select>
+        )}
         {hasFilters && (
           <button
-            onClick={() => { setSearch(''); setFilterFinId('') }}
+            onClick={() => { setSearch(''); setFilterFinId(''); setFilterTipo('') }}
             className="text-xs text-gray-400 hover:text-gray-700 px-2 py-2.5"
           >
             Azzera filtri
