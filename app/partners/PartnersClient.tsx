@@ -1,20 +1,26 @@
 'use client'
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { Partner } from '@/lib/types'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { fmtCur } from '@/lib/economia-utils'
+import type { PartnerProgettoDato } from './page'
+
+const STATUS_LABEL: Record<string, string> = { active: 'Attivo', pending: 'In attesa', completed: 'Concluso' }
+const STATUS_CLASS: Record<string, string> = {
+  active: 'bg-green-100 text-green-700',
+  pending: 'bg-yellow-100 text-yellow-700',
+  completed: 'bg-gray-100 text-gray-500',
+}
 
 interface Props {
   partners: Partner[]
-  partnerProgettiCount: Record<string, number>
+  partnerProgetti: Record<string, PartnerProgettoDato[]>
 }
 
-export function PartnersClient({ partners: initialPartners, partnerProgettiCount: initialCounts }: Props) {
-  const router = useRouter()
+export function PartnersClient({ partners: initialPartners, partnerProgetti }: Props) {
   const [partners, setPartners] = useState<Partner[]>(initialPartners)
-  const [counts, setCounts] = useState(initialCounts)
 
   // Add
   const [addOpen, setAddOpen] = useState(false)
@@ -33,6 +39,9 @@ export function PartnersClient({ partners: initialPartners, partnerProgettiCount
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState('')
 
+  // Projects detail modal
+  const [progettiModal, setProgettiModal] = useState<Partner | null>(null)
+
   const handleAdd = async () => {
     setAdding(true)
     setAddError('')
@@ -45,7 +54,6 @@ export function PartnersClient({ partners: initialPartners, partnerProgettiCount
       const json = await res.json()
       if (!res.ok) { setAddError(json.error || 'Errore'); return }
       setPartners(prev => [...prev, json].sort((a, b) => a.nome.localeCompare(b.nome)))
-      setCounts(prev => ({ ...prev, [json.id]: 0 }))
       setAddOpen(false)
       setAddNome('')
     } finally {
@@ -87,24 +95,6 @@ export function PartnersClient({ partners: initialPartners, partnerProgettiCount
     }
   }
 
-  const handleExportPartner = async (partner: Partner) => {
-    const XLSX = await import('xlsx')
-    const year = new Date().getFullYear()
-    const filename = `EC_Partner_${partner.nome.replace(/\s+/g, '_')}_${year}.xlsx`
-
-    const res = await fetch('/api/partners')
-    // We don't actually fetch the full data here — we need to call the estratti conto API
-    // For now we generate a simple summary with what we know
-    const headers = ['Partner', 'N. Progetti', 'Anno']
-    const data = [[partner.nome, counts[partner.id] ?? 0, year]]
-
-    const ws = XLSX.utils.aoa_to_sheet([headers, ...data])
-    ws['!cols'] = headers.map(h => ({ wch: Math.max(h.length + 4, 16) }))
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, 'Riepilogo partner')
-    XLSX.writeFile(wb, filename)
-  }
-
   return (
     <div className="p-8 max-w-4xl mx-auto">
       <div className="flex items-start justify-between mb-6">
@@ -137,7 +127,8 @@ export function PartnersClient({ partners: initialPartners, partnerProgettiCount
             </thead>
             <tbody className="divide-y divide-gray-50">
               {partners.map(p => {
-                const nProgetti = counts[p.id] ?? 0
+                const progetti = partnerProgetti[p.id] ?? []
+                const nProgetti = progetti.length
                 return (
                   <tr key={p.id} className="hover:bg-gray-50">
                     <td className="px-5 py-3 font-medium text-gray-900">
@@ -150,9 +141,15 @@ export function PartnersClient({ partners: initialPartners, partnerProgettiCount
                     </td>
                     <td className="px-4 py-3 text-center">
                       {nProgetti > 0 ? (
-                        <span className="inline-flex items-center gap-1 text-xs font-medium text-violet-700 bg-violet-50 px-2 py-0.5 rounded-md">
+                        <button
+                          onClick={() => setProgettiModal(p)}
+                          className="inline-flex items-center gap-1 text-xs font-medium text-violet-700 bg-violet-50 px-2 py-0.5 rounded-md hover:bg-violet-100 transition-colors"
+                        >
                           {nProgetti} progett{nProgetti === 1 ? 'o' : 'i'}
-                        </span>
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className="opacity-50">
+                            <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        </button>
                       ) : (
                         <span className="text-gray-300 text-xs">—</span>
                       )}
@@ -186,12 +183,8 @@ export function PartnersClient({ partners: initialPartners, partnerProgettiCount
         </div>
       )}
 
-      {/* ── Modal: Aggiungi partner ── */}
-      <Modal
-        open={addOpen}
-        onClose={() => setAddOpen(false)}
-        title="Aggiungi partner"
-        size="sm"
+      {/* Modal: Aggiungi partner */}
+      <Modal open={addOpen} onClose={() => setAddOpen(false)} title="Aggiungi partner" size="sm"
         footer={
           <>
             <Button variant="secondary" onClick={() => setAddOpen(false)}>Annulla</Button>
@@ -200,24 +193,16 @@ export function PartnersClient({ partners: initialPartners, partnerProgettiCount
         }
       >
         <div className="space-y-3">
-          <Input
-            label="Nome partner *"
-            value={addNome}
-            onChange={e => setAddNome(e.target.value)}
-            placeholder="Es. Fondazione XYZ"
-            autoFocus
+          <Input label="Nome partner *" value={addNome} onChange={e => setAddNome(e.target.value)}
+            placeholder="Es. Fondazione XYZ" autoFocus
             onKeyDown={e => { if (e.key === 'Enter' && addNome.trim()) handleAdd() }}
           />
           {addError && <p className="text-sm text-red-600">{addError}</p>}
         </div>
       </Modal>
 
-      {/* ── Modal: Rinomina partner ── */}
-      <Modal
-        open={!!editTarget}
-        onClose={() => setEditTarget(null)}
-        title="Rinomina partner"
-        size="sm"
+      {/* Modal: Rinomina partner */}
+      <Modal open={!!editTarget} onClose={() => setEditTarget(null)} title="Rinomina partner" size="sm"
         footer={
           <>
             <Button variant="secondary" onClick={() => setEditTarget(null)}>Annulla</Button>
@@ -226,31 +211,19 @@ export function PartnersClient({ partners: initialPartners, partnerProgettiCount
         }
       >
         <div className="space-y-3">
-          <Input
-            label="Nome partner *"
-            value={editNome}
-            onChange={e => setEditNome(e.target.value)}
-            autoFocus
-            onKeyDown={e => { if (e.key === 'Enter' && editNome.trim()) handleEdit() }}
+          <Input label="Nome partner *" value={editNome} onChange={e => setEditNome(e.target.value)}
+            autoFocus onKeyDown={e => { if (e.key === 'Enter' && editNome.trim()) handleEdit() }}
           />
           {editError && <p className="text-sm text-red-600">{editError}</p>}
         </div>
       </Modal>
 
-      {/* ── Modal: Conferma eliminazione ── */}
-      <Modal
-        open={!!deleteTarget}
-        onClose={() => setDeleteTarget(null)}
-        title="Elimina partner"
-        size="sm"
+      {/* Modal: Conferma eliminazione */}
+      <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Elimina partner" size="sm"
         footer={
           <>
             <Button variant="secondary" onClick={() => setDeleteTarget(null)}>Annulla</Button>
-            <Button
-              onClick={handleDelete}
-              loading={deleting}
-              style={{ backgroundColor: '#dc2626', borderColor: '#dc2626' }}
-            >
+            <Button onClick={handleDelete} loading={deleting} style={{ backgroundColor: '#dc2626', borderColor: '#dc2626' }}>
               Elimina definitivamente
             </Button>
           </>
@@ -264,6 +237,92 @@ export function PartnersClient({ partners: initialPartners, partnerProgettiCount
           {deleteError && <p className="text-sm text-red-600">{deleteError}</p>}
         </div>
       </Modal>
+
+      {/* Modal: Dettaglio progetti del partner */}
+      {progettiModal && (() => {
+        const lista = partnerProgetti[progettiModal.id] ?? []
+        const totFatturato = lista.reduce((s, p) => s + p.fatturato_scuola, 0)
+        const totComm = lista.reduce((s, p) => s + p.commissione_totale_ivato, 0)
+        return (
+          <Modal
+            open
+            onClose={() => setProgettiModal(null)}
+            title={`Progetti — ${progettiModal.nome}`}
+            size="lg"
+            footer={<Button variant="secondary" onClick={() => setProgettiModal(null)}>Chiudi</Button>}
+          >
+            <div className="overflow-x-auto -mx-1">
+              <table className="w-full text-[13px] min-w-[520px]">
+                <thead>
+                  <tr className="border-b border-gray-100">
+                    <th className="text-left text-xs font-medium text-gray-400 px-2 py-2 min-w-[140px]">PROGETTO</th>
+                    <th className="text-left text-xs font-medium text-gray-400 px-2 py-2">STATO</th>
+                    <th className="text-left text-xs font-medium text-gray-400 px-2 py-2 hidden sm:table-cell">FINANZIAMENTO</th>
+                    <th className="text-right text-xs font-medium text-blue-400 px-2 py-2">FATTURATO</th>
+                    <th className="text-right text-xs font-medium text-emerald-500 px-2 py-2">COMMISSIONE</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {lista.map(prog => (
+                    <tr key={prog.id} className="hover:bg-gray-50">
+                      <td className="px-2 py-2.5 font-medium text-gray-800 leading-tight">
+                        {prog.school_name}
+                      </td>
+                      <td className="px-2 py-2.5">
+                        <span className={`inline-block text-[11px] font-medium px-1.5 py-0.5 rounded-md ${STATUS_CLASS[prog.status] ?? 'bg-gray-100 text-gray-500'}`}>
+                          {STATUS_LABEL[prog.status] ?? prog.status}
+                        </span>
+                      </td>
+                      <td className="px-2 py-2.5 hidden sm:table-cell">
+                        {prog.finanziamento_nome ? (
+                          <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-md bg-blue-50 text-blue-700">
+                            {prog.finanziamento_nome}
+                          </span>
+                        ) : (
+                          <span className="text-gray-300">—</span>
+                        )}
+                      </td>
+                      <td className="px-2 py-2.5 text-right font-mono text-blue-700">
+                        {prog.fatturato_scuola > 0
+                          ? fmtCur(prog.fatturato_scuola)
+                          : <span className="text-gray-300">—</span>}
+                      </td>
+                      <td className="px-2 py-2.5 text-right">
+                        {prog.commissione_totale_ivato > 0 ? (
+                          <div>
+                            <div className="font-mono font-semibold text-emerald-700">{fmtCur(prog.commissione_totale_ivato)}</div>
+                            <div className="text-[11px] text-gray-400 mt-0.5">
+                              imp.&nbsp;{fmtCur(prog.commissione_imponibile)} · iva&nbsp;{fmtCur(prog.commissione_iva)}
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-gray-300 font-mono">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-gray-200 bg-gray-50">
+                    <td colSpan={2} className="px-2 py-2.5 text-xs font-semibold text-gray-600 uppercase tracking-wide sm:hidden">
+                      Totale
+                    </td>
+                    <td colSpan={3} className="px-2 py-2.5 text-xs font-semibold text-gray-600 uppercase tracking-wide hidden sm:table-cell">
+                      Totale
+                    </td>
+                    <td className="px-2 py-2.5 text-right font-mono font-bold text-blue-800 hidden sm:table-cell">
+                      {fmtCur(totFatturato)}
+                    </td>
+                    <td className="px-2 py-2.5 text-right font-mono font-bold text-emerald-800">
+                      {fmtCur(totComm)}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </Modal>
+        )
+      })()}
     </div>
   )
 }
