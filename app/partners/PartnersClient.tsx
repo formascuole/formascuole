@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import Link from 'next/link'
 import { Partner } from '@/lib/types'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
@@ -78,6 +79,34 @@ export function PartnersClient({ partners: initialPartners, partnerProgetti }: P
     } finally {
       setSaving(false)
     }
+  }
+
+  const handleExportProgetti = async (partner: Partner, lista: PartnerProgettoDato[]) => {
+    const XLSX = await import('xlsx')
+    const anno = new Date().getFullYear()
+    const filename = `Commissioni_${partner.nome.replace(/\s+/g, '_')}_${anno}.xlsx`
+    const headers = ['Progetto', 'Stato', 'Finanziamento', 'Fatturato scuola (€)', 'Commissione IVA inc. (€)', 'Di cui imponibile (€)', 'Di cui IVA 22% (€)']
+    const rows = lista.map(p => [
+      p.school_name,
+      STATUS_LABEL[p.status] ?? p.status,
+      p.finanziamento_nome ?? '',
+      p.fatturato_scuola,
+      p.commissione_totale_ivato,
+      p.commissione_imponibile,
+      p.commissione_iva,
+    ])
+    rows.push([
+      'TOTALE', '', '',
+      lista.reduce((s, p) => s + p.fatturato_scuola, 0),
+      lista.reduce((s, p) => s + p.commissione_totale_ivato, 0),
+      lista.reduce((s, p) => s + p.commissione_imponibile, 0),
+      lista.reduce((s, p) => s + p.commissione_iva, 0),
+    ])
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows])
+    ws['!cols'] = headers.map(h => ({ wch: Math.max(h.length + 2, 16) }))
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Commissioni')
+    XLSX.writeFile(wb, filename)
   }
 
   const handleDelete = async () => {
@@ -249,7 +278,20 @@ export function PartnersClient({ partners: initialPartners, partnerProgetti }: P
             onClose={() => setProgettiModal(null)}
             title={`Progetti — ${progettiModal.nome}`}
             size="lg"
-            footer={<Button variant="secondary" onClick={() => setProgettiModal(null)}>Chiudi</Button>}
+            footer={
+              <>
+                <button
+                  onClick={() => handleExportProgetti(progettiModal, lista)}
+                  className="mr-auto inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-gray-900 px-3 py-1.5 rounded-[7px] border border-gray-200 hover:border-gray-300 bg-white transition-colors"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                    <path d="M12 3v12m0 0l-4-4m4 4l4-4M3 17v2a2 2 0 002 2h14a2 2 0 002-2v-2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  Esporta Excel
+                </button>
+                <Button variant="secondary" onClick={() => setProgettiModal(null)}>Chiudi</Button>
+              </>
+            }
           >
             <div className="overflow-x-auto -mx-1">
               <table className="w-full text-[13px] min-w-[520px]">
@@ -265,8 +307,10 @@ export function PartnersClient({ partners: initialPartners, partnerProgetti }: P
                 <tbody className="divide-y divide-gray-50">
                   {lista.map(prog => (
                     <tr key={prog.id} className="hover:bg-gray-50">
-                      <td className="px-2 py-2.5 font-medium text-gray-800 leading-tight">
-                        {prog.school_name}
+                      <td className="px-2 py-2.5 font-medium leading-tight">
+                        <Link href={`/progetti/${prog.id}`} className="text-gray-800 hover:text-blue-600 hover:underline">
+                          {prog.school_name}
+                        </Link>
                       </td>
                       <td className="px-2 py-2.5">
                         <span className={`inline-block text-[11px] font-medium px-1.5 py-0.5 rounded-md ${STATUS_CLASS[prog.status] ?? 'bg-gray-100 text-gray-500'}`}>
