@@ -946,12 +946,12 @@ export function ProgettoDetailClient({
                     )}
                     <div className="text-sm text-gray-500 mb-0.5">Fatturato scuola</div>
                     <div className="font-mono font-semibold text-gray-800 text-base">{fmtCur(fatturatoAttuale)}</div>
-                    <div className="text-sm text-gray-500 mt-3 mb-0.5">Commissione maturata</div>
-                    <div className="font-mono text-violet-600">{fmtCur(commAttuale.commissione)}</div>
-                    <div className="text-sm text-gray-500 mt-1 mb-0.5">IVA 22%</div>
+                    <div className="text-sm text-gray-500 mt-3 mb-0.5">Commissione (IVA inclusa)</div>
+                    <div className="font-mono font-bold text-violet-700 text-lg">{fmtCur(commAttuale.totale_ivato)}</div>
+                    <div className="text-sm text-gray-500 mt-1 mb-0.5">Di cui imponibile</div>
+                    <div className="font-mono text-violet-600">{fmtCur(commAttuale.imponibile)}</div>
+                    <div className="text-sm text-gray-500 mt-1 mb-0.5">Di cui IVA 22%</div>
                     <div className="font-mono text-violet-500">{fmtCur(commAttuale.iva)}</div>
-                    <div className="text-sm text-gray-500 mt-1 mb-0.5">Totale da riconoscere</div>
-                    <div className="font-mono font-bold text-violet-700 text-lg">{fmtCur(commAttuale.totale)}</div>
                     <div className="text-xs text-gray-400 mt-0.5">
                       {fatturatoAttuale <= 100000 ? '10% flat' : '10% su primi €100k + 12% sull\'eccedenza'}
                     </div>
@@ -966,12 +966,12 @@ export function ProgettoDetailClient({
                     )}
                     <div className="text-sm text-gray-500 mb-0.5">Fatturato scuola</div>
                     <div className="font-mono font-semibold text-gray-600 text-base">{fmtCur(fatturatoPotenziale)}</div>
-                    <div className="text-sm text-gray-500 mt-3 mb-0.5">Commissione potenziale</div>
-                    <div className="font-mono text-violet-400">{fmtCur(commPotenziale.commissione)}</div>
-                    <div className="text-sm text-gray-500 mt-1 mb-0.5">IVA 22%</div>
+                    <div className="text-sm text-gray-500 mt-3 mb-0.5">Commissione (IVA inclusa)</div>
+                    <div className="font-mono font-bold text-violet-400 text-lg">{fmtCur(commPotenziale.totale_ivato)}</div>
+                    <div className="text-sm text-gray-500 mt-1 mb-0.5">Di cui imponibile</div>
+                    <div className="font-mono text-violet-400">{fmtCur(commPotenziale.imponibile)}</div>
+                    <div className="text-sm text-gray-500 mt-1 mb-0.5">Di cui IVA 22%</div>
                     <div className="font-mono text-violet-300">{fmtCur(commPotenziale.iva)}</div>
-                    <div className="text-sm text-gray-500 mt-1 mb-0.5">Totale da riconoscere</div>
-                    <div className="font-mono font-bold text-violet-400 text-lg">{fmtCur(commPotenziale.totale)}</div>
                     <div className="text-xs text-gray-400 mt-0.5">
                       {fatturatoPotenziale <= 100000 ? '10% flat' : '10% su primi €100k + 12% sull\'eccedenza'}
                     </div>
