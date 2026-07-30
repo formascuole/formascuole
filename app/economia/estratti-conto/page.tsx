@@ -42,6 +42,11 @@ export interface CorsoECItem {
   importo_scuola_formatore: number
   importo_scuola_tutor: number
   totale_fattura_scuola: number
+  // Subappalto partner billing (if is_subappalto)
+  is_subappalto: boolean
+  imponibile_partner: number
+  iva_partner_sub: number
+  totale_fattura_partner: number
   // Costo formatore
   imponibile: number
   ritenuta: number
@@ -86,7 +91,7 @@ export default async function EstrattiContoPage() {
       .select('id, project_id, title, tipo, formatore_id, tutor_id, tutor_previsto, corso_completato, corso_completato_at, tariffa_oraria, tariffa_oraria_tutor, ore_tutoraggio, notula_id')
       .eq('corso_completato', true)
       .not('formatore_id', 'is', null),
-    admin.from('progetti').select('id, school_name, finanziamento_id, partner_id, quota_progettazione'),
+    admin.from('progetti').select('id, school_name, finanziamento_id, partner_id, quota_progettazione, is_subappalto, subappalto_tariffa_formatore, subappalto_tariffa_tutor'),
     admin.from('sessioni').select('corso_id, ore, data').eq('completata', true),
     admin.from('finanziamenti').select('id, nome, tariffa_formatore_ora, tariffa_tutor_ora'),
     admin.from('partners').select('id, nome').order('nome'),
@@ -156,6 +161,14 @@ export default async function EstrattiContoPage() {
       ? ore_tutoraggio * tariffa_scuola_tutor : 0
     const totale_fattura_scuola = importo_scuola_formatore + importo_scuola_tutor
 
+    // Subappalto partner billing
+    const is_subappalto = !!(progetto as { is_subappalto?: boolean | null } | undefined)?.is_subappalto
+    const tariffaSubF = is_subappalto ? Number((progetto as { subappalto_tariffa_formatore?: number | null } | undefined)?.subappalto_tariffa_formatore ?? 0) : 0
+    const tariffaSubT = is_subappalto ? Number((progetto as { subappalto_tariffa_tutor?: number | null } | undefined)?.subappalto_tariffa_tutor ?? 0) : 0
+    const imponibile_partner = is_subappalto ? (agg.ore_erogate * tariffaSubF + ore_tutoraggio * tariffaSubT) : 0
+    const iva_partner_sub = imponibile_partner * 0.22
+    const totale_fattura_partner = imponibile_partner + iva_partner_sub
+
     const anno = (c.corso_completato_at as string | null)?.substring(0, 4)
       ?? agg.ultima?.substring(0, 4) ?? null
 
@@ -205,6 +218,10 @@ export default async function EstrattiContoPage() {
       importo_scuola_formatore,
       importo_scuola_tutor,
       totale_fattura_scuola,
+      is_subappalto,
+      imponibile_partner,
+      iva_partner_sub,
+      totale_fattura_partner,
       imponibile: fin.imponibile,
       ritenuta: fin.ritenuta,
       iva: fin.iva,

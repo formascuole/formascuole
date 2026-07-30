@@ -12,6 +12,7 @@ interface ProgettoRow {
   finanziamento_nome: string | null
   partner_id: string | null
   partner_nome: string | null
+  is_subappalto: boolean
   n_formatori: number
   n_corsi: number
   ore_totali: number
@@ -23,6 +24,10 @@ interface ProgettoRow {
   commissione_partner: number
   iva_partner: number
   totale_partner: number
+  // subappalto billing (partner pays SVC)
+  imponibile_sub: number
+  iva_sub: number
+  totale_sub: number
   margine: number
 }
 
@@ -172,19 +177,24 @@ async function exportEstrattiConto(
 
   // Foglio 2: Riepilogo per progetto
   const s2Headers = [
-    'Progetto (Scuola)', 'Finanziamento', 'Partner', 'N. Formatori', 'N. Corsi', 'Ore Totali',
+    'Progetto (Scuola)', 'Finanziamento', 'Partner', 'Subappalto', 'N. Formatori', 'N. Corsi', 'Ore Totali',
     'Fatturato Corsi (€)', 'Quota Progettazione (€)', 'Fatturato Scuola (€)',
     'Costo Formatori (€)', 'Costo Tutor (€)',
-    'Comm. Partner (€)', 'IVA Partner (€)', 'Totale Partner (€)', 'Margine (€)',
+    'Comm. Partner (€)', 'IVA Partner (€)', 'Tot. Partner (€)',
+    'Fat. Partner IVA inc. (€)', 'Imp. Subappalto (€)', 'IVA Subappalto (€)',
+    'Margine (€)',
   ]
   const s2Data: (string | number)[][] = progettiRows.map(p => [
-    p.school_name, p.finanziamento_nome ?? '', p.partner_nome ?? '', p.n_formatori, p.n_corsi, p.ore_totali,
+    p.school_name, p.finanziamento_nome ?? '', p.partner_nome ?? '', p.is_subappalto ? 'Sì' : 'No',
+    p.n_formatori, p.n_corsi, p.ore_totali,
     p.fatturato_corsi, p.quota_progettazione, p.fatturato_scuola,
     p.costo_formatori, p.costo_tutor,
-    p.commissione_partner, p.iva_partner, p.totale_partner, p.margine,
+    p.commissione_partner, p.iva_partner, p.totale_partner,
+    p.totale_sub, p.imponibile_sub, p.iva_sub,
+    p.margine,
   ])
   s2Data.push([
-    'TOTALE', '', '',
+    'TOTALE', '', '', '',
     progettiRows.reduce((s, p) => s + p.n_formatori, 0),
     progettiRows.reduce((s, p) => s + p.n_corsi, 0),
     progettiRows.reduce((s, p) => s + p.ore_totali, 0),
@@ -196,6 +206,9 @@ async function exportEstrattiConto(
     progettiRows.reduce((s, p) => s + p.commissione_partner, 0),
     progettiRows.reduce((s, p) => s + p.iva_partner, 0),
     progettiRows.reduce((s, p) => s + p.totale_partner, 0),
+    progettiRows.reduce((s, p) => s + p.totale_sub, 0),
+    progettiRows.reduce((s, p) => s + p.imponibile_sub, 0),
+    progettiRows.reduce((s, p) => s + p.iva_sub, 0),
     progettiRows.reduce((s, p) => s + p.margine, 0),
   ])
   const ws2 = XLSX.utils.aoa_to_sheet([s2Headers, ...s2Data])
@@ -304,10 +317,12 @@ export function EstrattiContoClient({ items, formatori, progetti, finanziamenti,
         finanziamento_nome: i.finanziamento_nome,
         partner_id: i.partner_id,
         partner_nome: i.partner_nome,
+        is_subappalto: i.is_subappalto,
         n_formatori: 0, n_corsi: 0, ore_totali: 0,
         fatturato_corsi: 0, quota_progettazione: quotaProgettiMap[i.progetto_id] ?? 0,
         fatturato_scuola: 0, costo_formatori: 0, costo_tutor: 0,
         commissione_partner: 0, iva_partner: 0, totale_partner: 0,
+        imponibile_sub: 0, iva_sub: 0, totale_sub: 0,
         margine: 0,
       }
       cur.n_corsi++
@@ -316,6 +331,11 @@ export function EstrattiContoClient({ items, formatori, progetti, finanziamenti,
       cur.costo_formatori += i.netto
       cur.costo_tutor += i.netto_tutor
       cur.margine += i.margine
+      if (i.is_subappalto) {
+        cur.imponibile_sub += i.imponibile_partner
+        cur.iva_sub += i.iva_partner_sub
+        cur.totale_sub += i.totale_fattura_partner
+      }
       map.set(i.progetto_id, cur)
       if (!formPerProg.has(i.progetto_id)) formPerProg.set(i.progetto_id, new Set())
       formPerProg.get(i.progetto_id)!.add(i.formatore_id)
@@ -325,11 +345,16 @@ export function EstrattiContoClient({ items, formatori, progetti, finanziamenti,
       row.fatturato_scuola = row.fatturato_corsi + row.quota_progettazione
       row.margine += row.quota_progettazione
       if (row.partner_id) {
-        const comm = calcCommissionePartner(row.fatturato_scuola)
-        row.commissione_partner = comm.totale_ivato
-        row.iva_partner = comm.iva
-        row.totale_partner = comm.imponibile
-        row.margine -= comm.totale_ivato
+        if (row.is_subappalto) {
+          // subappalto: partner pays SVC → add imponibile to margine
+          row.margine += row.imponibile_sub
+        } else {
+          const comm = calcCommissionePartner(row.fatturato_scuola)
+          row.commissione_partner = comm.totale_ivato
+          row.iva_partner = comm.iva
+          row.totale_partner = comm.imponibile
+          row.margine -= comm.totale_ivato
+        }
       }
     }
     return [...map.values()].sort((a, b) => a.school_name.localeCompare(b.school_name))
@@ -392,6 +417,9 @@ export function EstrattiContoClient({ items, formatori, progetti, finanziamenti,
     commissione_partner: progettiRows.reduce((s, p) => s + p.commissione_partner, 0),
     iva_partner: progettiRows.reduce((s, p) => s + p.iva_partner, 0),
     totale_partner: progettiRows.reduce((s, p) => s + p.totale_partner, 0),
+    imponibile_sub: progettiRows.reduce((s, p) => s + p.imponibile_sub, 0),
+    iva_sub: progettiRows.reduce((s, p) => s + p.iva_sub, 0),
+    totale_sub: progettiRows.reduce((s, p) => s + p.totale_sub, 0),
     margine: progettiRows.reduce((s, p) => s + p.margine, 0),
   }), [filtered, progettiRows])
 
@@ -614,6 +642,9 @@ export function EstrattiContoClient({ items, formatori, progetti, finanziamenti,
                 <th className="text-right text-xs font-medium text-emerald-500 px-3 py-2.5">COMM. PAR.</th>
                 <th className="text-right text-xs font-medium text-emerald-400 px-3 py-2.5 hidden sm:table-cell">IMPONIBILE</th>
                 <th className="text-right text-xs font-medium text-emerald-600 px-3 py-2.5">IVA PAR.</th>
+                <th className="text-right text-xs font-medium text-orange-500 px-3 py-2.5 hidden xl:table-cell">FAT. PARTNER</th>
+                <th className="text-right text-xs font-medium text-orange-400 px-3 py-2.5 hidden xl:table-cell">IMP. SUB.</th>
+                <th className="text-right text-xs font-medium text-orange-400 px-3 py-2.5 hidden xl:table-cell">IVA SUB.</th>
                 <th className="text-right text-xs font-medium text-gray-400 px-4 py-2.5">MARGINE</th>
               </tr>
             </thead>
@@ -648,16 +679,30 @@ export function EstrattiContoClient({ items, formatori, progetti, finanziamenti,
                         {p.costo_formatori > 0 ? fmtCur(p.costo_formatori) : <span className="text-gray-300">—</span>}
                       </td>
                       <td className="px-3 py-2.5 text-left font-medium text-emerald-800 hidden lg:table-cell">
-                        {p.partner_nome ?? <span className="text-gray-300">—</span>}
+                        <div className="flex items-center gap-1.5">
+                          {p.partner_nome ?? <span className="text-gray-300">—</span>}
+                          {p.is_subappalto && (
+                            <span className="inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-orange-100 text-orange-700">Sub</span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-3 py-2.5 text-right font-mono text-emerald-700">
-                        {p.commissione_partner > 0 ? fmtCur(p.commissione_partner) : <span className="text-gray-300">—</span>}
+                        {!p.is_subappalto && p.commissione_partner > 0 ? fmtCur(p.commissione_partner) : <span className="text-gray-300">—</span>}
                       </td>
                       <td className="px-3 py-2.5 text-right font-mono text-emerald-600 hidden sm:table-cell">
-                        {p.totale_partner > 0 ? fmtCur(p.totale_partner) : <span className="text-gray-300">—</span>}
+                        {!p.is_subappalto && p.totale_partner > 0 ? fmtCur(p.totale_partner) : <span className="text-gray-300">—</span>}
                       </td>
                       <td className="px-3 py-2.5 text-right font-mono font-semibold text-emerald-800">
-                        {p.iva_partner > 0 ? fmtCur(p.iva_partner) : <span className="text-gray-300">—</span>}
+                        {!p.is_subappalto && p.iva_partner > 0 ? fmtCur(p.iva_partner) : <span className="text-gray-300">—</span>}
+                      </td>
+                      <td className="px-3 py-2.5 text-right font-mono text-orange-600 hidden xl:table-cell">
+                        {p.is_subappalto && p.totale_sub > 0 ? fmtCur(p.totale_sub) : <span className="text-gray-300">—</span>}
+                      </td>
+                      <td className="px-3 py-2.5 text-right font-mono text-orange-500 hidden xl:table-cell">
+                        {p.is_subappalto && p.imponibile_sub > 0 ? fmtCur(p.imponibile_sub) : <span className="text-gray-300">—</span>}
+                      </td>
+                      <td className="px-3 py-2.5 text-right font-mono text-orange-500 hidden xl:table-cell">
+                        {p.is_subappalto && p.iva_sub > 0 ? fmtCur(p.iva_sub) : <span className="text-gray-300">—</span>}
                       </td>
                       <td className="px-4 py-2.5 text-right">
                         <MargineCell v={p.margine} />
@@ -667,7 +712,7 @@ export function EstrattiContoClient({ items, formatori, progetti, finanziamenti,
                     {/* ── FORMATORI (livello 2) ── */}
                     {isPExpanded && (
                       <tr>
-                        <td colSpan={10} className="px-0 py-0 bg-gray-50/40 border-b border-gray-100">
+                        <td colSpan={13} className="px-0 py-0 bg-gray-50/40 border-b border-gray-100">
                           {p.quota_progettazione > 0 && (
                             <div className="pl-10 pr-4 py-2 flex items-center gap-6 text-xs text-gray-500 border-b border-blue-50">
                               <span className="font-medium text-gray-400 uppercase tracking-wide">Fatturato scuola:</span>
@@ -749,7 +794,7 @@ export function EstrattiContoClient({ items, formatori, progetti, finanziamenti,
                                       {/* ── CORSI DETAIL (livello 3) ── */}
                                       {isFExpanded && (
                                         <tr>
-                                          <td colSpan={10} className="px-0 py-0 bg-white">
+                                          <td colSpan={13} className="px-0 py-0 bg-white">
                                             <div className="pl-8 overflow-x-auto">
                                               <table className="w-full text-xs min-w-max">
                                                 <thead>
@@ -865,6 +910,15 @@ export function EstrattiContoClient({ items, formatori, progetti, finanziamenti,
                 </td>
                 <td className="px-3 py-2.5 text-right font-mono font-bold text-emerald-900">
                   {totals.iva_partner > 0 ? fmtCur(totals.iva_partner) : <span className="text-gray-300">—</span>}
+                </td>
+                <td className="px-3 py-2.5 text-right font-mono font-semibold text-orange-600 hidden xl:table-cell">
+                  {totals.totale_sub > 0 ? fmtCur(totals.totale_sub) : <span className="text-gray-300">—</span>}
+                </td>
+                <td className="px-3 py-2.5 text-right font-mono font-semibold text-orange-500 hidden xl:table-cell">
+                  {totals.imponibile_sub > 0 ? fmtCur(totals.imponibile_sub) : <span className="text-gray-300">—</span>}
+                </td>
+                <td className="px-3 py-2.5 text-right font-mono font-semibold text-orange-500 hidden xl:table-cell">
+                  {totals.iva_sub > 0 ? fmtCur(totals.iva_sub) : <span className="text-gray-300">—</span>}
                 </td>
                 <td className="px-4 py-2.5 text-right">
                   <MargineCell v={totals.margine} />

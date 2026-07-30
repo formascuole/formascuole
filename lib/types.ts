@@ -83,6 +83,9 @@ export interface Progetto {
   citta?: string | null
   // 'address' remains for backward compatibility but now means via e civico
   partner_id?: string | null
+  is_subappalto?: boolean | null
+  subappalto_tariffa_formatore?: number | null
+  subappalto_tariffa_tutor?: number | null
   quota_progettazione?: number | null
   quota_progettazione_note?: string | null
 }

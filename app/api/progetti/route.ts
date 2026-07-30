@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
   if (!['admin','super_admin'].includes(profile?.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const body = await request.json()
-  const { school_name, address, anno_scolastico, finanziamento_id, partner_id, quota_progettazione, quota_progettazione_note, ref_name, ref_email, ref_tel, ref_ruolo, status, regione, provincia, citta } = body
+  const { school_name, address, anno_scolastico, finanziamento_id, partner_id, quota_progettazione, quota_progettazione_note, ref_name, ref_email, ref_tel, ref_ruolo, status, regione, provincia, citta, is_subappalto, subappalto_tariffa_formatore, subappalto_tariffa_tutor } = body
 
   if (!school_name || !ref_name || !ref_email) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -38,6 +38,9 @@ export async function POST(request: NextRequest) {
       ...(anno_scolastico && { anno_scolastico }),
       finanziamento_id: finanziamento_id || null,
       partner_id: partner_id || null,
+      is_subappalto: !!is_subappalto,
+      subappalto_tariffa_formatore: subappalto_tariffa_formatore != null && subappalto_tariffa_formatore !== '' ? Number(subappalto_tariffa_formatore) : null,
+      subappalto_tariffa_tutor: subappalto_tariffa_tutor != null && subappalto_tariffa_tutor !== '' ? Number(subappalto_tariffa_tutor) : null,
       quota_progettazione: quota_progettazione != null && quota_progettazione !== '' ? Number(quota_progettazione) : null,
       quota_progettazione_note: quota_progettazione_note || null,
       ref_name,

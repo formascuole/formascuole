@@ -41,6 +41,12 @@ export const REGIME_BADGE: Record<RegimeFiscale, string> = {
   notula:      'bg-orange-100 text-orange-700',
 }
 
+export function calcFatturatoSubappalto(ore: number, tariffa: number): { imponibile: number; iva: number; totale: number } {
+  const imponibile = ore * tariffa
+  const iva = imponibile * 0.22
+  return { imponibile, iva, totale: imponibile + iva }
+}
+
 export function calcCommissionePartner(fatturato: number): { totale_ivato: number; imponibile: number; iva: number } {
   const totale_ivato = fatturato <= 100000
     ? fatturato * 0.10

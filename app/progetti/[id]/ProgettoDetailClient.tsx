@@ -42,6 +42,9 @@ type EditScuolaForm = {
   anno_scolastico: string
   finanziamento_id: string
   partner_id: string
+  is_subappalto: boolean
+  subappalto_tariffa_formatore: string
+  subappalto_tariffa_tutor: string
   quota_progettazione: string
   quota_progettazione_note: string
   status: string
@@ -124,6 +127,9 @@ export function ProgettoDetailClient({
     anno_scolastico: progetto.anno_scolastico || '',
     finanziamento_id: (progetto as ProgettoConStats & { finanziamento_id?: string | null }).finanziamento_id || '',
     partner_id: progetto.partner_id || '',
+    is_subappalto: !!(progetto as ProgettoConStats & { is_subappalto?: boolean | null }).is_subappalto,
+    subappalto_tariffa_formatore: String((progetto as ProgettoConStats & { subappalto_tariffa_formatore?: number | null }).subappalto_tariffa_formatore ?? ''),
+    subappalto_tariffa_tutor: String((progetto as ProgettoConStats & { subappalto_tariffa_tutor?: number | null }).subappalto_tariffa_tutor ?? ''),
     quota_progettazione: String(progetto.quota_progettazione ?? ''),
     quota_progettazione_note: progetto.quota_progettazione_note ?? '',
     status: progetto.status,
@@ -759,13 +765,21 @@ export function ProgettoDetailClient({
               {progetto.partner_id && (() => {
                 const partner = partners.find(p => p.id === progetto.partner_id)
                 if (!partner) return null
+                const isSub = !!(progetto as ProgettoConStats & { is_subappalto?: boolean | null }).is_subappalto
                 return (
-                  <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-md bg-violet-100 text-violet-700">
-                    <svg width="10" height="10" fill="none" viewBox="0 0 24 24">
-                      <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                    {partner.nome}
-                  </span>
+                  <>
+                    <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-md bg-violet-100 text-violet-700">
+                      <svg width="10" height="10" fill="none" viewBox="0 0 24 24">
+                        <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                      {partner.nome}
+                    </span>
+                    {isSub && (
+                      <span className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md bg-orange-100 text-orange-700">
+                        Subappalto
+                      </span>
+                    )}
+                  </>
                 )
               })()}
             </div>
@@ -781,6 +795,9 @@ export function ProgettoDetailClient({
                   anno_scolastico: progetto.anno_scolastico || '',
                   finanziamento_id: (progetto as ProgettoConStats & { finanziamento_id?: string | null }).finanziamento_id || '',
                   partner_id: progetto.partner_id || '',
+                  is_subappalto: !!(progetto as ProgettoConStats & { is_subappalto?: boolean | null }).is_subappalto,
+                  subappalto_tariffa_formatore: String((progetto as ProgettoConStats & { subappalto_tariffa_formatore?: number | null }).subappalto_tariffa_formatore ?? ''),
+                  subappalto_tariffa_tutor: String((progetto as ProgettoConStats & { subappalto_tariffa_tutor?: number | null }).subappalto_tariffa_tutor ?? ''),
                   quota_progettazione: String(progetto.quota_progettazione ?? ''),
                   quota_progettazione_note: progetto.quota_progettazione_note ?? '',
                   status: progetto.status,
@@ -894,12 +911,84 @@ export function ProgettoDetailClient({
         )
       })()}
 
-      {/* ── Sezione commissione partner ── */}
+      {/* ── Sezione commissione/subappalto partner ── */}
       {progetto.partner_id && (() => {
         const partner = partners.find(p => p.id === progetto.partner_id)
         if (!partner) return null
+        const isSubappalto = !!(progetto as ProgettoConStats & { is_subappalto?: boolean | null }).is_subappalto
         const finId = (progetto as ProgettoConStats & { finanziamento_id?: string | null }).finanziamento_id
         const fin = finId ? finanziamenti.find(f => f.id === finId) : null
+
+        if (isSubappalto) {
+          // Subappalto: partner pays SVC per hour of services delivered
+          const tariffaSubF = Number((progetto as ProgettoConStats & { subappalto_tariffa_formatore?: number | null }).subappalto_tariffa_formatore ?? 0)
+          const tariffaSubT = Number((progetto as ProgettoConStats & { subappalto_tariffa_tutor?: number | null }).subappalto_tariffa_tutor ?? 0)
+          let imponibileAttualeF = 0
+          let imponibileAttualeT = 0
+          let imponibilePotF = 0
+          let imponibilePotT = 0
+          for (const c of corsi) {
+            const hasRealTutor = c.tipo === 'PF' && !!c.tutor_id
+            const oreTutor = hasRealTutor ? Number((c as CorsoConOre & { ore_tutoraggio?: number }).ore_tutoraggio ?? 0) : 0
+            if (c.corso_completato) {
+              const oreErogate = oreErogatePerCorso[c.id] ?? 0
+              imponibileAttualeF += tariffaSubF > 0 ? oreErogate * tariffaSubF : 0
+              imponibileAttualeT += tariffaSubT > 0 && hasRealTutor ? oreTutor * tariffaSubT : 0
+            }
+            const oreTotali = Number(c.ore_totali ?? 0)
+            imponibilePotF += tariffaSubF > 0 ? oreTotali * tariffaSubF : 0
+            imponibilePotT += tariffaSubT > 0 && hasRealTutor ? oreTutor * tariffaSubT : 0
+          }
+          const impAttuale = imponibileAttualeF + imponibileAttualeT
+          const ivaAttuale = impAttuale * 0.22
+          const impPot = imponibilePotF + imponibilePotT
+          const ivaPot = impPot * 0.22
+          const hasTariffe = tariffaSubF > 0 || tariffaSubT > 0
+          return (
+            <div className="bg-white rounded-xl mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
+              <div className="flex items-center gap-2 px-6 py-4 border-b border-gray-100">
+                <svg width="15" height="15" fill="none" viewBox="0 0 24 24" className="text-orange-500 shrink-0">
+                  <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                <h2 className="font-semibold text-gray-900">Fatturato in subappalto</h2>
+                <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-violet-100 text-violet-700">{partner.nome}</span>
+                <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-orange-100 text-orange-700">Subappalto</span>
+              </div>
+              <div className="px-6 py-4">
+                {!hasTariffe ? (
+                  <p className="text-sm text-gray-400">Nessuna tariffa subappalto configurata — modifica il progetto per impostarla.</p>
+                ) : (
+                  <div className="grid grid-cols-2 gap-6">
+                    <div>
+                      <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Attuale (corsi completati)</div>
+                      {tariffaSubF > 0 && <div className="text-xs text-gray-400 mb-1">Tariffa formatore: <span className="font-mono">{fmtCur(tariffaSubF)}/h</span></div>}
+                      {tariffaSubT > 0 && <div className="text-xs text-gray-400 mb-2">Tariffa tutor: <span className="font-mono">{fmtCur(tariffaSubT)}/h</span></div>}
+                      <div className="text-sm text-gray-500 mt-2 mb-0.5">Imponibile</div>
+                      <div className="font-mono font-bold text-orange-700 text-lg">{fmtCur(impAttuale)}</div>
+                      <div className="text-sm text-gray-500 mt-1 mb-0.5">IVA 22%</div>
+                      <div className="font-mono text-orange-600">{fmtCur(ivaAttuale)}</div>
+                      <div className="text-sm text-gray-500 mt-1 mb-0.5">Totale IVA inclusa</div>
+                      <div className="font-mono font-semibold text-orange-700">{fmtCur(impAttuale + ivaAttuale)}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Potenziale (tutti i corsi)</div>
+                      {tariffaSubF > 0 && <div className="text-xs text-gray-400 mb-1">Tariffa formatore: <span className="font-mono">{fmtCur(tariffaSubF)}/h</span></div>}
+                      {tariffaSubT > 0 && <div className="text-xs text-gray-400 mb-2">Tariffa tutor: <span className="font-mono">{fmtCur(tariffaSubT)}/h</span></div>}
+                      <div className="text-sm text-gray-500 mt-2 mb-0.5">Imponibile</div>
+                      <div className="font-mono font-bold text-orange-400 text-lg">{fmtCur(impPot)}</div>
+                      <div className="text-sm text-gray-500 mt-1 mb-0.5">IVA 22%</div>
+                      <div className="font-mono text-orange-400">{fmtCur(ivaPot)}</div>
+                      <div className="text-sm text-gray-500 mt-1 mb-0.5">Totale IVA inclusa</div>
+                      <div className="font-mono font-semibold text-orange-400">{fmtCur(impPot + ivaPot)}</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )
+        }
+
+        // Non-subappalto: show commission
         const tariffaF = Number(fin?.tariffa_formatore_ora ?? 0)
         const tariffaT = Number(fin?.tariffa_tutor_ora ?? 0)
         const quotaProg = Number(progetto.quota_progettazione ?? 0)
@@ -1277,13 +1366,53 @@ export function ProgettoDetailClient({
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Partner</label>
             <select
               value={editScuolaForm.partner_id}
-              onChange={e => setEditScuolaForm(f => ({ ...f, partner_id: e.target.value }))}
+              onChange={e => setEditScuolaForm(f => ({
+                ...f,
+                partner_id: e.target.value,
+                ...(e.target.value === '' ? { is_subappalto: false, subappalto_tariffa_formatore: '', subappalto_tariffa_tutor: '' } : {}),
+              }))}
               className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 bg-white focus:outline-none focus:border-[#d64b55] transition-colors"
             >
               <option value="">Nessun partner</option>
               {partners.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
             </select>
           </div>
+          {editScuolaForm.partner_id && (
+            <div className="border border-orange-100 rounded-[7px] px-4 py-3 space-y-3 bg-orange-50/30">
+              <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={editScuolaForm.is_subappalto}
+                  onChange={e => setEditScuolaForm(f => ({
+                    ...f,
+                    is_subappalto: e.target.checked,
+                    subappalto_tariffa_formatore: e.target.checked ? f.subappalto_tariffa_formatore : '',
+                    subappalto_tariffa_tutor: e.target.checked ? f.subappalto_tariffa_tutor : '',
+                  }))}
+                  className="rounded border-gray-300"
+                />
+                Progetto in subappalto
+              </label>
+              {editScuolaForm.is_subappalto && (
+                <div className="grid grid-cols-2 gap-3">
+                  <Input
+                    label="Tariffa subappalto formatore (€/h)"
+                    type="number"
+                    value={editScuolaForm.subappalto_tariffa_formatore}
+                    onChange={e => setEditScuolaForm(f => ({ ...f, subappalto_tariffa_formatore: e.target.value }))}
+                    placeholder="es. 50.00"
+                  />
+                  <Input
+                    label="Tariffa subappalto tutor (€/h)"
+                    type="number"
+                    value={editScuolaForm.subappalto_tariffa_tutor}
+                    onChange={e => setEditScuolaForm(f => ({ ...f, subappalto_tariffa_tutor: e.target.value }))}
+                    placeholder="es. 30.00"
+                  />
+                </div>
+              )}
+            </div>
+          )}
           <div>
             <Input
               label="Quota progettazione (€)"

@@ -64,6 +64,9 @@ export function ProgettiClient({ progetti, finanziamenti, partners, inAttesaProj
     citta: '',
     finanziamento_id: '',
     partner_id: '',
+    is_subappalto: false,
+    subappalto_tariffa_formatore: '',
+    subappalto_tariffa_tutor: '',
     quota_progettazione: '',
     quota_progettazione_note: '',
     ref_name: '',
@@ -101,7 +104,9 @@ export function ProgettiClient({ progetti, finanziamenti, partners, inAttesaProj
 
   const resetForm = () => setForm({
     school_name: '', address: '', regione: '', provincia: '', citta: '',
-    finanziamento_id: '', partner_id: '', quota_progettazione: '', quota_progettazione_note: '',
+    finanziamento_id: '', partner_id: '',
+    is_subappalto: false, subappalto_tariffa_formatore: '', subappalto_tariffa_tutor: '',
+    quota_progettazione: '', quota_progettazione_note: '',
     ref_name: '', ref_email: '', ref_tel: '', ref_ruolo: '', status: 'active',
   })
 
@@ -116,6 +121,9 @@ export function ProgettiClient({ progetti, finanziamenti, partners, inAttesaProj
           ...form,
           finanziamento_id: form.finanziamento_id || null,
           partner_id: form.partner_id || null,
+          is_subappalto: form.partner_id ? form.is_subappalto : false,
+          subappalto_tariffa_formatore: form.is_subappalto && form.subappalto_tariffa_formatore ? Number(form.subappalto_tariffa_formatore) : null,
+          subappalto_tariffa_tutor: form.is_subappalto && form.subappalto_tariffa_tutor ? Number(form.subappalto_tariffa_tutor) : null,
           quota_progettazione: form.quota_progettazione ? Number(form.quota_progettazione) : null,
           quota_progettazione_note: form.quota_progettazione_note || null,
           regione: form.regione || null,
@@ -258,12 +266,52 @@ export function ProgettiClient({ progetti, finanziamenti, partners, inAttesaProj
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Partner</label>
               <select
                 value={form.partner_id}
-                onChange={e => setForm(f => ({ ...f, partner_id: e.target.value }))}
+                onChange={e => setForm(f => ({
+                  ...f,
+                  partner_id: e.target.value,
+                  ...(e.target.value === '' ? { is_subappalto: false, subappalto_tariffa_formatore: '', subappalto_tariffa_tutor: '' } : {}),
+                }))}
                 className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 bg-white focus:outline-none focus:border-[#d64b55] transition-colors"
               >
                 <option value="">Nessun partner</option>
                 {partners.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
               </select>
+            </div>
+          )}
+          {form.partner_id && (
+            <div className="border border-orange-100 rounded-[7px] px-4 py-3 space-y-3 bg-orange-50/30">
+              <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={form.is_subappalto}
+                  onChange={e => setForm(f => ({
+                    ...f,
+                    is_subappalto: e.target.checked,
+                    subappalto_tariffa_formatore: e.target.checked ? f.subappalto_tariffa_formatore : '',
+                    subappalto_tariffa_tutor: e.target.checked ? f.subappalto_tariffa_tutor : '',
+                  }))}
+                  className="rounded border-gray-300"
+                />
+                Progetto in subappalto
+              </label>
+              {form.is_subappalto && (
+                <div className="grid grid-cols-2 gap-3">
+                  <Input
+                    label="Tariffa subappalto formatore (€/h)"
+                    type="number"
+                    value={form.subappalto_tariffa_formatore}
+                    onChange={e => setForm(f => ({ ...f, subappalto_tariffa_formatore: e.target.value }))}
+                    placeholder="es. 50.00"
+                  />
+                  <Input
+                    label="Tariffa subappalto tutor (€/h)"
+                    type="number"
+                    value={form.subappalto_tariffa_tutor}
+                    onChange={e => setForm(f => ({ ...f, subappalto_tariffa_tutor: e.target.value }))}
+                    placeholder="es. 30.00"
+                  />
+                </div>
+              )}
             </div>
           )}
           <div>

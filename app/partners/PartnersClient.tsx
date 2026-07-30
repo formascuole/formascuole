@@ -85,22 +85,29 @@ export function PartnersClient({ partners: initialPartners, partnerProgetti }: P
     const XLSX = await import('xlsx')
     const anno = new Date().getFullYear()
     const filename = `Commissioni_${partner.nome.replace(/\s+/g, '_')}_${anno}.xlsx`
-    const headers = ['Progetto', 'Stato', 'Finanziamento', 'Fatturato scuola (€)', 'Commissione IVA inc. (€)', 'Di cui imponibile (€)', 'Di cui IVA 22% (€)']
+    const headers = ['Progetto', 'Stato', 'Finanziamento', 'Subappalto', 'Fatturato scuola (€)', 'Commissione IVA inc. (€)', 'Di cui imponibile (€)', 'Di cui IVA 22% (€)', 'Fat. Partner IVA inc. (€)', 'Imp. Partner (€)', 'IVA Partner (€)']
     const rows = lista.map(p => [
       p.school_name,
       STATUS_LABEL[p.status] ?? p.status,
       p.finanziamento_nome ?? '',
+      p.is_subappalto ? 'Sì' : 'No',
       p.fatturato_scuola,
       p.commissione_totale_ivato,
       p.commissione_imponibile,
       p.commissione_iva,
+      p.totale_partner,
+      p.imponibile_partner,
+      p.iva_partner,
     ])
     rows.push([
-      'TOTALE', '', '',
+      'TOTALE', '', '', '',
       lista.reduce((s, p) => s + p.fatturato_scuola, 0),
       lista.reduce((s, p) => s + p.commissione_totale_ivato, 0),
       lista.reduce((s, p) => s + p.commissione_imponibile, 0),
       lista.reduce((s, p) => s + p.commissione_iva, 0),
+      lista.reduce((s, p) => s + p.totale_partner, 0),
+      lista.reduce((s, p) => s + p.imponibile_partner, 0),
+      lista.reduce((s, p) => s + p.iva_partner, 0),
     ])
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows])
     ws['!cols'] = headers.map(h => ({ wch: Math.max(h.length + 2, 16) }))
@@ -272,6 +279,7 @@ export function PartnersClient({ partners: initialPartners, partnerProgetti }: P
         const lista = partnerProgetti[progettiModal.id] ?? []
         const totFatturato = lista.reduce((s, p) => s + p.fatturato_scuola, 0)
         const totComm = lista.reduce((s, p) => s + p.commissione_totale_ivato, 0)
+        const totSubappalto = lista.reduce((s, p) => s + p.totale_partner, 0)
         return (
           <Modal
             open
@@ -332,15 +340,31 @@ export function PartnersClient({ partners: initialPartners, partnerProgetti }: P
                           : <span className="text-gray-300">—</span>}
                       </td>
                       <td className="px-2 py-2.5 text-right">
-                        {prog.commissione_totale_ivato > 0 ? (
-                          <div>
-                            <div className="font-mono font-semibold text-emerald-700">{fmtCur(prog.commissione_totale_ivato)}</div>
-                            <div className="text-[11px] text-gray-400 mt-0.5">
-                              imp.&nbsp;{fmtCur(prog.commissione_imponibile)} · iva&nbsp;{fmtCur(prog.commissione_iva)}
+                        {prog.is_subappalto ? (
+                          prog.totale_partner > 0 ? (
+                            <div>
+                              <div className="flex items-center justify-end gap-1 mb-0.5">
+                                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-orange-100 text-orange-700">Subappalto</span>
+                              </div>
+                              <div className="font-mono font-semibold text-orange-700">{fmtCur(prog.totale_partner)}</div>
+                              <div className="text-[11px] text-gray-400 mt-0.5">
+                                imp.&nbsp;{fmtCur(prog.imponibile_partner)} · iva&nbsp;{fmtCur(prog.iva_partner)}
+                              </div>
                             </div>
-                          </div>
+                          ) : (
+                            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-orange-100 text-orange-700">Subappalto</span>
+                          )
                         ) : (
-                          <span className="text-gray-300 font-mono">—</span>
+                          prog.commissione_totale_ivato > 0 ? (
+                            <div>
+                              <div className="font-mono font-semibold text-emerald-700">{fmtCur(prog.commissione_totale_ivato)}</div>
+                              <div className="text-[11px] text-gray-400 mt-0.5">
+                                imp.&nbsp;{fmtCur(prog.commissione_imponibile)} · iva&nbsp;{fmtCur(prog.commissione_iva)}
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-gray-300 font-mono">—</span>
+                          )
                         )}
                       </td>
                     </tr>
@@ -357,8 +381,13 @@ export function PartnersClient({ partners: initialPartners, partnerProgetti }: P
                     <td className="px-2 py-2.5 text-right font-mono font-bold text-blue-800 hidden sm:table-cell">
                       {fmtCur(totFatturato)}
                     </td>
-                    <td className="px-2 py-2.5 text-right font-mono font-bold text-emerald-800">
-                      {fmtCur(totComm)}
+                    <td className="px-2 py-2.5 text-right">
+                      {totComm > 0 && (
+                        <div className="font-mono font-bold text-emerald-800">{fmtCur(totComm)}</div>
+                      )}
+                      {totSubappalto > 0 && (
+                        <div className="font-mono font-bold text-orange-700">{fmtCur(totSubappalto)}</div>
+                      )}
                     </td>
                   </tr>
                 </tfoot>

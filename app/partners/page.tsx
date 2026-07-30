@@ -11,10 +11,15 @@ export interface PartnerProgettoDato {
   school_name: string
   status: 'active' | 'pending' | 'completed'
   finanziamento_nome: string | null
+  is_subappalto: boolean
   fatturato_scuola: number
   commissione_totale_ivato: number
   commissione_imponibile: number
   commissione_iva: number
+  // subappalto billing (partner pays SVC)
+  imponibile_partner: number
+  iva_partner: number
+  totale_partner: number
 }
 
 export default async function PartnersPage() {
@@ -34,7 +39,7 @@ export default async function PartnersPage() {
   const [{ data: partnersRaw }, { data: progettiRaw }] = await Promise.all([
     admin.from('partners').select('*').order('nome'),
     admin.from('progetti')
-      .select('id, school_name, status, finanziamento_id, partner_id, quota_progettazione')
+      .select('id, school_name, status, finanziamento_id, partner_id, quota_progettazione, is_subappalto, subappalto_tariffa_formatore, subappalto_tariffa_tutor')
       .not('partner_id', 'is', null),
   ])
 
@@ -80,6 +85,7 @@ export default async function PartnersPage() {
 
   // Compute fatturato from corsi per project
   const fatturatoCorsiPerProgetto = new Map<string, number>()
+  const fatturatoPartnerImponibilePerProgetto = new Map<string, number>()
   for (const c of corsiRaw ?? []) {
     const progetto = progettiMap.get(c.project_id as string)
     if (!progetto) continue
@@ -94,6 +100,15 @@ export default async function PartnersPage() {
     const importoT = tariffaT != null && oreTutor > 0 ? oreTutor * tariffaT : 0
     const pid = c.project_id as string
     fatturatoCorsiPerProgetto.set(pid, (fatturatoCorsiPerProgetto.get(pid) ?? 0) + importoF + importoT)
+
+    const isSubappalto = !!(progetto.is_subappalto as boolean | null)
+    if (isSubappalto) {
+      const tariffaSubF = Number((progetto.subappalto_tariffa_formatore as number | null) ?? 0)
+      const tariffaSubT = Number((progetto.subappalto_tariffa_tutor as number | null) ?? 0)
+      const impSubF = tariffaSubF > 0 && oreErogate > 0 ? oreErogate * tariffaSubF : 0
+      const impSubT = tariffaSubT > 0 && oreTutor > 0 ? oreTutor * tariffaSubT : 0
+      fatturatoPartnerImponibilePerProgetto.set(pid, (fatturatoPartnerImponibilePerProgetto.get(pid) ?? 0) + impSubF + impSubT)
+    }
   }
 
   // Build per-partner project list with economics
@@ -103,7 +118,11 @@ export default async function PartnersPage() {
     const fatturatoCorsі = fatturatoCorsiPerProgetto.get(p.id as string) ?? 0
     const quota = Number((p.quota_progettazione as number | null) ?? 0)
     const fatturato_scuola = fatturatoCorsі + quota
-    const comm = calcCommissionePartner(fatturato_scuola)
+    const isSubappalto = !!(p.is_subappalto as boolean | null)
+    const comm = isSubappalto ? { totale_ivato: 0, imponibile: 0, iva: 0 } : calcCommissionePartner(fatturato_scuola)
+    const imponibile_partner = isSubappalto ? (fatturatoPartnerImponibilePerProgetto.get(p.id as string) ?? 0) : 0
+    const iva_partner = imponibile_partner * 0.22
+    const totale_partner = imponibile_partner + iva_partner
     const finId = p.finanziamento_id as string | null
     const finanziamento_nome = finId ? ((finanziamentiMap.get(finId)?.nome as string | null) ?? null) : null
     if (!partnerProgetti[partnerId]) partnerProgetti[partnerId] = []
@@ -112,10 +131,14 @@ export default async function PartnersPage() {
       school_name: p.school_name as string,
       status: p.status as 'active' | 'pending' | 'completed',
       finanziamento_nome,
+      is_subappalto: isSubappalto,
       fatturato_scuola,
       commissione_totale_ivato: comm.totale_ivato,
       commissione_imponibile: comm.imponibile,
       commissione_iva: comm.iva,
+      imponibile_partner,
+      iva_partner,
+      totale_partner,
     })
   }
 

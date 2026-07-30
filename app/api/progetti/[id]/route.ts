@@ -37,6 +37,16 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   } else if (body.quota_progettazione !== null) {
     body.quota_progettazione = Number(body.quota_progettazione) || null
   }
+  if (body.subappalto_tariffa_formatore === '' || body.subappalto_tariffa_formatore === undefined) {
+    body.subappalto_tariffa_formatore = null
+  } else if (body.subappalto_tariffa_formatore !== null) {
+    body.subappalto_tariffa_formatore = Number(body.subappalto_tariffa_formatore) || null
+  }
+  if (body.subappalto_tariffa_tutor === '' || body.subappalto_tariffa_tutor === undefined) {
+    body.subappalto_tariffa_tutor = null
+  } else if (body.subappalto_tariffa_tutor !== null) {
+    body.subappalto_tariffa_tutor = Number(body.subappalto_tariffa_tutor) || null
+  }
 
   // Use admin client to bypass RLS for the update
   const adminForUpdate = createAdminClient()
