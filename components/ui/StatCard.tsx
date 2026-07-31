@@ -1,7 +1,7 @@
 interface StatCardProps {
   label: string
   value: string | number
-  subtitle?: string
+  subtitle?: React.ReactNode
   icon?: React.ReactNode
   trend?: { value: number; label: string }
 }

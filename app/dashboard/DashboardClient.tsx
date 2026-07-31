@@ -70,6 +70,8 @@ export function DashboardClient({
   , [corsi, filteredProjectIds])
 
   const nProgetti = filteredProjects.length
+  const nAttivi = filteredProjects.filter(p => p.status === 'active').length
+  const nInAttesa = filteredProjects.filter(p => p.status === 'pending').length
   const nCorsi = filteredCorsi.length
   const oreTotali = filteredProjects.reduce((s, p) => s + Number(p.ore_totali), 0)
   const orePianificate = filteredProjects.reduce((s, p) => s + Number(p.ore_pianificate), 0)
@@ -148,9 +150,14 @@ export function DashboardClient({
       {/* Riga 1: Riepilogo globale */}
       <div className="grid grid-cols-5 gap-4 mb-4">
         <StatCard
-          label="Progetti attivi"
+          label="Progetti totali"
           value={nProgetti}
-          subtitle={`${filteredProjects.filter(p => p.status === 'active').length} in corso`}
+          subtitle={
+            <span className="flex flex-col gap-0.5 mt-0.5">
+              <span><span className="text-green-500">●</span> Attivi: <strong>{nAttivi}</strong></span>
+              <span><span className="text-yellow-400">●</span> In attesa: <strong>{nInAttesa}</strong></span>
+            </span>
+          }
           icon={<svg width="20" height="20" fill="none" viewBox="0 0 24 24"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" stroke="currentColor" strokeWidth="1.5"/></svg>}
         />
         <StatCard
