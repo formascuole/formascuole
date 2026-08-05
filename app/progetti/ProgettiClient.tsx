@@ -396,6 +396,11 @@ function ProjectCard({ progetto: p, finanziamenti }: { progetto: ProgettoConStat
             >
               {finanziamento.nome}
             </span>
+            {(p as ProgettoConStats & { is_subappalto?: boolean | null }).is_subappalto && (
+              <span className="inline-block text-xs font-medium px-2 py-0.5 rounded-md bg-orange-100 text-orange-700">
+                🔄 Subappalto
+              </span>
+            )}
           </div>
         ) : p.anno_scolastico ? (
           <div className="flex items-center gap-1.5">
@@ -404,6 +409,17 @@ function ProjectCard({ progetto: p, finanziamenti }: { progetto: ProgettoConStat
               <path d="M3 9h18M8 2v4M16 2v4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
             </svg>
             {p.anno_scolastico}
+            {(p as ProgettoConStats & { is_subappalto?: boolean | null }).is_subappalto && (
+              <span className="inline-block text-xs font-medium px-2 py-0.5 rounded-md bg-orange-100 text-orange-700">
+                🔄 Subappalto
+              </span>
+            )}
+          </div>
+        ) : (p as ProgettoConStats & { is_subappalto?: boolean | null }).is_subappalto ? (
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block text-xs font-medium px-2 py-0.5 rounded-md bg-orange-100 text-orange-700">
+              🔄 Subappalto
+            </span>
           </div>
         ) : null}
         <div className="flex items-center gap-1.5">

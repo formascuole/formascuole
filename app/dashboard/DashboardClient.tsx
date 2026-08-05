@@ -343,7 +343,12 @@ export function DashboardClient({
               {filteredProjects.slice(0, 8).map((p) => (
                 <tr key={p.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4">
-                    <div className="font-medium text-sm text-gray-900">{p.school_name}</div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-medium text-sm text-gray-900">{p.school_name}</span>
+                      {(p as ProgettoConStats & { is_subappalto?: boolean | null }).is_subappalto && (
+                        <span className="inline-block text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-orange-100 text-orange-700">Sub</span>
+                      )}
+                    </div>
                     <div className="text-xs text-gray-400">{p.address}</div>
                     {p.finanziamento_id && finMap.has(p.finanziamento_id) && (() => {
                       const nome = finMap.get(p.finanziamento_id!)!
