@@ -38,6 +38,8 @@ export interface Profile {
   telefono?: string | null
   regione?: string | null
   inps_gestione_separata?: boolean
+  lat?: number | null
+  lng?: number | null
 }
 
 export interface Partner {
@@ -88,6 +90,8 @@ export interface Progetto {
   subappalto_tariffa_tutor?: number | null
   quota_progettazione?: number | null
   quota_progettazione_note?: string | null
+  lat?: number | null
+  lng?: number | null
 }
 
 export interface ProgettoConStats extends Progetto {
