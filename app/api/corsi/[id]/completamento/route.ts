@@ -150,12 +150,17 @@ Ore erogate: ${oreErogate}h${finanziamento ? `\nLinea finanziamento: ${finanziam
 
 Scheda corso: ${corsoUrl}`
 
+  const isPIva = emailParams.regime_fiscale === 'forfettario' || emailParams.regime_fiscale === 'ordinario'
+  const formatoreDashUrl = isPIva ? `${APP_URL}/formatore/crediti` : `${APP_URL}/formatore/notule`
+  const formatoreDashLabel = isPIva ? 'Vai a I miei crediti' : 'Vai a Le mie notule'
+
   await Promise.allSettled([
     // Email to formatore
     sendEmail({
       to: formatoreProfile.email as string,
       subject: subjFormatore,
       body: bodyFormatore,
+      actions: [{ label: formatoreDashLabel, url: formatoreDashUrl, primary: true }],
     }),
     // Email to pianificazione team
     sendEmail({

@@ -1140,9 +1140,9 @@ Ricevuto il consenso alla liquidazione da parte di SVC Consulting S.r.l. potrai 
 In caso di fattura elettronica invia copia di cortesia a:
 📧 amministrazione@formascuole.it`
   }
-  // notula: testo invariato
-  return `Per procedere con il pagamento invia la tua pro forma (notula senza marca da bollo) a:
-amministrazione@formascuole.it
+  // notula
+  return `Per procedere con il pagamento genera la tua pro forma dalla sezione "Le mie notule" della piattaforma, quindi inviala a:
+📧 amministrazione@formascuole.it
 
 La pro forma deve riportare:
 - I tuoi dati anagrafici e fiscali
