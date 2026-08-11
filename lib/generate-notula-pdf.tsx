@@ -214,15 +214,15 @@ function NotulaPDF({ data }: { data: NotulaData }) {
         )}
 
         {/* Modalità di pagamento (solo notula) */}
-        {data.regime === 'notula' && data.iban && (
+        {data.regime === 'notula' && (
           <>
             <View style={s.divider} />
             <Text style={s.sectionTitle}>Modalità di pagamento</Text>
             <Text style={[s.small, { marginBottom: 6 }]}>Il pagamento dovrà essere effettuato tramite bonifico bancario entro 30 gg f.m. alle seguenti coordinate bancarie:</Text>
             <View style={{ marginLeft: 8 }}>
-              <Text style={[s.small, s.bold]}>IBAN: {data.iban}</Text>
-              {data.banca && <Text style={s.small}>Banca: {data.banca}</Text>}
-              {data.intestatario_conto && <Text style={s.small}>Intestatario: {data.intestatario_conto}</Text>}
+              <Text style={[s.small, s.bold]}>IBAN: {data.iban ?? '—'}</Text>
+              <Text style={s.small}>Banca: {data.banca ?? '—'}</Text>
+              <Text style={s.small}>Intestatario: {data.intestatario_conto ?? data.formatore_nome}</Text>
             </View>
           </>
         )}
