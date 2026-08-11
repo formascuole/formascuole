@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { generateRispostaAssegnazioniAdminEmail, sendEmail } from '@/lib/email'
 import { generateLetteraIncaricoFormatorePdf } from '@/lib/generate-lettera-incarico-pdf'
-
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://formascuole.vercel.app'
 
 interface Decision {
   corso_id: string
@@ -62,10 +59,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const formatoreId = corsi[0].formatore_id
   const progettoId = corsi[0].project_id
 
-  const [{ data: formatore }, { data: progetto }, { data: admins }] = await Promise.all([
+  const [{ data: formatore }, { data: progetto }] = await Promise.all([
     admin.from('profiles').select('nome, email, indirizzo_via, indirizzo_cap, indirizzo_citta, indirizzo_provincia, codice_fiscale, tariffa_oraria_formatore').eq('id', formatoreId).single(),
     admin.from('progetti').select('school_name, status').eq('id', progettoId).single(),
-    admin.from('profiles').select('email').in('role', ['admin', 'super_admin']),
   ])
 
   // Auto-generate lettere incarico for each accepted corso (only for active projects)
@@ -112,28 +108,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       } catch (err) {
         console.error(`[assegnazioni/token] Lettera generation failed for corso ${corso.id} (non-fatal):`, err)
       }
-    }
-  }
-
-  if (formatore && progetto && admins?.length) {
-    try {
-      const body = await generateRispostaAssegnazioniAdminEmail({
-        formatore_nome: formatore.nome as string,
-        school_name: progetto.school_name as string,
-        accettati,
-        rifiutati,
-        progetto_url: `${APP_URL}/progetti/${progettoId}`,
-      })
-      for (const a of admins) {
-        await sendEmail({
-          to: a.email,
-          subject: `Risposta assegnazioni — ${formatore.nome} — ${progetto.school_name}`,
-          body,
-          actions: [{ label: '→ Apri progetto', url: `${APP_URL}/progetti/${progettoId}`, primary: true }],
-        }).catch(() => {})
-      }
-    } catch (err) {
-      console.error('[assegnazioni/token] Admin notify error:', err)
     }
   }
 

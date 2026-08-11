@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { generateRispostaFormatoreEmail, sendEmail } from '@/lib/email'
 import { generateLetteraIncaricoFormatorePdf } from '@/lib/generate-lettera-incarico-pdf'
-
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://formascuole.vercel.app'
 
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: corsoId } = await params
@@ -83,31 +80,6 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
       }).eq('id', corsoId)
     } catch (err) {
       console.error('[accetta] Lettera generation failed (non-fatal):', err)
-    }
-  }
-
-  // Notify admins (fire and forget)
-  if (progetto && formatore) {
-    const { data: admins } = await admin
-      .from('profiles')
-      .select('email')
-      .in('role', ['admin', 'super_admin'])
-
-    const emailBody = await generateRispostaFormatoreEmail({
-      formatore_nome: formatore.nome as string,
-      corso_title: corso.title as string,
-      school_name: progetto.school_name as string,
-      risposta: 'accettato',
-      corso_admin_url: `${APP_URL}/progetti/${corso.project_id}/corsi/${corsoId}`,
-    })
-
-    for (const a of admins || []) {
-      sendEmail({
-        to: a.email,
-        subject: `Formascuole — ${formatore.nome} ha accettato: ${corso.title} — ${progetto.school_name}`,
-        body: emailBody,
-        actions: [{ label: 'Vedi scheda corso', url: `${APP_URL}/progetti/${corso.project_id}/corsi/${corsoId}`, primary: true }],
-      }).catch(() => {})
     }
   }
 
