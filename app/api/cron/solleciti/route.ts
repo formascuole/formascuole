@@ -577,7 +577,7 @@ export async function GET(request: NextRequest) {
           supabase.from('progetti').select('school_name, id, status').eq('id', group.project_id).single(),
         ])
         if (!formatore || !progetto) continue
-        if (progetto.status !== 'attivo') continue
+        if (progetto.status !== 'active') continue
 
         const corsoIdsSent = group.corsi.map(c => c.id)
 
@@ -640,7 +640,7 @@ Il team Formascuole`
           supabase.from('progetti').select('school_name, id, status').eq('id', group.project_id).single(),
         ])
         if (!tutor || !progetto) continue
-        if (progetto.status !== 'attivo') continue
+        if (progetto.status !== 'active') continue
 
         const corsoIdsSent = group.corsi.map(c => c.id)
 
