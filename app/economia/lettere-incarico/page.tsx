@@ -34,17 +34,36 @@ export default async function LettereIncaricoPage() {
 
   const admin = createAdminClient()
 
-  const { data: corsiRaw } = await admin
-    .from('corsi')
-    .select(`
-      id, title, project_id, created_at,
-      formatore_id, lettera_incarico_url, lettera_incarico_firmata, lettera_incarico_firmata_at, lettera_incarico_ip,
-      tutor_id,     lettera_tutor_url,    lettera_tutor_firmata,    lettera_tutor_firmata_at,    lettera_tutor_ip
-    `)
-    .or('lettera_incarico_url.not.is.null,lettera_tutor_url.not.is.null')
-    .order('created_at', { ascending: false })
+  // Fetch letters + count of missing letters in parallel
+  const [corsiRes, activeProgettiRes] = await Promise.all([
+    admin
+      .from('corsi')
+      .select(`
+        id, title, project_id, created_at,
+        formatore_id, lettera_incarico_url, lettera_incarico_firmata, lettera_incarico_firmata_at, lettera_incarico_ip,
+        tutor_id,     lettera_tutor_url,    lettera_tutor_firmata,    lettera_tutor_firmata_at,    lettera_tutor_ip
+      `)
+      .or('lettera_incarico_url.not.is.null,lettera_tutor_url.not.is.null')
+      .order('created_at', { ascending: false }),
+    admin.from('progetti').select('id').eq('status', 'active'),
+  ])
 
-  const corsi = corsiRaw || []
+  const activeProgettoIds = (activeProgettiRes.data ?? []).map(p => p.id as string)
+  const { count: nLetteredMancanti } = await (
+    activeProgettoIds.length > 0
+      ? admin
+          .from('corsi')
+          .select('id', { count: 'exact', head: true })
+          .eq('stato_assegnazione', 'accettato')
+          .is('lettera_incarico_url', null)
+          .not('formatore_id', 'is', null)
+          .in('project_id', activeProgettoIds)
+      : Promise.resolve({ count: 0 })
+  )
+
+  const corsiRaw = corsiRes.data
+
+  const corsi = corsiRaw ?? []
 
   const projectIds = [...new Set(corsi.map(c => c.project_id as string))]
   const personaIds = [
@@ -121,7 +140,11 @@ export default async function LettereIncaricoPage() {
       notificheBadge={notifiche}
       isSuperAdmin={isSuperAdmin}
     >
-      <LettereIncaricoClient items={items} />
+      <LettereIncaricoClient
+        items={items}
+        isSuperAdmin={isSuperAdmin}
+        nLetteredMancanti={nLetteredMancanti ?? 0}
+      />
     </AppLayout>
   )
 }

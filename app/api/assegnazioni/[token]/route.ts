@@ -69,7 +69,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   ])
 
   // Auto-generate lettere incarico for each accepted corso (only for active projects)
-  if (formatore && progetto && progetto.status === 'attivo' && accettatiCorsi.length > 0) {
+  if (formatore && progetto && progetto.status === 'active' && accettatiCorsi.length > 0) {
     for (const corso of accettatiCorsi) {
       try {
         const tariffa = corso.tariffa_oraria != null

@@ -42,7 +42,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   ])
 
   // Auto-generate lettera incarico only for active projects
-  if (formatore && progetto && progetto.status === 'attivo') {
+  if (formatore && progetto && progetto.status === 'active') {
     try {
       const tariffa = corso.tariffa_oraria != null
         ? Number(corso.tariffa_oraria)

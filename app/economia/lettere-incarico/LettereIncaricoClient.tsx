@@ -1,17 +1,82 @@
 'use client'
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useCallback, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import * as XLSX from 'xlsx'
 import type { LetteraItem } from './page'
 
 interface Props {
   items: LetteraItem[]
+  isSuperAdmin: boolean
+  nLetteredMancanti: number
 }
 
-export function LettereIncaricoClient({ items }: Props) {
+interface GenProgress {
+  processed: number
+  total: number
+  item: string
+  running: boolean
+  done: boolean
+  error: string | null
+}
+
+export function LettereIncaricoClient({ items, isSuperAdmin, nLetteredMancanti }: Props) {
+  const router = useRouter()
   const [filterAnno, setFilterAnno] = useState('')
   const [filterPersona, setFilterPersona] = useState('')
   const [filterTipo, setFilterTipo] = useState<'' | 'formatore' | 'tutor'>('')
   const [filterStato, setFilterStato] = useState<'' | 'non_firmata' | 'firmata'>('')
+  const [genProgress, setGenProgress] = useState<GenProgress | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
+
+  const startGenera = useCallback(async () => {
+    abortRef.current = new AbortController()
+    setGenProgress({ processed: 0, total: 0, item: '', running: true, done: false, error: null })
+    try {
+      const res = await fetch('/api/admin/genera-lettere-mancanti', {
+        method: 'POST',
+        signal: abortRef.current.signal,
+      })
+      if (!res.ok) {
+        setGenProgress(p => p ? { ...p, running: false, error: `Errore ${res.status}` } : p)
+        return
+      }
+      const reader = res.body!.getReader()
+      const decoder = new TextDecoder()
+      let buf = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buf += decoder.decode(value, { stream: true })
+        const lines = buf.split('\n')
+        buf = lines.pop() ?? ''
+        for (const line of lines) {
+          if (!line.trim()) continue
+          try {
+            const msg = JSON.parse(line)
+            if (msg.type === 'start') {
+              setGenProgress(p => p ? { ...p, total: msg.total } : p)
+            } else if (msg.type === 'progress') {
+              setGenProgress(p => p ? { ...p, processed: msg.processed, total: msg.total, item: msg.item } : p)
+            } else if (msg.type === 'complete') {
+              setGenProgress(p => p ? { ...p, running: false, done: true, processed: msg.processed, total: msg.total } : p)
+              router.refresh()
+            } else if (msg.type === 'error') {
+              setGenProgress(p => p ? { ...p, running: false, error: msg.message } : p)
+            }
+          } catch { /* malformed line */ }
+        }
+      }
+    } catch (err) {
+      if ((err as Error).name !== 'AbortError') {
+        setGenProgress(p => p ? { ...p, running: false, error: String(err) } : p)
+      }
+    }
+  }, [router])
+
+  const stopGenera = useCallback(() => {
+    abortRef.current?.abort()
+    setGenProgress(p => p ? { ...p, running: false } : p)
+  }, [])
 
   const anni = useMemo(() => {
     const s = new Set(items.map(i => i.anno).filter(Boolean) as string[])
@@ -67,15 +132,61 @@ export function LettereIncaricoClient({ items }: Props) {
             <span className="text-amber-600">{nonFirmateCount} in attesa</span>
           </p>
         </div>
-        <button
-          onClick={handleExport}
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-gray-900 border border-gray-200 hover:bg-gray-50 px-3 py-2 rounded-[7px] transition-colors"
-        >
-          <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
-            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-          Esporta Excel
-        </button>
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          {/* Genera lettere mancanti — super_admin only */}
+          {isSuperAdmin && (
+            genProgress?.running ? (
+              <div className="flex items-center gap-2 text-xs text-gray-600 bg-blue-50 border border-blue-100 px-3 py-2 rounded-[7px]">
+                <svg className="animate-spin w-3.5 h-3.5 text-blue-500 shrink-0" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+                </svg>
+                <span className="max-w-[180px] truncate">{genProgress.item}</span>
+                <span className="font-semibold shrink-0">
+                  {genProgress.processed}/{genProgress.total}
+                </span>
+                <button
+                  onClick={stopGenera}
+                  className="ml-1 text-red-500 hover:text-red-700 font-medium shrink-0"
+                >
+                  Stop
+                </button>
+              </div>
+            ) : genProgress?.done ? (
+              <span className="text-xs text-green-600 font-medium">
+                ✓ {genProgress.processed} lettera{genProgress.processed !== 1 ? 'e' : ''} generate
+              </span>
+            ) : genProgress?.error ? (
+              <span className="text-xs text-red-600">Errore: {genProgress.error}</span>
+            ) : nLetteredMancanti > 0 ? (
+              <button
+                onClick={startGenera}
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-blue-700 hover:text-blue-900 border border-blue-200 hover:bg-blue-50 px-3 py-2 rounded-[7px] transition-colors bg-blue-50/50"
+              >
+                <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
+                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" strokeWidth="1.5"/>
+                  <polyline points="14 2 14 8 20 8" stroke="currentColor" strokeWidth="1.5"/>
+                  <line x1="12" y1="18" x2="12" y2="12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  <line x1="9" y1="15" x2="15" y2="15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+                Genera lettere mancanti
+                <span className="bg-blue-200 text-blue-800 rounded-full px-1.5 py-0.5 text-[11px] font-semibold leading-none">
+                  {nLetteredMancanti}
+                </span>
+              </button>
+            ) : null
+          )}
+
+          <button
+            onClick={handleExport}
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-gray-900 border border-gray-200 hover:bg-gray-50 px-3 py-2 rounded-[7px] transition-colors"
+          >
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            Esporta Excel
+          </button>
+        </div>
       </div>
 
       {/* Filtri */}
