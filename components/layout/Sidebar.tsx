@@ -72,6 +72,17 @@ const adminNav: NavEntry[] = [
     ),
   },
   {
+    href: '/corsi/da-assegnare',
+    label: 'Da assegnare',
+    icon: (
+      <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
+        <circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="1.5"/>
+        <path d="M3 20a6 6 0 0112 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+        <path d="M16 11h6M19 8l3 3-3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    ),
+  },
+  {
     href: '/mappa',
     label: 'Mappa',
     icon: (
@@ -281,9 +292,10 @@ interface SidebarProps {
   onMobileClose?: () => void
   regimeFiscale?: string
   lettereCount?: number
+  daAssegnareCount?: number
 }
 
-export function Sidebar({ role, nome, email, avatarInitials, notificheBadge, isSuperAdmin, isMobileOpen = false, onMobileClose, regimeFiscale, lettereCount }: SidebarProps) {
+export function Sidebar({ role, nome, email, avatarInitials, notificheBadge, isSuperAdmin, isMobileOpen = false, onMobileClose, regimeFiscale, lettereCount, daAssegnareCount }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const isSA = isSuperAdmin ?? role === 'super_admin'
@@ -387,7 +399,11 @@ export function Sidebar({ role, nome, email, avatarInitials, notificheBadge, isS
           // original item rendering (unchanged logic)
           const item = entry  // entry is NavItem here
           const isActive = pathname === item.href || (item.href !== '/formatore' && pathname.startsWith(item.href + '/'))
-          const badgeCount = item.href === '/notifiche' ? notificheBadge : item.href === '/formatore/lettere-incarico' ? lettereCount : undefined
+          const badgeCount =
+            item.href === '/notifiche' ? notificheBadge :
+            item.href === '/formatore/lettere-incarico' ? lettereCount :
+            item.href === '/corsi/da-assegnare' ? daAssegnareCount :
+            undefined
           return (
             <Link key={item.href} href={item.href} className={`flex items-center gap-3 px-3 py-2.5 rounded-[7px] text-sm font-medium transition-all relative ${isActive ? 'text-white' : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50'}`} style={isActive ? { backgroundColor: '#d64b55' } : {}}>
               <span className={isActive ? 'text-white' : 'text-gray-400'}>{item.icon}</span>

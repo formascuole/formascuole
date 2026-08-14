@@ -36,6 +36,13 @@ export default async function DashboardPage() {
 
   const progetti = (progettiRaw || []) as ProgettoConStats[]
 
+  const activeOrPendingProjectIds = new Set(
+    progetti.filter(p => p.status === 'active' || p.status === 'pending').map(p => p.id)
+  )
+  const daAssegnareCount = (corsiRaw || []).filter(
+    c => c.formatore_id === null && activeOrPendingProjectIds.has(c.project_id as string)
+  ).length
+
   const oreCompletatePerCorso: Record<string, number> = {}
   const orePianificatePerCorso: Record<string, number> = {}
   for (const s of sessioniRaw || []) {
@@ -74,6 +81,7 @@ export default async function DashboardPage() {
       email={profile.email}
       avatarInitials={profile.avatar_initials}
       notificheBadge={notifiche}
+      daAssegnareCount={daAssegnareCount}
     >
       <DashboardClient
         progetti={progetti}

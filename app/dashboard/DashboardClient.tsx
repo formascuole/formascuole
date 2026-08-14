@@ -112,6 +112,12 @@ export function DashboardClient({
 
   const corsiInAttesa = filteredCorsi.filter(c => c.stato_assegnazione === 'in_attesa').length
 
+  const [nCorsiDaAssegnare, nProgettiDaAssegnare] = useMemo(() => {
+    const activeOrPendingIds = new Set(filteredProjects.filter(p => p.status === 'active' || p.status === 'pending').map(p => p.id))
+    const daAssegnare = filteredCorsi.filter(c => c.formatore_id === null && activeOrPendingIds.has(c.project_id))
+    return [daAssegnare.length, new Set(daAssegnare.map(c => c.project_id)).size]
+  }, [filteredCorsi, filteredProjects])
+
   const corsiRifiutatiMese = filteredCorsi.filter(c =>
     c.stato_assegnazione === 'rifiutato' &&
     c.accettazione_risposta_at != null &&
@@ -244,32 +250,53 @@ export function DashboardClient({
         />
       </div>
 
-      {/* Riga 3: Accettazione + tutoraggio — grid adattivo per rimanere sempre piena */}
-      {oreTutoraggioTotali > 0 ? (
-        <div className="grid grid-cols-5 gap-4 mb-8">
-          {corsiInAttesa > 0 ? (
-            <Link href="/progetti?in_attesa=1" className="block hover:opacity-90 transition-opacity">
-              <StatCard
-                label="In attesa di accettazione"
-                value={corsiInAttesa}
-                subtitle="clicca per vedere i progetti →"
-                icon={<svg width="20" height="20" fill="none" viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="currentColor" strokeWidth="1.5"/></svg>}
-              />
-            </Link>
-          ) : (
+      {/* Riga 3: Da assegnare + accettazione + rifiutati */}
+      <div className={`grid grid-cols-3 gap-4 ${oreTutoraggioTotali > 0 ? 'mb-4' : 'mb-8'}`}>
+        {nCorsiDaAssegnare > 0 ? (
+          <Link href="/corsi/da-assegnare" className="block hover:opacity-90 transition-opacity">
+            <StatCard
+              label="Da assegnare"
+              value={nCorsiDaAssegnare}
+              subtitle={`${nProgettiDaAssegnare} progett${nProgettiDaAssegnare === 1 ? 'o coinvolto' : 'i coinvolti'} →`}
+              icon={<svg width="20" height="20" fill="none" viewBox="0 0 24 24"><circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="1.5"/><path d="M3 20a6 6 0 0112 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><path d="M16 11h6M19 8l3 3-3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+            />
+          </Link>
+        ) : (
+          <StatCard
+            label="Da assegnare"
+            value={0}
+            subtitle="tutti i corsi hanno un formatore"
+            icon={<svg width="20" height="20" fill="none" viewBox="0 0 24 24"><circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="1.5"/><path d="M3 20a6 6 0 0112 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><path d="M16 11h6M19 8l3 3-3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+          />
+        )}
+        {corsiInAttesa > 0 ? (
+          <Link href="/progetti?in_attesa=1" className="block hover:opacity-90 transition-opacity">
             <StatCard
               label="In attesa di accettazione"
-              value={0}
-              subtitle="nessuna risposta in sospeso"
+              value={corsiInAttesa}
+              subtitle="clicca per vedere i progetti →"
               icon={<svg width="20" height="20" fill="none" viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="currentColor" strokeWidth="1.5"/></svg>}
             />
-          )}
+          </Link>
+        ) : (
           <StatCard
-            label="Rifiutati questo mese"
-            value={corsiRifiutatiMese}
-            subtitle={corsiRifiutatiMese > 0 ? 'da riassegnare' : 'nessun rifiuto'}
-            icon={<svg width="20" height="20" fill="none" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>}
+            label="In attesa di accettazione"
+            value={0}
+            subtitle="nessuna risposta in sospeso"
+            icon={<svg width="20" height="20" fill="none" viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="currentColor" strokeWidth="1.5"/></svg>}
           />
+        )}
+        <StatCard
+          label="Rifiutati questo mese"
+          value={corsiRifiutatiMese}
+          subtitle={corsiRifiutatiMese > 0 ? 'da riassegnare' : 'nessun rifiuto'}
+          icon={<svg width="20" height="20" fill="none" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>}
+        />
+      </div>
+
+      {/* Riga 4: Tutoraggio (solo se presente) */}
+      {oreTutoraggioTotali > 0 && (
+        <div className="grid grid-cols-3 gap-4 mb-8">
           <StatCard
             label="Ore tutoraggio totali"
             value={`${oreTutoraggioTotali}h`}
@@ -287,32 +314,6 @@ export function DashboardClient({
             value={`${oreTutorErogate}h`}
             subtitle="proporzionale alle sessioni completate"
             icon={<svg width="20" height="20" fill="none" viewBox="0 0 24 24"><circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="1.5"/><path d="M3 20a6 6 0 0112 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><polyline points="16 13 18 15 22 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-          />
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 gap-4 mb-8">
-          {corsiInAttesa > 0 ? (
-            <Link href="/progetti?in_attesa=1" className="block hover:opacity-90 transition-opacity">
-              <StatCard
-                label="In attesa di accettazione"
-                value={corsiInAttesa}
-                subtitle="clicca per vedere i progetti →"
-                icon={<svg width="20" height="20" fill="none" viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="currentColor" strokeWidth="1.5"/></svg>}
-              />
-            </Link>
-          ) : (
-            <StatCard
-              label="In attesa di accettazione"
-              value={0}
-              subtitle="nessuna risposta in sospeso"
-              icon={<svg width="20" height="20" fill="none" viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="currentColor" strokeWidth="1.5"/></svg>}
-            />
-          )}
-          <StatCard
-            label="Rifiutati questo mese"
-            value={corsiRifiutatiMese}
-            subtitle={corsiRifiutatiMese > 0 ? 'da riassegnare' : 'nessun rifiuto'}
-            icon={<svg width="20" height="20" fill="none" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>}
           />
         </div>
       )}

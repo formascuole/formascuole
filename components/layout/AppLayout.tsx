@@ -16,9 +16,10 @@ interface AppLayoutProps {
   isSuperAdmin?: boolean
   regimeFiscale?: string
   lettereCount?: number
+  daAssegnareCount?: number
 }
 
-export function AppLayout({ children, role, nome, email, avatarInitials, notificheBadge, isSuperAdmin, regimeFiscale, lettereCount }: AppLayoutProps) {
+export function AppLayout({ children, role, nome, email, avatarInitials, notificheBadge, isSuperAdmin, regimeFiscale, lettereCount, daAssegnareCount }: AppLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   return (
@@ -41,6 +42,7 @@ export function AppLayout({ children, role, nome, email, avatarInitials, notific
         isSuperAdmin={isSuperAdmin}
         regimeFiscale={regimeFiscale}
         lettereCount={lettereCount}
+        daAssegnareCount={daAssegnareCount}
         isMobileOpen={sidebarOpen}
         onMobileClose={() => setSidebarOpen(false)}
       />
