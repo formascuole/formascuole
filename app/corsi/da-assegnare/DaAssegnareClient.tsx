@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback } from 'react'
 import Link from 'next/link'
+import * as XLSX from 'xlsx'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -11,6 +12,7 @@ export interface CorsoDA {
   tipo: string | null
   ore_totali: number
   modalita: string | null
+  edizione: string | null
   project_id: string
   tariffa_oraria: number | null
   tags: string[]
@@ -461,6 +463,36 @@ export function DaAssegnareClient({ corsi, progetti, finanziamenti, formatori, f
 
   const selectCls = 'text-sm border border-gray-200 rounded-[7px] px-3 py-1.5 focus:outline-none focus:border-[#d64b55] bg-white'
 
+  const MODALITA_LABEL: Record<string, string> = {
+    in_presenza: 'In presenza',
+    a_distanza: 'A distanza',
+    blended: 'Blended',
+    residenziale: 'Residenziale',
+    semi_residenziale: 'Semi-residenziale',
+  }
+
+  const handleExport = useCallback(() => {
+    const rows = filteredCorsi.map(c => {
+      const p = progettiMap.get(c.project_id)
+      const finNome = p?.finanziamento_id ? finanziamentiMap.get(p.finanziamento_id) ?? '' : ''
+      return {
+        'Progetto': p?.school_name ?? '',
+        'Stato progetto': p?.status === 'active' ? 'Attivo' : 'In attesa',
+        'Finanziamento': finNome,
+        'Titolo corso': c.title,
+        'Tipo': c.tipo ?? '',
+        'Ore totali': c.ore_totali,
+        'Modalità erogazione': c.modalita ? (MODALITA_LABEL[c.modalita] ?? c.modalita) : '',
+        'Edizione': c.edizione ?? '',
+      }
+    })
+    const ws = XLSX.utils.json_to_sheet(rows)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Da assegnare')
+    const today = new Date().toISOString().split('T')[0]
+    XLSX.writeFile(wb, `Corsi_da_assegnare_${today}.xlsx`)
+  }, [filteredCorsi, progettiMap, finanziamentiMap])
+
   return (
     <div className="p-8 max-w-6xl mx-auto">
       {/* Header */}
@@ -485,6 +517,16 @@ export function DaAssegnareClient({ corsi, progetti, finanziamenti, formatori, f
             <option value="active">Attivi</option>
             <option value="pending">In attesa</option>
           </select>
+          <button
+            onClick={handleExport}
+            disabled={filteredCorsi.length === 0}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border border-gray-200 rounded-[7px] hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed bg-white text-gray-700"
+          >
+            <svg width="15" height="15" fill="none" viewBox="0 0 24 24">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            Esporta Excel
+          </button>
         </div>
       </div>
 

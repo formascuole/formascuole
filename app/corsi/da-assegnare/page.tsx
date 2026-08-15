@@ -31,7 +31,7 @@ export default async function DaAssegnarePage() {
     notifiche,
   ] = await Promise.all([
     admin.from('progetti').select('id, school_name, status, address, finanziamento_id, regione, provincia').in('status', ['active', 'pending']),
-    admin.from('corsi').select('id, title, tipo, ore_totali, modalita, project_id, tariffa_oraria').is('formatore_id', null),
+    admin.from('corsi').select('id, title, tipo, ore_totali, modalita, edizione, project_id, tariffa_oraria').is('formatore_id', null),
     admin.from('finanziamenti').select('id, nome').eq('attivo', true).order('nome'),
     admin.from('profiles').select('id, nome, email, avatar_initials, tariffa_oraria_formatore, regione, indirizzo_citta, indirizzo_provincia').order('nome'),
     admin.from('profiles_roles').select('profile_id').eq('role', 'formatore'),
@@ -85,6 +85,7 @@ export default async function DaAssegnarePage() {
     tipo: c.tipo as string | null,
     ore_totali: Number(c.ore_totali),
     modalita: c.modalita as string | null,
+    edizione: (c as any).edizione as string | null ?? null,
     project_id: c.project_id as string,
     tariffa_oraria: c.tariffa_oraria != null ? Number(c.tariffa_oraria) : null,
     tags: corsiTagsMap[c.id as string] || [],
