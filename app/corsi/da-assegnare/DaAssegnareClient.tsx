@@ -486,6 +486,17 @@ export function DaAssegnareClient({ corsi, progetti, finanziamenti, formatori, f
         'Edizione': c.edizione ?? '',
       }
     })
+    const totaleOre = rows.reduce((s, r) => s + (r['Ore totali'] as number), 0)
+    rows.push({
+      'Progetto': 'TOTALE',
+      'Stato progetto': '',
+      'Finanziamento': '',
+      'Titolo corso': '',
+      'Tipo': '',
+      'Ore totali': totaleOre,
+      'Modalità erogazione': '',
+      'Edizione': '',
+    })
     const ws = XLSX.utils.json_to_sheet(rows)
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Da assegnare')
@@ -502,7 +513,10 @@ export function DaAssegnareClient({ corsi, progetti, finanziamenti, formatori, f
           <p className="text-sm text-gray-500 mt-1">
             {filteredCorsi.length === 0
               ? 'Nessun corso senza formatore'
-              : `${filteredCorsi.length} cors${filteredCorsi.length === 1 ? 'o' : 'i'} senza formatore in ${visibleProjects.length} progett${visibleProjects.length === 1 ? 'o' : 'i'}`}
+              : (() => {
+                  const oreTot = filteredCorsi.reduce((s, c) => s + c.ore_totali, 0)
+                  return `${filteredCorsi.length} cors${filteredCorsi.length === 1 ? 'o' : 'i'} | ${oreTot}h da assegnare`
+                })()}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -576,7 +590,7 @@ export function DaAssegnareClient({ corsi, progetti, finanziamenti, formatori, f
                   )}
                 </div>
                 <span className="text-sm text-gray-500 shrink-0 font-medium">
-                  {corsiProg.length} cors{corsiProg.length === 1 ? 'o' : 'i'}
+                  {corsiProg.length} cors{corsiProg.length === 1 ? 'o' : 'i'} | {corsiProg.reduce((s, c) => s + c.ore_totali, 0)}h
                 </span>
                 <svg
                   className="w-4 h-4 text-gray-400 shrink-0 transition-transform duration-200"
