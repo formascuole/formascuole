@@ -26,6 +26,7 @@ export interface ProgettoDA {
   finanziamento_id: string | null
   regione: string | null
   provincia: string | null
+  is_subappalto: boolean
 }
 
 export interface FormatoreDA {
@@ -582,6 +583,11 @@ export function DaAssegnareClient({ corsi, progetti, finanziamenti, formatori, f
                       <span className="text-xs font-medium px-2 py-0.5 rounded-md"
                         style={{ backgroundColor: finColors.bg, color: finColors.text }}>
                         {finNome}
+                      </span>
+                    )}
+                    {progetto.is_subappalto && (
+                      <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-orange-100 text-orange-700">
+                        🔄 Subappalto
                       </span>
                     )}
                   </div>

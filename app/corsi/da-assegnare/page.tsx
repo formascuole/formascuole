@@ -30,7 +30,7 @@ export default async function DaAssegnarePage() {
     { data: formatoriRolesRaw },
     notifiche,
   ] = await Promise.all([
-    admin.from('progetti').select('id, school_name, status, address, finanziamento_id, regione, provincia').in('status', ['active', 'pending']),
+    admin.from('progetti').select('id, school_name, status, address, finanziamento_id, regione, provincia, is_subappalto').in('status', ['active', 'pending']),
     admin.from('corsi').select('id, title, tipo, ore_totali, modalita, edizione, project_id, tariffa_oraria').is('formatore_id', null),
     admin.from('finanziamenti').select('id, nome').eq('attivo', true).order('nome'),
     admin.from('profiles').select('id, nome, email, avatar_initials, tariffa_oraria_formatore, regione, indirizzo_citta, indirizzo_provincia').order('nome'),
@@ -99,6 +99,7 @@ export default async function DaAssegnarePage() {
     finanziamento_id: p.finanziamento_id as string | null,
     regione: p.regione as string | null,
     provincia: p.provincia as string | null,
+    is_subappalto: Boolean((p as any).is_subappalto),
   }))
 
   const formatoriClean: FormatoreDA[] = formatori.map(f => ({
