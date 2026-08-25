@@ -450,6 +450,13 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
                     <div>
                       <div className="font-medium text-sm text-gray-900 group-hover:text-[#d64b55] transition-colors">{u.nome}</div>
                       <div className="text-xs text-gray-400">{u.email}</div>
+                      {(u.regione || u.indirizzo_provincia) && (
+                        <div className="text-xs text-gray-300 mt-0.5">
+                          {u.regione && u.indirizzo_provincia
+                            ? `${u.regione} (${u.indirizzo_provincia})`
+                            : u.regione ?? `(${u.indirizzo_provincia})`}
+                        </div>
+                      )}
                     </div>
                   </Link>
                 </td>
