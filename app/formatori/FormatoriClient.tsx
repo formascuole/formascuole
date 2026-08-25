@@ -190,9 +190,16 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
   const visibleRoles = SELECTABLE_ROLES.filter(r => r.value !== 'admin' || isSuperAdmin)
 
   const provinceOptions = useMemo(() => {
-    if (!filterRegione) return []
-    return (PROVINCE_BY_REGIONE[filterRegione] ?? []).map(p => p.codice).sort()
-  }, [filterRegione])
+    if (filterRegione) {
+      return (PROVINCE_BY_REGIONE[filterRegione] ?? []).map(p => p.codice).sort()
+    }
+    // All distinct provinces present in profiles, sorted
+    const seen = new Set<string>()
+    for (const u of utenti) {
+      if (u.indirizzo_provincia) seen.add(u.indirizzo_provincia)
+    }
+    return [...seen].sort()
+  }, [filterRegione, utenti])
 
   const filtered = useMemo(() => {
     let result = utenti
@@ -411,8 +418,7 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
         <select
           value={filterProvincia}
           onChange={e => setFilterProvincia(e.target.value)}
-          disabled={!filterRegione}
-          className="px-3 py-2 text-sm border border-gray-200 rounded-[7px] focus:outline-none focus:border-[#d64b55] transition-colors bg-white disabled:opacity-40 disabled:cursor-not-allowed"
+          className="px-3 py-2 text-sm border border-gray-200 rounded-[7px] focus:outline-none focus:border-[#d64b55] transition-colors bg-white"
         >
           <option value="">Tutte le province</option>
           {provinceOptions.map(codice => <option key={codice} value={codice}>{codice}</option>)}
