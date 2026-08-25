@@ -11,6 +11,7 @@ import { DeleteConfirmModal } from '@/components/ui/DeleteConfirmModal'
 import { UserRole } from '@/lib/types'
 import { ROLE_LABELS, ROLE_COLORS } from '@/lib/auth'
 import type { UtenteStats } from '@/app/api/utenti/stats/route'
+import { PROVINCE_BY_REGIONE, REGIONI } from '@/lib/geo-data'
 
 interface UtenteConStats {
   id: string
@@ -31,6 +32,7 @@ interface UtenteConStats {
   indirizzo_cap?: string | null
   indirizzo_citta?: string | null
   indirizzo_provincia?: string | null
+  regione?: string | null
   iban?: string | null
   banca?: string | null
   intestatario_conto?: string | null
@@ -163,6 +165,8 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
 
   const [search, setSearch] = useState('')
   const [filterProfilo, setFilterProfilo] = useState<'all' | 'completo' | 'manca_tariffa' | 'incompleto'>('all')
+  const [filterRegione, setFilterRegione] = useState('')
+  const [filterProvincia, setFilterProvincia] = useState('')
   const [statsMap, setStatsMap] = useState<Record<string, UtenteStats>>({})
   const [statsLoading, setStatsLoading] = useState(true)
 
@@ -185,6 +189,11 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
 
   const visibleRoles = SELECTABLE_ROLES.filter(r => r.value !== 'admin' || isSuperAdmin)
 
+  const provinceOptions = useMemo(() => {
+    if (!filterRegione) return []
+    return (PROVINCE_BY_REGIONE[filterRegione] ?? []).map(p => p.codice).sort()
+  }, [filterRegione])
+
   const filtered = useMemo(() => {
     let result = utenti
     if (search.trim()) {
@@ -206,8 +215,14 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
         return true
       })
     }
+    if (filterRegione) {
+      result = result.filter(u => u.regione === filterRegione)
+    }
+    if (filterProvincia) {
+      result = result.filter(u => u.indirizzo_provincia === filterProvincia)
+    }
     return result
-  }, [utenti, search, filterProfilo])
+  }, [utenti, search, filterProfilo, filterRegione, filterProvincia])
 
   // ─── Create handlers ───────────────────────────────────────────────────────
   const handleCloseCreate = () => {
@@ -360,7 +375,7 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
         </div>
       </div>
 
-      {/* Search + Profilo filter */}
+      {/* Search + filters */}
       <div className="mb-4 flex flex-wrap gap-3">
         <div className="relative max-w-sm flex-1 min-w-[200px]">
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" width="15" height="15" fill="none" viewBox="0 0 24 24">
@@ -384,6 +399,23 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
           <option value="completo">✅ Completo</option>
           <option value="manca_tariffa">🟠 Manca tariffa</option>
           <option value="incompleto">🔴 Incompleto</option>
+        </select>
+        <select
+          value={filterRegione}
+          onChange={e => { setFilterRegione(e.target.value); setFilterProvincia('') }}
+          className="px-3 py-2 text-sm border border-gray-200 rounded-[7px] focus:outline-none focus:border-[#d64b55] transition-colors bg-white"
+        >
+          <option value="">Tutte le regioni</option>
+          {REGIONI.map(r => <option key={r} value={r}>{r}</option>)}
+        </select>
+        <select
+          value={filterProvincia}
+          onChange={e => setFilterProvincia(e.target.value)}
+          disabled={!filterRegione}
+          className="px-3 py-2 text-sm border border-gray-200 rounded-[7px] focus:outline-none focus:border-[#d64b55] transition-colors bg-white disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          <option value="">Tutte le province</option>
+          {provinceOptions.map(codice => <option key={codice} value={codice}>{codice}</option>)}
         </select>
       </div>
 
