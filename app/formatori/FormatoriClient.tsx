@@ -162,6 +162,7 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
   const [editSuccess, setEditSuccess] = useState('')
 
   const [search, setSearch] = useState('')
+  const [filterProfilo, setFilterProfilo] = useState<'all' | 'completo' | 'manca_tariffa' | 'incompleto'>('all')
   const [statsMap, setStatsMap] = useState<Record<string, UtenteStats>>({})
   const [statsLoading, setStatsLoading] = useState(true)
 
@@ -185,14 +186,28 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
   const visibleRoles = SELECTABLE_ROLES.filter(r => r.value !== 'admin' || isSuperAdmin)
 
   const filtered = useMemo(() => {
-    if (!search.trim()) return utenti
-    const q = search.toLowerCase()
-    return utenti.filter(u =>
-      u.nome.toLowerCase().includes(q) ||
-      u.email.toLowerCase().includes(q) ||
-      (u.roles || [u.role]).some(r => ROLE_LABELS[r as UserRole]?.toLowerCase().includes(q))
-    )
-  }, [utenti, search])
+    let result = utenti
+    if (search.trim()) {
+      const q = search.toLowerCase()
+      result = result.filter(u =>
+        u.nome.toLowerCase().includes(q) ||
+        u.email.toLowerCase().includes(q) ||
+        (u.roles || [u.role]).some(r => ROLE_LABELS[r as UserRole]?.toLowerCase().includes(q))
+      )
+    }
+    if (filterProfilo !== 'all') {
+      result = result.filter(u => {
+        const roles = u.roles || [u.role]
+        const isFormatore = roles.includes('formatore')
+        const tariffa = isFormatore ? u.tariffa_oraria_formatore : u.tariffa_oraria_tutor
+        if (filterProfilo === 'completo') return u.profilo_completo === true && tariffa != null
+        if (filterProfilo === 'manca_tariffa') return u.profilo_completo === true && tariffa == null
+        if (filterProfilo === 'incompleto') return u.profilo_completo !== true
+        return true
+      })
+    }
+    return result
+  }, [utenti, search, filterProfilo])
 
   // ─── Create handlers ───────────────────────────────────────────────────────
   const handleCloseCreate = () => {
@@ -345,9 +360,9 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
         </div>
       </div>
 
-      {/* Search */}
-      <div className="mb-4">
-        <div className="relative max-w-sm">
+      {/* Search + Profilo filter */}
+      <div className="mb-4 flex flex-wrap gap-3">
+        <div className="relative max-w-sm flex-1 min-w-[200px]">
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" width="15" height="15" fill="none" viewBox="0 0 24 24">
             <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="1.5"/>
             <path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
@@ -360,6 +375,16 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
             className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-[7px] focus:outline-none focus:border-[#d64b55] transition-colors bg-white"
           />
         </div>
+        <select
+          value={filterProfilo}
+          onChange={e => setFilterProfilo(e.target.value as typeof filterProfilo)}
+          className="px-3 py-2 text-sm border border-gray-200 rounded-[7px] focus:outline-none focus:border-[#d64b55] transition-colors bg-white"
+        >
+          <option value="all">Stato profilo: tutti</option>
+          <option value="completo">✅ Completo</option>
+          <option value="manca_tariffa">🟠 Manca tariffa</option>
+          <option value="incompleto">🔴 Incompleto</option>
+        </select>
       </div>
 
       <div className="bg-white rounded-xl overflow-hidden" style={{ border: '0.5px solid #e5e5e5' }}>
