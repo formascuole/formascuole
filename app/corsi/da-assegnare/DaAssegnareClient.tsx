@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import Link from 'next/link'
 import * as XLSX from 'xlsx'
 
@@ -384,6 +384,17 @@ export function DaAssegnareClient({ corsi, corsiInAttesa, progetti, finanziament
   const [savingTariffa, setSavingTariffa] = useState(false)
   const [tariffaError, setTariffaError] = useState<string | null>(null)
 
+  const [notificatiCorsiIds, setNotificatiCorsiIds] = useState<Set<string>>(new Set())
+  const [inviaModalOpen, setInviaModalOpen] = useState(false)
+  const [inviaInProgress, setInviaInProgress] = useState(false)
+  const [successToast, setSuccessToast] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!successToast) return
+    const t = setTimeout(() => setSuccessToast(null), 4000)
+    return () => clearTimeout(t)
+  }, [successToast])
+
   const progettiMap = useMemo(() => new Map(progetti.map(p => [p.id, p])), [progetti])
   const finanziamentiMap = useMemo(() => new Map(finanziamenti.map(f => [f.id, f.nome])), [finanziamenti])
 
@@ -459,6 +470,35 @@ export function DaAssegnareClient({ corsi, corsiInAttesa, progetti, finanziament
       }),
     [progetti, corsiInAttesaPerProgetto, filterStatus]
   )
+
+  // All pending (unfiltered — button count reflects global state)
+  const pendingCorsi = useMemo(() =>
+    corsiInAttesa.filter(c => !c.notificato && !notificatiCorsiIds.has(c.id)),
+    [corsiInAttesa, notificatiCorsiIds]
+  )
+
+  const pendingByFormatore = useMemo(() => {
+    const map = new Map<string, { nome: string; count: number }>()
+    for (const c of pendingCorsi) {
+      if (!map.has(c.formatore_id)) map.set(c.formatore_id, { nome: c.formatore_nome, count: 0 })
+      map.get(c.formatore_id)!.count++
+    }
+    return [...map.values()].sort((a, b) => a.nome.localeCompare(b.nome, 'it'))
+  }, [pendingCorsi])
+
+  const handleInviaNotifiche = useCallback(async () => {
+    setInviaInProgress(true)
+    try {
+      const res = await fetch('/api/admin/invia-notifiche-pending', { method: 'POST' })
+      const json = await res.json()
+      if (!res.ok) return
+      setNotificatiCorsiIds(prev => new Set([...prev, ...pendingCorsi.map(c => c.id)]))
+      setInviaModalOpen(false)
+      setSuccessToast(`Notifiche inviate a ${json.formatori} formator${json.formatori === 1 ? 'e' : 'i'} per ${json.notificati} cors${json.notificati === 1 ? 'o' : 'i'}`)
+    } finally {
+      setInviaInProgress(false)
+    }
+  }, [pendingCorsi])
 
   const toggleProject = useCallback((id: string) => {
     setExpandedProjects(prev => {
@@ -640,6 +680,17 @@ export function DaAssegnareClient({ corsi, corsiInAttesa, progetti, finanziament
             <option value="active">Attivi</option>
             <option value="pending">In attesa</option>
           </select>
+          {pendingCorsi.length > 0 && (
+            <button
+              onClick={() => setInviaModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border rounded-[7px] transition-colors bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100"
+            >
+              <svg width="15" height="15" fill="none" viewBox="0 0 24 24">
+                <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Invia notifiche pending ({pendingCorsi.length})
+            </button>
+          )}
           <button
             onClick={handleExport}
             disabled={filteredCorsi.length === 0 && filteredCorsiInAttesa.length === 0}
@@ -833,13 +884,18 @@ export function DaAssegnareClient({ corsi, corsiInAttesa, progetti, finanziament
                             {corso.modalita && <ModalitaIcon modalita={corso.modalita} />}
                             <div className="flex items-center gap-2 shrink-0">
                               <span className="text-sm text-gray-700 font-medium">{corso.formatore_nome}</span>
-                              {corso.notificato ? (
-                                <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
-                                  🔵 Notificato{dataNotifica ? ` il ${dataNotifica}` : ''}
-                                </span>
+                              {(corso.notificato || notificatiCorsiIds.has(corso.id)) ? (
+                                <div className="text-right">
+                                  <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                                    🔵 In attesa di risposta
+                                  </span>
+                                  {dataNotifica && (
+                                    <div className="text-[10px] text-gray-400 mt-0.5">Inviata il {dataNotifica}</div>
+                                  )}
+                                </div>
                               ) : (
                                 <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700">
-                                  🟡 Non notificato
+                                  🟡 Notifica non inviata
                                 </span>
                               )}
                             </div>
@@ -896,6 +952,65 @@ export function DaAssegnareClient({ corsi, corsiInAttesa, progetti, finanziament
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Invia notifiche modal */}
+      {inviaModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl">
+            <h3 className="text-base font-semibold text-gray-900 mb-1">Invia notifiche ai formatori</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Stai per inviare le notifiche di assegnazione a{' '}
+              <strong>{pendingByFormatore.length} formator{pendingByFormatore.length === 1 ? 'e' : 'i'}</strong>{' '}
+              per <strong>{pendingCorsi.length} cors{pendingCorsi.length === 1 ? 'o' : 'i'}</strong> non ancora notificati.
+            </p>
+            <div className="rounded-lg border border-gray-100 bg-gray-50 divide-y divide-gray-100 mb-5 max-h-48 overflow-y-auto">
+              {pendingByFormatore.map(f => (
+                <div key={f.nome} className="flex items-center justify-between px-3 py-2">
+                  <span className="text-sm text-gray-800">{f.nome}</span>
+                  <span className="text-xs font-medium text-gray-500 bg-white border border-gray-200 px-2 py-0.5 rounded-full">
+                    {f.count} cors{f.count === 1 ? 'o' : 'i'}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setInviaModalOpen(false)}
+                disabled={inviaInProgress}
+                className="flex-1 px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-[7px] hover:bg-gray-50 transition-colors disabled:opacity-60"
+              >
+                Annulla
+              </button>
+              <button
+                onClick={handleInviaNotifiche}
+                disabled={inviaInProgress}
+                className="flex-1 px-4 py-2 text-sm font-medium text-white rounded-[7px] transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                style={{ backgroundColor: '#d64b55' }}
+              >
+                {inviaInProgress ? (
+                  <>
+                    <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" opacity=".25"/>
+                      <path d="M12 2a10 10 0 0110 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
+                    </svg>
+                    Invio in corso...
+                  </>
+                ) : 'Invia tutte le notifiche'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success toast */}
+      {successToast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-3 bg-gray-900 text-white text-sm font-medium rounded-xl shadow-xl">
+          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" className="shrink-0 text-green-400">
+            <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          {successToast}
         </div>
       )}
     </div>
