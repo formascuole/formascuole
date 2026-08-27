@@ -527,8 +527,50 @@ export function DaAssegnareClient({ corsi, corsiInAttesa, progetti, finanziament
     const wb = XLSX.utils.book_new()
     const today = new Date().toISOString().split('T')[0]
 
-    // Sheet 1: Da assegnare
-    const rows1 = filteredCorsi.map(c => {
+    const buildRow = (c: CorsoDA | CorsoInAttesaDA, stato: string, formatore: string) => {
+      const p = progettiMap.get(c.project_id)
+      const finNome = p?.finanziamento_id ? finanziamentiMap.get(p.finanziamento_id) ?? '' : ''
+      return {
+        'Progetto': p?.school_name ?? '',
+        'Stato progetto': p?.status === 'active' ? 'Attivo' : 'In attesa',
+        'Finanziamento': finNome,
+        'Titolo corso': c.title,
+        'Tipo': c.tipo ?? '',
+        'Ore totali': c.ore_totali,
+        'Modalità erogazione': c.modalita ? (MODALITA_LABEL[c.modalita] ?? c.modalita) : '',
+        'Formatore assegnato': formatore,
+        'Stato': stato,
+      }
+    }
+
+    // Sheet 1: Riepilogo generale (da assegnare first, then in attesa, sorted by project)
+    const riepRows = [
+      ...filteredCorsi
+        .slice()
+        .sort((a, b) => (progettiMap.get(a.project_id)?.school_name ?? '').localeCompare(progettiMap.get(b.project_id)?.school_name ?? '', 'it'))
+        .map(c => buildRow(c, 'Da assegnare', '')),
+      ...filteredCorsiInAttesa
+        .slice()
+        .sort((a, b) => (progettiMap.get(a.project_id)?.school_name ?? '').localeCompare(progettiMap.get(b.project_id)?.school_name ?? '', 'it'))
+        .map(c => buildRow(c, 'In attesa accettazione', (c as CorsoInAttesaDA).formatore_nome)),
+    ]
+    const oreDaAssegnare = filteredCorsi.reduce((s, c) => s + c.ore_totali, 0)
+    const oreInAttesa = filteredCorsiInAttesa.reduce((s, c) => s + c.ore_totali, 0)
+    riepRows.push({
+      'Progetto': 'TOTALE',
+      'Stato progetto': '',
+      'Finanziamento': '',
+      'Titolo corso': `Da assegnare: ${oreDaAssegnare}h  |  In attesa: ${oreInAttesa}h`,
+      'Tipo': '',
+      'Ore totali': oreDaAssegnare + oreInAttesa,
+      'Modalità erogazione': '',
+      'Formatore assegnato': '',
+      'Stato': '',
+    })
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(riepRows), 'Riepilogo generale')
+
+    // Sheet 2: Da assegnare
+    const rows2 = filteredCorsi.map(c => {
       const p = progettiMap.get(c.project_id)
       const finNome = p?.finanziamento_id ? finanziamentiMap.get(p.finanziamento_id) ?? '' : ''
       return {
@@ -542,12 +584,12 @@ export function DaAssegnareClient({ corsi, corsiInAttesa, progetti, finanziament
         'Edizione': c.edizione ?? '',
       }
     })
-    const totaleOre1 = rows1.reduce((s, r) => s + (r['Ore totali'] as number), 0)
-    rows1.push({ 'Progetto': 'TOTALE', 'Stato progetto': '', 'Finanziamento': '', 'Titolo corso': '', 'Tipo': '', 'Ore totali': totaleOre1, 'Modalità erogazione': '', 'Edizione': '' })
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows1), 'Da assegnare')
+    const totaleOre2 = rows2.reduce((s, r) => s + (r['Ore totali'] as number), 0)
+    rows2.push({ 'Progetto': 'TOTALE', 'Stato progetto': '', 'Finanziamento': '', 'Titolo corso': '', 'Tipo': '', 'Ore totali': totaleOre2, 'Modalità erogazione': '', 'Edizione': '' })
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows2), 'Da assegnare')
 
-    // Sheet 2: In attesa accettazione
-    const rows2 = filteredCorsiInAttesa.map(c => {
+    // Sheet 3: In attesa accettazione
+    const rows3 = filteredCorsiInAttesa.map(c => {
       const p = progettiMap.get(c.project_id)
       const finNome = p?.finanziamento_id ? finanziamentiMap.get(p.finanziamento_id) ?? '' : ''
       return {
@@ -563,9 +605,9 @@ export function DaAssegnareClient({ corsi, corsiInAttesa, progetti, finanziament
         'Data notifica': c.lettera_incarico_inviata_at ? new Date(c.lettera_incarico_inviata_at).toLocaleDateString('it-IT') : '',
       }
     })
-    const totaleOre2 = rows2.reduce((s, r) => s + (r['Ore totali'] as number), 0)
-    rows2.push({ 'Progetto': 'TOTALE', 'Stato progetto': '', 'Finanziamento': '', 'Titolo corso': '', 'Tipo': '', 'Ore totali': totaleOre2, 'Modalità erogazione': '', 'Formatore assegnato': '', 'Stato notifica': '', 'Data notifica': '' })
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows2), 'In attesa accettazione')
+    const totaleOre3 = rows3.reduce((s, r) => s + (r['Ore totali'] as number), 0)
+    rows3.push({ 'Progetto': 'TOTALE', 'Stato progetto': '', 'Finanziamento': '', 'Titolo corso': '', 'Tipo': '', 'Ore totali': totaleOre3, 'Modalità erogazione': '', 'Formatore assegnato': '', 'Stato notifica': '', 'Data notifica': '' })
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows3), 'In attesa accettazione')
 
     XLSX.writeFile(wb, `Corsi_da_assegnare_${today}.xlsx`)
   }, [filteredCorsi, filteredCorsiInAttesa, progettiMap, finanziamentiMap])
