@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { getUnreadNotificheCount } from '@/lib/notifiche-utils'
-import { DaAssegnareClient, type CorsoDA, type ProgettoDA, type FormatoreDA } from './DaAssegnareClient'
+import { DaAssegnareClient, type CorsoDA, type CorsoInAttesaDA, type ProgettoDA, type FormatoreDA } from './DaAssegnareClient'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,6 +25,7 @@ export default async function DaAssegnarePage() {
   const [
     { data: progettiRaw },
     { data: corsiAllRaw },
+    { data: corsiInAttesaRaw },
     { data: finanziamentiRaw },
     { data: formatoriProfilesRaw },
     { data: formatoriRolesRaw },
@@ -32,6 +33,7 @@ export default async function DaAssegnarePage() {
   ] = await Promise.all([
     admin.from('progetti').select('id, school_name, status, address, finanziamento_id, regione, provincia, is_subappalto').in('status', ['active', 'pending']),
     admin.from('corsi').select('id, title, tipo, ore_totali, modalita, edizione, project_id, tariffa_oraria').is('formatore_id', null),
+    admin.from('corsi').select('id, title, tipo, ore_totali, modalita, edizione, project_id, formatore_id, notificato, lettera_incarico_inviata_at').not('formatore_id', 'is', null).eq('stato_assegnazione', 'in_attesa'),
     admin.from('finanziamenti').select('id, nome').eq('attivo', true).order('nome'),
     admin.from('profiles').select('id, nome, email, avatar_initials, tariffa_oraria_formatore, regione, indirizzo_citta, indirizzo_provincia').order('nome'),
     admin.from('profiles_roles').select('profile_id').eq('role', 'formatore'),
@@ -40,9 +42,12 @@ export default async function DaAssegnarePage() {
 
   const activeProgettoIds = new Set((progettiRaw || []).map(p => p.id as string))
   const corsiFiltered = (corsiAllRaw || []).filter(c => activeProgettoIds.has(c.project_id as string))
+  const corsiInAttesaFiltered = (corsiInAttesaRaw || []).filter(c => activeProgettoIds.has(c.project_id as string))
 
   const formatoreIdSet = new Set((formatoriRolesRaw || []).map((r: { profile_id: string }) => r.profile_id))
   const formatori = (formatoriProfilesRaw || []).filter(f => formatoreIdSet.has(f.id))
+
+  const formatoriMapById = new Map((formatoriProfilesRaw || []).map(f => [f.id as string, f]))
 
   const corsiIds = corsiFiltered.map(c => c.id as string)
   const formatoriIds = formatori.map(f => f.id)
@@ -102,6 +107,24 @@ export default async function DaAssegnarePage() {
     is_subappalto: Boolean((p as any).is_subappalto),
   }))
 
+  const corsiInAttesa: CorsoInAttesaDA[] = corsiInAttesaFiltered.map(c => {
+    const f = formatoriMapById.get(c.formatore_id as string)
+    return {
+      id: c.id as string,
+      title: c.title as string,
+      tipo: c.tipo as string | null,
+      ore_totali: Number(c.ore_totali),
+      modalita: c.modalita as string | null,
+      edizione: (c as any).edizione as string | null ?? null,
+      project_id: c.project_id as string,
+      formatore_id: c.formatore_id as string,
+      formatore_nome: f?.nome as string ?? '',
+      formatore_email: f?.email as string ?? '',
+      notificato: Boolean((c as any).notificato),
+      lettera_incarico_inviata_at: (c as any).lettera_incarico_inviata_at as string | null ?? null,
+    }
+  })
+
   const formatoriClean: FormatoreDA[] = formatori.map(f => ({
     id: f.id,
     nome: f.nome as string,
@@ -120,10 +143,11 @@ export default async function DaAssegnarePage() {
       email={profile.email as string}
       avatarInitials={profile.avatar_initials as string}
       notificheBadge={notifiche}
-      daAssegnareCount={corsi.length}
+      daAssegnareCount={corsi.length + corsiInAttesa.length}
     >
       <DaAssegnareClient
         corsi={corsi}
+        corsiInAttesa={corsiInAttesa}
         progetti={progetti}
         finanziamenti={(finanziamentiRaw || []).map(f => ({ id: f.id as string, nome: f.nome as string }))}
         formatori={formatoriClean}

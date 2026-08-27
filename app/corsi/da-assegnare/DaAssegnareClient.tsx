@@ -40,6 +40,21 @@ export interface FormatoreDA {
   indirizzo_provincia: string | null
 }
 
+export interface CorsoInAttesaDA {
+  id: string
+  title: string
+  tipo: string | null
+  ore_totali: number
+  modalita: string | null
+  edizione: string | null
+  project_id: string
+  formatore_id: string
+  formatore_nome: string
+  formatore_email: string
+  notificato: boolean
+  lettera_incarico_inviata_at: string | null
+}
+
 interface ScoredFormatore {
   formatore: FormatoreDA
   score: number
@@ -53,6 +68,7 @@ interface ScoredFormatore {
 
 interface Props {
   corsi: CorsoDA[]
+  corsiInAttesa: CorsoInAttesaDA[]
   progetti: ProgettoDA[]
   finanziamenti: { id: string; nome: string }[]
   formatori: FormatoreDA[]
@@ -354,7 +370,8 @@ function CorsoRow({
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export function DaAssegnareClient({ corsi, progetti, finanziamenti, formatori, formatoriSkills, oreAssegnateMap }: Props) {
+export function DaAssegnareClient({ corsi, corsiInAttesa, progetti, finanziamenti, formatori, formatoriSkills, oreAssegnateMap }: Props) {
+  const [activeTab, setActiveTab] = useState<'da_assegnare' | 'in_attesa'>('da_assegnare')
   const [filterFinId, setFilterFinId] = useState('')
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'pending'>('all')
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(() => new Set(progetti.map(p => p.id)))
@@ -407,6 +424,40 @@ export function DaAssegnareClient({ corsi, progetti, finanziamenti, formatori, f
         return a.school_name.localeCompare(b.school_name, 'it')
       }),
     [progetti, corsiPerProgetto, filterStatus, filterFinId]
+  )
+
+  const filteredCorsiInAttesa = useMemo(() =>
+    corsiInAttesa.filter(c => {
+      const p = progettiMap.get(c.project_id)
+      if (!p) return false
+      if (filterFinId && p.finanziamento_id !== filterFinId) return false
+      if (filterStatus !== 'all' && p.status !== filterStatus) return false
+      return true
+    }),
+    [corsiInAttesa, progettiMap, filterFinId, filterStatus]
+  )
+
+  const corsiInAttesaPerProgetto = useMemo(() => {
+    const map = new Map<string, CorsoInAttesaDA[]>()
+    for (const c of filteredCorsiInAttesa) {
+      const existing = map.get(c.project_id) || []
+      existing.push(c)
+      map.set(c.project_id, existing)
+    }
+    return map
+  }, [filteredCorsiInAttesa])
+
+  const visibleProjectsInAttesa = useMemo(() =>
+    progetti
+      .filter(p => {
+        if (filterStatus !== 'all' && p.status !== filterStatus) return false
+        return corsiInAttesaPerProgetto.has(p.id)
+      })
+      .sort((a, b) => {
+        if (a.status !== b.status) return a.status === 'active' ? -1 : 1
+        return a.school_name.localeCompare(b.school_name, 'it')
+      }),
+    [progetti, corsiInAttesaPerProgetto, filterStatus]
   )
 
   const toggleProject = useCallback((id: string) => {
@@ -473,7 +524,11 @@ export function DaAssegnareClient({ corsi, progetti, finanziamenti, formatori, f
   }
 
   const handleExport = useCallback(() => {
-    const rows = filteredCorsi.map(c => {
+    const wb = XLSX.utils.book_new()
+    const today = new Date().toISOString().split('T')[0]
+
+    // Sheet 1: Da assegnare
+    const rows1 = filteredCorsi.map(c => {
       const p = progettiMap.get(c.project_id)
       const finNome = p?.finanziamento_id ? finanziamentiMap.get(p.finanziamento_id) ?? '' : ''
       return {
@@ -487,37 +542,48 @@ export function DaAssegnareClient({ corsi, progetti, finanziamenti, formatori, f
         'Edizione': c.edizione ?? '',
       }
     })
-    const totaleOre = rows.reduce((s, r) => s + (r['Ore totali'] as number), 0)
-    rows.push({
-      'Progetto': 'TOTALE',
-      'Stato progetto': '',
-      'Finanziamento': '',
-      'Titolo corso': '',
-      'Tipo': '',
-      'Ore totali': totaleOre,
-      'Modalità erogazione': '',
-      'Edizione': '',
+    const totaleOre1 = rows1.reduce((s, r) => s + (r['Ore totali'] as number), 0)
+    rows1.push({ 'Progetto': 'TOTALE', 'Stato progetto': '', 'Finanziamento': '', 'Titolo corso': '', 'Tipo': '', 'Ore totali': totaleOre1, 'Modalità erogazione': '', 'Edizione': '' })
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows1), 'Da assegnare')
+
+    // Sheet 2: In attesa accettazione
+    const rows2 = filteredCorsiInAttesa.map(c => {
+      const p = progettiMap.get(c.project_id)
+      const finNome = p?.finanziamento_id ? finanziamentiMap.get(p.finanziamento_id) ?? '' : ''
+      return {
+        'Progetto': p?.school_name ?? '',
+        'Stato progetto': p?.status === 'active' ? 'Attivo' : 'In attesa',
+        'Finanziamento': finNome,
+        'Titolo corso': c.title,
+        'Tipo': c.tipo ?? '',
+        'Ore totali': c.ore_totali,
+        'Modalità erogazione': c.modalita ? (MODALITA_LABEL[c.modalita] ?? c.modalita) : '',
+        'Formatore assegnato': c.formatore_nome,
+        'Stato notifica': c.notificato ? 'Notificato' : 'Non notificato',
+        'Data notifica': c.lettera_incarico_inviata_at ? new Date(c.lettera_incarico_inviata_at).toLocaleDateString('it-IT') : '',
+      }
     })
-    const ws = XLSX.utils.json_to_sheet(rows)
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, 'Da assegnare')
-    const today = new Date().toISOString().split('T')[0]
+    const totaleOre2 = rows2.reduce((s, r) => s + (r['Ore totali'] as number), 0)
+    rows2.push({ 'Progetto': 'TOTALE', 'Stato progetto': '', 'Finanziamento': '', 'Titolo corso': '', 'Tipo': '', 'Ore totali': totaleOre2, 'Modalità erogazione': '', 'Formatore assegnato': '', 'Stato notifica': '', 'Data notifica': '' })
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows2), 'In attesa accettazione')
+
     XLSX.writeFile(wb, `Corsi_da_assegnare_${today}.xlsx`)
-  }, [filteredCorsi, progettiMap, finanziamentiMap])
+  }, [filteredCorsi, filteredCorsiInAttesa, progettiMap, finanziamentiMap])
 
   return (
     <div className="p-8 max-w-6xl mx-auto">
       {/* Header */}
-      <div className="flex items-start justify-between mb-8">
+      <div className="flex items-start justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Corsi da assegnare</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Corsi</h1>
           <p className="text-sm text-gray-500 mt-1">
-            {filteredCorsi.length === 0
-              ? 'Nessun corso senza formatore'
-              : (() => {
-                  const oreTot = filteredCorsi.reduce((s, c) => s + c.ore_totali, 0)
-                  return `${filteredCorsi.length} cors${filteredCorsi.length === 1 ? 'o' : 'i'} | ${oreTot}h da assegnare`
-                })()}
+            {activeTab === 'da_assegnare'
+              ? filteredCorsi.length === 0
+                ? 'Nessun corso senza formatore'
+                : `${filteredCorsi.length} cors${filteredCorsi.length === 1 ? 'o' : 'i'} | ${filteredCorsi.reduce((s, c) => s + c.ore_totali, 0)}h da assegnare`
+              : filteredCorsiInAttesa.length === 0
+                ? 'Nessun corso in attesa di accettazione'
+                : `${filteredCorsiInAttesa.length} cors${filteredCorsiInAttesa.length === 1 ? 'o' : 'i'} | ${filteredCorsiInAttesa.reduce((s, c) => s + c.ore_totali, 0)}h in attesa`}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -534,7 +600,7 @@ export function DaAssegnareClient({ corsi, progetti, finanziamenti, formatori, f
           </select>
           <button
             onClick={handleExport}
-            disabled={filteredCorsi.length === 0}
+            disabled={filteredCorsi.length === 0 && filteredCorsiInAttesa.length === 0}
             className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border border-gray-200 rounded-[7px] hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed bg-white text-gray-700"
           >
             <svg width="15" height="15" fill="none" viewBox="0 0 24 24">
@@ -545,91 +611,207 @@ export function DaAssegnareClient({ corsi, progetti, finanziamenti, formatori, f
         </div>
       </div>
 
-      {/* Empty state */}
-      {visibleProjects.length === 0 && (
-        <div className="text-center py-20 text-gray-400">
-          <svg className="mx-auto mb-4 text-gray-300" width="48" height="48" fill="none" viewBox="0 0 24 24">
-            <circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="1.5"/>
-            <path d="M3 20a6 6 0 0112 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-            <polyline points="17 11 19 13 23 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-          <p className="text-base font-medium text-gray-500">Tutti i corsi hanno un formatore assegnato</p>
-          <p className="text-sm text-gray-400 mt-1">
-            <Link href="/progetti" className="hover:underline" style={{ color: '#d64b55' }}>Vai ai progetti →</Link>
-          </p>
-        </div>
-      )}
+      {/* Tab navigation */}
+      <div className="flex gap-0.5 mb-6 bg-gray-100 p-1 rounded-[10px] w-fit">
+        <button
+          onClick={() => setActiveTab('da_assegnare')}
+          className="px-4 py-1.5 text-sm font-medium rounded-[7px] transition-colors"
+          style={activeTab === 'da_assegnare'
+            ? { backgroundColor: 'white', color: '#111', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }
+            : { color: '#6b7280' }}
+        >
+          Da assegnare {filteredCorsi.length > 0 && <span className="ml-1.5 text-xs font-semibold px-1.5 py-0.5 rounded-full" style={activeTab === 'da_assegnare' ? { backgroundColor: '#d64b55', color: 'white' } : { backgroundColor: '#e5e7eb', color: '#374151' }}>{filteredCorsi.length}</span>}
+        </button>
+        <button
+          onClick={() => setActiveTab('in_attesa')}
+          className="px-4 py-1.5 text-sm font-medium rounded-[7px] transition-colors"
+          style={activeTab === 'in_attesa'
+            ? { backgroundColor: 'white', color: '#111', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }
+            : { color: '#6b7280' }}
+        >
+          In attesa di accettazione {filteredCorsiInAttesa.length > 0 && <span className="ml-1.5 text-xs font-semibold px-1.5 py-0.5 rounded-full" style={activeTab === 'in_attesa' ? { backgroundColor: '#3b82f6', color: 'white' } : { backgroundColor: '#e5e7eb', color: '#374151' }}>{filteredCorsiInAttesa.length}</span>}
+        </button>
+      </div>
 
-      {/* Accordion list */}
-      <div className="space-y-3">
-        {visibleProjects.map(progetto => {
-          const corsiProg = corsiPerProgetto.get(progetto.id) || []
-          const isExpanded = expandedProjects.has(progetto.id)
-          const finNome = progetto.finanziamento_id ? finanziamentiMap.get(progetto.finanziamento_id) : null
-          const finColors = finNome ? badgeColor(finNome) : null
+      {/* ── TAB 1: Da assegnare ──────────────────────────────────────────────── */}
+      {activeTab === 'da_assegnare' && (
+        <>
+          {visibleProjects.length === 0 && (
+            <div className="text-center py-20 text-gray-400">
+              <svg className="mx-auto mb-4 text-gray-300" width="48" height="48" fill="none" viewBox="0 0 24 24">
+                <circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="1.5"/>
+                <path d="M3 20a6 6 0 0112 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                <polyline points="17 11 19 13 23 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              <p className="text-base font-medium text-gray-500">Tutti i corsi hanno un formatore assegnato</p>
+              <p className="text-sm text-gray-400 mt-1">
+                <Link href="/progetti" className="hover:underline" style={{ color: '#d64b55' }}>Vai ai progetti →</Link>
+              </p>
+            </div>
+          )}
+          <div className="space-y-3">
+            {visibleProjects.map(progetto => {
+              const corsiProg = corsiPerProgetto.get(progetto.id) || []
+              const isExpanded = expandedProjects.has(progetto.id)
+              const finNome = progetto.finanziamento_id ? finanziamentiMap.get(progetto.finanziamento_id) : null
+              const finColors = finNome ? badgeColor(finNome) : null
 
-          return (
-            <div key={progetto.id} className="bg-white rounded-xl overflow-hidden" style={{ border: '0.5px solid #e5e5e5' }}>
-              {/* Header */}
-              <button
-                onClick={() => toggleProject(progetto.id)}
-                className="w-full flex items-center gap-3 px-6 py-4 hover:bg-gray-50 transition-colors text-left"
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-gray-900 truncate">{progetto.school_name}</span>
-                    <ProjectStatusBadge status={progetto.status} />
-                    {finNome && finColors && (
-                      <span className="text-xs font-medium px-2 py-0.5 rounded-md"
-                        style={{ backgroundColor: finColors.bg, color: finColors.text }}>
-                        {finNome}
-                      </span>
-                    )}
-                    {progetto.is_subappalto && (
-                      <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-orange-100 text-orange-700">
-                        🔄 Subappalto
-                      </span>
-                    )}
-                  </div>
-                  {progetto.address && (
-                    <p className="text-xs text-gray-400 mt-0.5 truncate">{progetto.address}</p>
+              return (
+                <div key={progetto.id} className="bg-white rounded-xl overflow-hidden" style={{ border: '0.5px solid #e5e5e5' }}>
+                  {/* Header */}
+                  <button
+                    onClick={() => toggleProject(progetto.id)}
+                    className="w-full flex items-center gap-3 px-6 py-4 hover:bg-gray-50 transition-colors text-left"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-gray-900 truncate">{progetto.school_name}</span>
+                        <ProjectStatusBadge status={progetto.status} />
+                        {finNome && finColors && (
+                          <span className="text-xs font-medium px-2 py-0.5 rounded-md"
+                            style={{ backgroundColor: finColors.bg, color: finColors.text }}>
+                            {finNome}
+                          </span>
+                        )}
+                        {progetto.is_subappalto && (
+                          <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-orange-100 text-orange-700">
+                            🔄 Subappalto
+                          </span>
+                        )}
+                      </div>
+                      {progetto.address && (
+                        <p className="text-xs text-gray-400 mt-0.5 truncate">{progetto.address}</p>
+                      )}
+                    </div>
+                    <span className="text-sm text-gray-500 shrink-0 font-medium">
+                      {corsiProg.length} cors{corsiProg.length === 1 ? 'o' : 'i'} | {corsiProg.reduce((s, c) => s + c.ore_totali, 0)}h
+                    </span>
+                    <svg
+                      className="w-4 h-4 text-gray-400 shrink-0 transition-transform duration-200"
+                      style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                      fill="none" viewBox="0 0 24 24"
+                    >
+                      <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </button>
+
+                  {isExpanded && (
+                    <div className="border-t border-gray-100 divide-y divide-gray-50">
+                      {corsiProg.map(corso => (
+                        <CorsoRow
+                          key={corso.id}
+                          corso={corso}
+                          progetto={progetto}
+                          formatori={formatori}
+                          formatoriSkills={formatoriSkills}
+                          oreAssegnateMap={oreAssegnateMap}
+                          isPickerOpen={pickerCorsoId === corso.id}
+                          onTogglePicker={() => setPickerCorsoId(pickerCorsoId === corso.id ? null : corso.id)}
+                          onAssign={doAssign}
+                          isAssigning={assigningCorsoId === corso.id}
+                        />
+                      ))}
+                    </div>
                   )}
                 </div>
-                <span className="text-sm text-gray-500 shrink-0 font-medium">
-                  {corsiProg.length} cors{corsiProg.length === 1 ? 'o' : 'i'} | {corsiProg.reduce((s, c) => s + c.ore_totali, 0)}h
-                </span>
-                <svg
-                  className="w-4 h-4 text-gray-400 shrink-0 transition-transform duration-200"
-                  style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
-                  fill="none" viewBox="0 0 24 24"
-                >
-                  <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </button>
+              )
+            })}
+          </div>
+        </>
+      )}
 
-              {/* Body */}
-              {isExpanded && (
-                <div className="border-t border-gray-100 divide-y divide-gray-50">
-                  {corsiProg.map(corso => (
-                    <CorsoRow
-                      key={corso.id}
-                      corso={corso}
-                      progetto={progetto}
-                      formatori={formatori}
-                      formatoriSkills={formatoriSkills}
-                      oreAssegnateMap={oreAssegnateMap}
-                      isPickerOpen={pickerCorsoId === corso.id}
-                      onTogglePicker={() => setPickerCorsoId(pickerCorsoId === corso.id ? null : corso.id)}
-                      onAssign={doAssign}
-                      isAssigning={assigningCorsoId === corso.id}
-                    />
-                  ))}
-                </div>
-              )}
+      {/* ── TAB 2: In attesa di accettazione ─────────────────────────────────── */}
+      {activeTab === 'in_attesa' && (
+        <>
+          {visibleProjectsInAttesa.length === 0 && (
+            <div className="text-center py-20 text-gray-400">
+              <svg className="mx-auto mb-4 text-gray-300" width="48" height="48" fill="none" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5"/>
+                <path d="M12 8v4l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+              <p className="text-base font-medium text-gray-500">Nessun corso in attesa di accettazione</p>
             </div>
-          )
-        })}
-      </div>
+          )}
+          <div className="space-y-3">
+            {visibleProjectsInAttesa.map(progetto => {
+              const corsiProg = corsiInAttesaPerProgetto.get(progetto.id) || []
+              const isExpanded = expandedProjects.has(progetto.id)
+              const finNome = progetto.finanziamento_id ? finanziamentiMap.get(progetto.finanziamento_id) : null
+              const finColors = finNome ? badgeColor(finNome) : null
+
+              return (
+                <div key={progetto.id} className="bg-white rounded-xl overflow-hidden" style={{ border: '0.5px solid #e5e5e5' }}>
+                  <button
+                    onClick={() => toggleProject(progetto.id)}
+                    className="w-full flex items-center gap-3 px-6 py-4 hover:bg-gray-50 transition-colors text-left"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-gray-900 truncate">{progetto.school_name}</span>
+                        <ProjectStatusBadge status={progetto.status} />
+                        {finNome && finColors && (
+                          <span className="text-xs font-medium px-2 py-0.5 rounded-md"
+                            style={{ backgroundColor: finColors.bg, color: finColors.text }}>
+                            {finNome}
+                          </span>
+                        )}
+                        {progetto.is_subappalto && (
+                          <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-orange-100 text-orange-700">
+                            🔄 Subappalto
+                          </span>
+                        )}
+                      </div>
+                      {progetto.address && (
+                        <p className="text-xs text-gray-400 mt-0.5 truncate">{progetto.address}</p>
+                      )}
+                    </div>
+                    <span className="text-sm text-gray-500 shrink-0 font-medium">
+                      {corsiProg.length} cors{corsiProg.length === 1 ? 'o' : 'i'} | {corsiProg.reduce((s, c) => s + c.ore_totali, 0)}h in attesa
+                    </span>
+                    <svg
+                      className="w-4 h-4 text-gray-400 shrink-0 transition-transform duration-200"
+                      style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                      fill="none" viewBox="0 0 24 24"
+                    >
+                      <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </button>
+
+                  {isExpanded && (
+                    <div className="border-t border-gray-100 divide-y divide-gray-50">
+                      {corsiProg.map(corso => {
+                        const dataNotifica = corso.lettera_incarico_inviata_at
+                          ? new Date(corso.lettera_incarico_inviata_at).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' })
+                          : null
+                        return (
+                          <div key={corso.id} className="flex items-center gap-3 px-6 py-3">
+                            {corso.tipo && <TipoBadge tipo={corso.tipo} />}
+                            <span className="flex-1 text-sm font-medium text-gray-800 truncate">{corso.title}</span>
+                            <span className="text-sm text-gray-400 shrink-0">{corso.ore_totali}h</span>
+                            {corso.modalita && <ModalitaIcon modalita={corso.modalita} />}
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className="text-sm text-gray-700 font-medium">{corso.formatore_nome}</span>
+                              {corso.notificato ? (
+                                <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                                  🔵 Notificato{dataNotifica ? ` il ${dataNotifica}` : ''}
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700">
+                                  🟡 Non notificato
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </>
+      )}
 
       {/* Tariffa mancante modal */}
       {tariffaMancante && (
