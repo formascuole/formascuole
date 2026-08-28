@@ -228,6 +228,16 @@ export function LettereIncaricoClient({ progetti, role }: Props) {
                       </div>
                       <div className="flex items-center gap-3 shrink-0">
                         <BadgeStato firmata={signed} firmataAt={signedAt} inviatAt={l.lettera_incarico_inviata_at} />
+                        {l.lettera_incarico_url && (
+                          <a
+                            href={l.lettera_incarico_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-blue-600 hover:underline"
+                          >
+                            {signed ? 'Scarica PDF' : 'Visualizza PDF'}
+                          </a>
+                        )}
                         {canSign && (
                           <button
                             onClick={() => handleSingleFirma(l.id, 'formatore')}
@@ -235,16 +245,6 @@ export function LettereIncaricoClient({ progetti, role }: Props) {
                           >
                             Firma
                           </button>
-                        )}
-                        {signed && (
-                          <a
-                            href={l.lettera_incarico_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs text-blue-600 hover:underline"
-                          >
-                            Scarica PDF
-                          </a>
                         )}
                       </div>
                     </div>
@@ -276,6 +276,16 @@ export function LettereIncaricoClient({ progetti, role }: Props) {
                       </div>
                       <div className="flex items-center gap-3 shrink-0">
                         <BadgeStato firmata={signed} firmataAt={signedAt} inviatAt={l.lettera_tutor_inviata_at} />
+                        {l.lettera_tutor_url && (
+                          <a
+                            href={l.lettera_tutor_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-blue-600 hover:underline"
+                          >
+                            {signed ? 'Scarica PDF' : 'Visualizza PDF'}
+                          </a>
+                        )}
                         {canSign && (
                           <button
                             onClick={() => handleSingleFirma(l.id, 'tutor')}
@@ -283,16 +293,6 @@ export function LettereIncaricoClient({ progetti, role }: Props) {
                           >
                             Firma
                           </button>
-                        )}
-                        {signed && (
-                          <a
-                            href={l.lettera_tutor_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs text-blue-600 hover:underline"
-                          >
-                            Scarica PDF
-                          </a>
                         )}
                       </div>
                     </div>
