@@ -67,25 +67,48 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  // Only super_admin can delete projects
-  if (!await checkIsSuperAdmin(user.id)) return NextResponse.json({ error: 'Riservato al Super Admin' }, { status: 403 })
+  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+  if (!['admin', 'super_admin'].includes(profile?.role)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
 
   const admin = createAdminClient()
 
-  // Collect corso IDs for cascade
-  const { data: corsi } = await admin.from('corsi').select('id').eq('project_id', id)
+  // Collect corso IDs and check safety blockers
+  const { data: corsi } = await admin
+    .from('corsi')
+    .select('id, lettera_incarico_firmata, corso_completato')
+    .eq('project_id', id)
   const corsoIds = (corsi || []).map((c: { id: string }) => c.id)
 
+  const blockers: string[] = []
+
+  if (corsoIds.length > 0) {
+    const { data: sessioni } = await admin.from('sessioni').select('id').in('corso_id', corsoIds).eq('completata', true).limit(1)
+    if (sessioni?.length) blockers.push('Ci sono sessioni già erogate')
+
+    const { data: notule } = await admin.from('notule').select('id').in('corso_id', corsoIds).eq('stato', 'accettata').limit(1)
+    if (notule?.length) blockers.push('Ci sono notule accettate')
+  }
+
+  if ((corsi || []).some((c: { lettera_incarico_firmata?: boolean }) => c.lettera_incarico_firmata)) {
+    blockers.push("Ci sono lettere d'incarico firmate")
+  }
+  if ((corsi || []).some((c: { corso_completato?: boolean }) => c.corso_completato)) {
+    blockers.push('Ci sono corsi completati')
+  }
+
+  if (blockers.length > 0) {
+    return NextResponse.json({ error: 'BLOCKERS', blockers }, { status: 422 })
+  }
+
+  // Cascade delete
   if (corsoIds.length > 0) {
     await admin.from('note_corso').delete().in('corso_id', corsoIds)
     await admin.from('sessioni').delete().in('corso_id', corsoIds)
     await admin.from('solleciti_log').delete().in('corso_id', corsoIds)
   }
   await admin.from('chat_messaggi').delete().eq('progetto_id', id)
-  await admin.from('chat_letture').delete().in('messaggio_id',
-    // chat_letture references chat_messaggi which we already deleted — this is a no-op but safe
-    []
-  )
   await admin.from('corsi').delete().eq('project_id', id)
   await admin.from('referenti_progetto').delete().eq('progetto_id', id)
 

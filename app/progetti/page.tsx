@@ -55,6 +55,7 @@ export default async function ProgettiPage({ searchParams }: { searchParams: Pro
         finanziamenti={finanziamenti || []}
         partners={partners || []}
         inAttesaProjectIds={inAttesaProjectIds}
+        isAdmin={['admin', 'super_admin'].includes(profile.role)}
       />
     </AppLayout>
   )

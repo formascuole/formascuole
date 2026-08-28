@@ -1,5 +1,5 @@
 'use client'
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ProgettoConStats, CorsoConOre, Profile, ChatMessaggio, Referente, Finanziamento, Partner, CatalogoCorso, QuestionarioRisultato } from '@/lib/types'
@@ -31,6 +31,7 @@ interface ProgettoDetailClientProps {
   catalogo: CatalogoCorso[]
   currentUserId: string
   isSuperAdmin?: boolean
+  isAdmin?: boolean
   questionari?: QuestionarioRisultato[]
   oreErogatePerCorso?: Record<string, number>
   oreAssegnateMap?: Record<string, number>
@@ -88,6 +89,7 @@ export function ProgettoDetailClient({
   catalogo,
   currentUserId,
   isSuperAdmin,
+  isAdmin,
   questionari = [],
   oreErogatePerCorso = {},
   oreAssegnateMap = {},
@@ -96,6 +98,17 @@ export function ProgettoDetailClient({
 
   // ── Delete progetto ──────────────────────────────────────────
   const [deleteProgettoOpen, setDeleteProgettoOpen] = useState(false)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
+  const [deletingProgetto, setDeletingProgetto] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
+
+  const deleteBlockers = useMemo(() => {
+    const b: string[] = []
+    if (corsi.some(c => c.ore_erogate > 0)) b.push('Ci sono sessioni già erogate')
+    if (corsi.some(c => c.lettera_incarico_firmata)) b.push("Ci sono lettere d'incarico firmate")
+    if (corsi.some(c => c.corso_completato)) b.push('Ci sono corsi completati')
+    return b
+  }, [corsi])
 
   // ── Notifica assegnazioni ─────────────────────────────────────
   const [notificaOpen, setNotificaOpen] = useState(false)
@@ -814,9 +827,9 @@ export function ProgettoDetailClient({
               </svg>
               Modifica
             </Button>
-            {isSuperAdmin && (
+            {isAdmin && (
               <button
-                onClick={() => setDeleteProgettoOpen(true)}
+                onClick={() => { setDeleteProgettoOpen(true); setDeleteConfirmText(''); setDeleteError('') }}
                 className="inline-flex items-center gap-1.5 text-xs font-medium text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 px-3 py-1.5 rounded-[7px] transition-colors"
               >
                 <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
@@ -1712,21 +1725,78 @@ export function ProgettoDetailClient({
         </div>
       </Modal>
 
-      <DeleteConfirmModal
-        open={deleteProgettoOpen}
-        onClose={() => setDeleteProgettoOpen(false)}
-        title={`Elimina progetto — ${progetto.school_name}`}
-        description={`Sei sicuro di voler eliminare il progetto di ${progetto.school_name}? Questa azione è irreversibile. Tutti i corsi, sessioni e messaggi correlati verranno eliminati definitivamente.`}
-        confirmName="CANCELLA"
-        onConfirm={async () => {
-          const res = await fetch(`/api/progetti/${progetto.id}`, { method: 'DELETE' })
-          if (!res.ok) {
-            const json = await res.json()
-            throw new Error(json.error || 'Errore durante l\'eliminazione')
-          }
-          router.push('/progetti')
-        }}
-      />
+      {/* ── Modal: Elimina progetto ──────────────────────────────────── */}
+      {deleteProgettoOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
+            <h2 className="text-lg font-semibold text-gray-900">Elimina progetto</h2>
+
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
+              ⚠️ Questa azione è <strong>irreversibile</strong>. Tutti i corsi, sessioni e messaggi correlati a <strong>{progetto.school_name}</strong> verranno eliminati definitivamente.
+            </div>
+
+            {deleteBlockers.length > 0 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-1">
+                <div className="text-sm font-medium text-amber-800">Impossibile eliminare — sblocca prima:</div>
+                <ul className="text-sm text-amber-700 list-disc list-inside space-y-0.5">
+                  {deleteBlockers.map(b => <li key={b}>{b}</li>)}
+                </ul>
+              </div>
+            )}
+
+            {deleteBlockers.length === 0 && (
+              <div className="space-y-2">
+                <label className="text-sm text-gray-600">
+                  Digita <strong>{progetto.school_name}</strong> per confermare:
+                </label>
+                <input
+                  type="text"
+                  value={deleteConfirmText}
+                  onChange={e => setDeleteConfirmText(e.target.value)}
+                  className="w-full border border-gray-300 rounded-[7px] px-3 py-2 text-sm focus:outline-none focus:border-red-400"
+                  placeholder={progetto.school_name}
+                />
+              </div>
+            )}
+
+            {deleteError && <p className="text-sm text-red-600">{deleteError}</p>}
+
+            <div className="flex gap-2 justify-end pt-1">
+              <button
+                onClick={() => setDeleteProgettoOpen(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-[7px] transition-colors"
+              >
+                Annulla
+              </button>
+              <button
+                disabled={deleteBlockers.length > 0 || deleteConfirmText !== progetto.school_name || deletingProgetto}
+                onClick={async () => {
+                  setDeletingProgetto(true)
+                  setDeleteError('')
+                  try {
+                    const res = await fetch(`/api/progetti/${progetto.id}`, { method: 'DELETE' })
+                    const json = await res.json()
+                    if (!res.ok) {
+                      if (json.blockers?.length) {
+                        setDeleteError(json.blockers.join(', '))
+                      } else {
+                        setDeleteError(json.error || "Errore durante l'eliminazione")
+                      }
+                      return
+                    }
+                    router.push('/progetti')
+                  } finally {
+                    setDeletingProgetto(false)
+                  }
+                }}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-[7px] transition-colors"
+              >
+                {deletingProgetto ? 'Eliminazione…' : 'Elimina definitivamente'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Modal: Aggiungi corso ────────────────────────────────────── */}
       <Modal

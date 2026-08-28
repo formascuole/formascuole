@@ -47,15 +47,21 @@ interface ProgettiClientProps {
   finanziamenti: Finanziamento[]
   partners: Partner[]
   inAttesaProjectIds?: string[]
+  isAdmin?: boolean
 }
 
-export function ProgettiClient({ progetti, finanziamenti, partners, inAttesaProjectIds }: ProgettiClientProps) {
+export function ProgettiClient({ progetti, finanziamenti, partners, inAttesaProjectIds, isAdmin }: ProgettiClientProps) {
   const router = useRouter()
   const [search, setSearch] = useState('')
   const [filterFinId, setFilterFinId] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
+  const [bulkDeleting, setBulkDeleting] = useState(false)
+  const [bulkDeleteText, setBulkDeleteText] = useState('')
+  const [bulkDeleteError, setBulkDeleteError] = useState('')
   const [form, setForm] = useState({
     school_name: '',
     address: '',
@@ -101,6 +107,39 @@ export function ProgettiClient({ progetti, finanziamenti, partners, inAttesaProj
       p.ref_name.toLowerCase().includes(q)
     )
   }, [progetti, search, filterFinId, inAttesaSet])
+
+  const toggleSelect = (id: string) => setSelectedIds(prev => {
+    const next = new Set(prev)
+    if (next.has(id)) next.delete(id); else next.add(id)
+    return next
+  })
+
+  const handleBulkDelete = async () => {
+    setBulkDeleting(true)
+    setBulkDeleteError('')
+    const errors: string[] = []
+    for (const id of selectedIds) {
+      const res = await fetch(`/api/progetti/${id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const json = await res.json()
+        const p = progetti.find(x => x.id === id)
+        if (json.blockers?.length) {
+          errors.push(`${p?.school_name ?? id}: ${json.blockers.join(', ')}`)
+        } else {
+          errors.push(`${p?.school_name ?? id}: ${json.error || 'Errore'}`)
+        }
+      }
+    }
+    setBulkDeleting(false)
+    if (errors.length) {
+      setBulkDeleteError(errors.join('\n'))
+    } else {
+      setBulkDeleteOpen(false)
+      setBulkDeleteText('')
+      setSelectedIds(new Set())
+      router.refresh()
+    }
+  }
 
   const resetForm = () => setForm({
     school_name: '', address: '', regione: '', provincia: '', citta: '',
@@ -152,12 +191,26 @@ export function ProgettiClient({ progetti, finanziamenti, partners, inAttesaProj
           <h1 className="text-2xl font-bold text-gray-900">Progetti</h1>
           <p className="text-sm text-gray-500 mt-1">{progetti.length} progett{progetti.length === 1 ? 'o' : 'i'} totali</p>
         </div>
-        <Button onClick={() => { setSaveError(''); setModalOpen(true) }}>
-          <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
-            <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-          </svg>
-          Nuovo Progetto
-        </Button>
+        <div className="flex items-center gap-2">
+          {isAdmin && selectedIds.size > 0 && (
+            <button
+              onClick={() => { setBulkDeleteText(''); setBulkDeleteError(''); setBulkDeleteOpen(true) }}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 px-3 py-2 rounded-[7px] transition-colors"
+            >
+              <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
+                <polyline points="3 6 5 6 21 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                <path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Elimina selezionati ({selectedIds.size})
+            </button>
+          )}
+          <Button onClick={() => { setSaveError(''); setModalOpen(true) }}>
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
+              <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+            Nuovo Progetto
+          </Button>
+        </div>
       </div>
 
       {/* Banner filtro in attesa */}
@@ -217,8 +270,65 @@ export function ProgettiClient({ progetti, finanziamenti, partners, inAttesaProj
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((p) => (
-            <ProjectCard key={p.id} progetto={p} finanziamenti={finanziamenti} />
+            <ProjectCard
+              key={p.id}
+              progetto={p}
+              finanziamenti={finanziamenti}
+              selected={selectedIds.has(p.id)}
+              onToggle={isAdmin ? () => toggleSelect(p.id) : undefined}
+            />
           ))}
+        </div>
+      )}
+
+      {/* Modal: elimina selezionati */}
+      {bulkDeleteOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
+            <h2 className="text-lg font-semibold text-gray-900">Elimina progetti selezionati</h2>
+
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
+              ⚠️ Stai per eliminare <strong>{selectedIds.size}</strong> progett{selectedIds.size === 1 ? 'o' : 'i'}. Questa azione è <strong>irreversibile</strong>.
+            </div>
+
+            <ul className="text-sm text-gray-700 space-y-1 max-h-40 overflow-y-auto">
+              {Array.from(selectedIds).map(id => {
+                const p = progetti.find(x => x.id === id)
+                return <li key={id} className="flex items-center gap-1.5"><span className="text-red-400">•</span>{p?.school_name ?? id}</li>
+              })}
+            </ul>
+
+            <div className="space-y-2">
+              <label className="text-sm text-gray-600">Digita <strong>ELIMINA</strong> per confermare:</label>
+              <input
+                type="text"
+                value={bulkDeleteText}
+                onChange={e => setBulkDeleteText(e.target.value)}
+                className="w-full border border-gray-300 rounded-[7px] px-3 py-2 text-sm focus:outline-none focus:border-red-400"
+                placeholder="ELIMINA"
+              />
+            </div>
+
+            {bulkDeleteError && (
+              <pre className="text-xs text-red-600 whitespace-pre-wrap">{bulkDeleteError}</pre>
+            )}
+
+            <div className="flex gap-2 justify-end pt-1">
+              <button
+                onClick={() => setBulkDeleteOpen(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-[7px] transition-colors"
+              >
+                Annulla
+              </button>
+              <button
+                disabled={bulkDeleteText !== 'ELIMINA' || bulkDeleting}
+                onClick={handleBulkDelete}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-[7px] transition-colors"
+              >
+                {bulkDeleting ? 'Eliminazione…' : 'Elimina definitivamente'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -359,7 +469,7 @@ export function ProgettiClient({ progetti, finanziamenti, partners, inAttesaProj
   )
 }
 
-function ProjectCard({ progetto: p, finanziamenti }: { progetto: ProgettoConStats; finanziamenti: Finanziamento[] }) {
+function ProjectCard({ progetto: p, finanziamenti, selected, onToggle }: { progetto: ProgettoConStats; finanziamenti: Finanziamento[]; selected?: boolean; onToggle?: () => void }) {
   const router = useRouter()
   const hasWarning = Number(p.corsi_senza_formatore) > 0 || Number(p.corsi_senza_calendario) > 0
   const fin_id = (p as ProgettoConStats & { finanziamento_id?: string | null }).finanziamento_id
@@ -368,14 +478,25 @@ function ProjectCard({ progetto: p, finanziamenti }: { progetto: ProgettoConStat
 
   return (
     <div
-      className="bg-white rounded-xl p-5 cursor-pointer hover:shadow-md transition-all"
+      className={`bg-white rounded-xl p-5 cursor-pointer hover:shadow-md transition-all ${selected ? 'ring-2 ring-red-400' : ''}`}
       style={{ border: '0.5px solid #e5e5e5' }}
       onClick={() => router.push(`/progetti/${p.id}`)}
     >
       <div className="flex items-start justify-between mb-3">
-        <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-gray-900 text-sm truncate">{p.school_name}</h3>
-          <p className="text-xs text-gray-400 mt-0.5 truncate">{formatAddress(p)}</p>
+        <div className="flex items-start gap-2 flex-1 min-w-0">
+          {onToggle && (
+            <input
+              type="checkbox"
+              checked={!!selected}
+              onChange={onToggle}
+              onClick={e => e.stopPropagation()}
+              className="mt-0.5 w-4 h-4 rounded accent-[#d64b55] shrink-0"
+            />
+          )}
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-gray-900 text-sm truncate">{p.school_name}</h3>
+            <p className="text-xs text-gray-400 mt-0.5 truncate">{formatAddress(p)}</p>
+          </div>
         </div>
         <StatusBadge variant={p.status} size="sm" />
       </div>

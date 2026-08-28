@@ -136,6 +136,7 @@ export default async function ProgettoDetailPage({ params }: { params: Promise<{
         catalogo={catalogo || []}
         currentUserId={user.id}
         isSuperAdmin={isSuperAdmin}
+        isAdmin={['admin', 'super_admin'].includes(profile.role)}
         questionari={questionari || []}
         oreErogatePerCorso={oreErogatePerCorso}
         oreAssegnateMap={oreAssegnateMap}
