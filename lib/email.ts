@@ -384,7 +384,7 @@ export async function generateAssegnazioneEmail(params: AssegnazioneEmailParams)
 
   try {
     const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       max_tokens: 600,
       messages: [
         {
@@ -433,7 +433,7 @@ export async function generateSollecitoEmail(params: SollecitoEmailParams): Prom
 
   try {
     const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       max_tokens: 600,
       messages: [
         {
@@ -466,7 +466,7 @@ Rispondi SOLO con il corpo dell'email in testo semplice (no HTML, no oggetto ema
 export async function generateReminderSessioneEmail(params: ReminderSessioneEmailParams): Promise<string> {
   try {
     const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       max_tokens: 500,
       messages: [
         {
@@ -502,7 +502,7 @@ Rispondi SOLO con il corpo dell'email in testo semplice (no HTML, no oggetto ema
 export async function generateSollecitoAccettazioneEmail(params: SollecitoAccettazioneEmailParams): Promise<string> {
   try {
     const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       max_tokens: 400,
       messages: [
         {
@@ -538,7 +538,7 @@ Rispondi SOLO con il corpo dell'email in testo semplice (no HTML, no oggetto ema
 export async function generateRispostaFormatoreEmail(params: RispostaFormatoreEmailParams): Promise<string> {
   try {
     const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       max_tokens: 400,
       messages: [
         {
@@ -573,7 +573,7 @@ Rispondi SOLO con il corpo dell'email in testo semplice (no HTML, no oggetto ema
 export async function generateCandidaturaDisponibileEmail(params: CandidaturaDisponibileEmailParams): Promise<string> {
   try {
     const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       max_tokens: 400,
       messages: [{
         role: 'user',
@@ -608,7 +608,7 @@ Rispondi SOLO con il corpo dell'email in testo semplice (no HTML, no oggetto ema
 export async function generateCandidaturaRingraziamentoEmail(params: CandidaturaRingraziamentoEmailParams): Promise<string> {
   try {
     const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       max_tokens: 300,
       messages: [{
         role: 'user',
@@ -638,7 +638,7 @@ Rispondi SOLO con il corpo dell'email in testo semplice (no HTML, no oggetto ema
 export async function generateReminderQuestionarioEmail(params: ReminderQuestionarioEmailParams): Promise<string> {
   try {
     const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       max_tokens: 400,
       messages: [
         {
@@ -749,7 +749,7 @@ export async function generateModificaSessioneEmail(params: ModificaSessioneEmai
 
   try {
     const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       max_tokens: 400,
       messages: [{
         role: 'user',
@@ -882,7 +882,7 @@ export async function generateCorsoConclusoEmail(p: CorsoConclusoParams): Promis
   const subject = `Corso concluso — ${p.corso_title} — ${p.school_name}`
   try {
     const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       max_tokens: 500,
       messages: [{
         role: 'user',
@@ -1187,7 +1187,7 @@ export async function generateCompletamentoFormatoreEmail(p: CompletamentoFormat
 
   try {
     const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       max_tokens: 700,
       messages: [{
         role: 'user',
@@ -1245,7 +1245,7 @@ export async function generateEmailConfermaPreAssegnazione(p: ConfermaPreAssegna
   const list = p.corsi.map(c => `  • ${c.title} (${c.tipo}, ${c.ore_totali}h${c.modalita ? ', ' + c.modalita : ''})`).join('\n')
   try {
     const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       max_tokens: 500,
       messages: [{
         role: 'user',
@@ -1310,7 +1310,7 @@ export async function generateAssegnazioneRaggruppataEmail(p: AssegnazioneRaggru
   const list = p.corsi.map(c => `- ${c.title} (${c.tipo}, ${c.ore_totali}h${c.modalita ? ', ' + c.modalita : ''})`).join('\n')
   try {
     const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       max_tokens: 600,
       messages: [{
         role: 'user',
