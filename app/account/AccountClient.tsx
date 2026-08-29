@@ -35,6 +35,11 @@ interface AccountClientProps {
   telefono?: string | null
   regione?: string | null
   inps_gestione_separata?: boolean
+  cvUrl?: string | null
+  cvUploadedAt?: string | null
+  ciUrl?: string | null
+  ciUploadedAt?: string | null
+  documentiCompleti?: boolean | null
 }
 
 const ROLE_BADGES: Record<UserRole, { label: string; cls: string }> = {
@@ -66,6 +71,7 @@ export function AccountClient({
   tariffa_oraria_formatore, tariffa_oraria_tutor,
   ha_partita_iva, regime_fiscale, rivalsa_iva, partita_iva, telefono, regione,
   inps_gestione_separata,
+  cvUrl, cvUploadedAt, ciUrl, ciUploadedAt, documentiCompleti,
 }: AccountClientProps) {
   // Password change state
   const [pwdModalOpen, setPwdModalOpen] = useState(false)
@@ -109,6 +115,48 @@ export function AccountClient({
   })
 
   const isFiscalRole = role === 'formatore' || role === 'tutor'
+
+  // Documenti state
+  const [cvUploaded, setCvUploaded] = useState(!!cvUrl)
+  const [ciUploaded, setCiUploaded] = useState(!!ciUrl)
+  const [cvDateState, setCvDateState] = useState(cvUploadedAt ?? null)
+  const [ciDateState, setCiDateState] = useState(ciUploadedAt ?? null)
+  const [cvLoading, setCvLoading] = useState(false)
+  const [ciLoading, setCiLoading] = useState(false)
+  const [cvError, setCvError] = useState('')
+  const [ciError, setCiError] = useState('')
+  const [viewingDoc, setViewingDoc] = useState<string | null>(null)
+
+  const handleDocUpload = async (tipo: 'cv' | 'ci', file: File) => {
+    const setLoading = tipo === 'cv' ? setCvLoading : setCiLoading
+    const setError = tipo === 'cv' ? setCvError : setCiError
+    setLoading(true)
+    setError('')
+    try {
+      const fd = new FormData()
+      fd.append('tipo', tipo)
+      fd.append('file', file)
+      const res = await fetch('/api/profilo/upload-documento', { method: 'POST', body: fd })
+      const json = await res.json()
+      if (!res.ok) { setError(json.error || 'Errore upload'); return }
+      const now = new Date().toISOString()
+      if (tipo === 'cv') { setCvUploaded(true); setCvDateState(now) }
+      else { setCiUploaded(true); setCiDateState(now) }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleViewDoc = async (tipo: 'cv' | 'ci') => {
+    setViewingDoc(tipo)
+    try {
+      const res = await fetch(`/api/profilo/documento-url?tipo=${tipo}`)
+      const json = await res.json()
+      if (json.url) window.open(json.url, '_blank')
+    } finally {
+      setViewingDoc(null)
+    }
+  }
 
   // Password validation
   const newPwdError =
@@ -339,6 +387,45 @@ export function AccountClient({
                 <p className="text-xs text-gray-400 mt-1.5">La tariffa può variare per singolo ingaggio — verifica nella scheda del corso specifico</p>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Documenti — solo per formatori/tutori */}
+      {isFiscalRole && (
+        <div className="bg-white rounded-xl p-6 mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="font-semibold text-gray-900">I miei documenti</h2>
+              <p className="text-xs text-gray-400 mt-0.5">CV e documento d&apos;identità obbligatori</p>
+            </div>
+            <span className={`inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-md ${documentiCompleti || (cvUploaded && ciUploaded) ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
+              {documentiCompleti || (cvUploaded && ciUploaded) ? '✓ Completi' : 'Incompleti'}
+            </span>
+          </div>
+          <div className="space-y-3">
+            <DocRow
+              label="Curriculum Vitae (CV)"
+              uploaded={cvUploaded}
+              uploadedAt={cvDateState}
+              loading={cvLoading}
+              viewing={viewingDoc === 'cv'}
+              error={cvError}
+              accept=".pdf,.doc,.docx,.odt"
+              onView={() => handleViewDoc('cv')}
+              onUpload={f => handleDocUpload('cv', f)}
+            />
+            <DocRow
+              label="Documento d'identità"
+              uploaded={ciUploaded}
+              uploadedAt={ciDateState}
+              loading={ciLoading}
+              viewing={viewingDoc === 'ci'}
+              error={ciError}
+              accept=".pdf,.jpg,.jpeg,.png"
+              onView={() => handleViewDoc('ci')}
+              onUpload={f => handleDocUpload('ci', f)}
+            />
           </div>
         </div>
       )}
@@ -640,6 +727,72 @@ function TariffaRow({ label, value }: { label: string; value: number | null | un
       <span className="text-sm font-medium text-gray-900 font-mono">
         {value != null ? `€ ${Number(value).toFixed(2)}/h` : <span className="text-gray-300 font-sans">Non definita</span>}
       </span>
+    </div>
+  )
+}
+
+interface DocRowProps {
+  label: string
+  uploaded: boolean
+  uploadedAt: string | null
+  loading: boolean
+  viewing: boolean
+  error: string
+  accept: string
+  onView: () => void
+  onUpload: (f: File) => void
+}
+
+function DocRow({ label, uploaded, uploadedAt, loading, viewing, error, accept, onView, onUpload }: DocRowProps) {
+  const inputId = `doc-input-${label.replace(/\s+/g, '-')}`
+  const dateStr = uploadedAt
+    ? new Date(uploadedAt).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' })
+    : null
+
+  return (
+    <div className="border border-gray-100 rounded-[7px] p-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className={`text-xs font-medium shrink-0 ${uploaded ? 'text-green-600' : 'text-red-500'}`}>
+              {uploaded ? '✓' : '●'}
+            </span>
+            <span className="text-sm text-gray-700 truncate">{label}</span>
+          </div>
+          {uploaded && dateStr && (
+            <p className="text-xs text-gray-400 mt-0.5 ml-4">Caricato {dateStr}</p>
+          )}
+          {!uploaded && (
+            <p className="text-xs text-gray-400 mt-0.5 ml-4">Non caricato</p>
+          )}
+          {error && <p className="text-xs text-red-600 mt-0.5 ml-4">{error}</p>}
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {uploaded && (
+            <button
+              type="button"
+              onClick={onView}
+              disabled={viewing}
+              className="px-2.5 py-1 text-xs font-medium text-gray-600 border border-gray-200 rounded-[7px] hover:border-gray-300 transition-colors disabled:opacity-50"
+            >
+              {viewing ? '…' : 'Visualizza'}
+            </button>
+          )}
+          <label
+            htmlFor={inputId}
+            className="cursor-pointer px-2.5 py-1 text-xs font-medium text-gray-600 border border-gray-200 rounded-[7px] hover:border-gray-300 transition-colors"
+          >
+            {loading ? '…' : uploaded ? 'Aggiorna' : 'Carica'}
+          </label>
+          <input
+            id={inputId}
+            type="file"
+            accept={accept}
+            className="hidden"
+            onChange={e => { const f = e.target.files?.[0]; if (f) onUpload(f) }}
+          />
+        </div>
+      </div>
     </div>
   )
 }

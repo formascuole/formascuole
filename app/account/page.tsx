@@ -67,6 +67,11 @@ export default async function AccountPage() {
         telefono={profile.telefono ?? null}
         regione={profile.regione ?? null}
         inps_gestione_separata={profile.inps_gestione_separata ?? false}
+        cvUrl={profile.cv_url ?? null}
+        cvUploadedAt={profile.cv_uploaded_at ?? null}
+        ciUrl={profile.ci_url ?? null}
+        ciUploadedAt={profile.ci_uploaded_at ?? null}
+        documentiCompleti={profile.documenti_completi ?? false}
       />
     </AppLayout>
   )

@@ -40,6 +40,12 @@ export interface Profile {
   inps_gestione_separata?: boolean
   lat?: number | null
   lng?: number | null
+  // Documenti obbligatori
+  cv_url?: string | null
+  cv_uploaded_at?: string | null
+  ci_url?: string | null
+  ci_uploaded_at?: string | null
+  documenti_completi?: boolean | null
 }
 
 export interface Partner {

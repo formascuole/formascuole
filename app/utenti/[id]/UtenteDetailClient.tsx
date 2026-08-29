@@ -164,6 +164,19 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
   })
   const [tariffaSaving, setTariffaSaving] = useState(false)
   const [tariffaModalOpen, setTariffaModalOpen] = useState(false)
+
+  // Documenti
+  const [viewingDocAdmin, setViewingDocAdmin] = useState<'cv' | 'ci' | null>(null)
+  const handleViewDocAdmin = async (tipo: 'cv' | 'ci') => {
+    setViewingDocAdmin(tipo)
+    try {
+      const res = await fetch(`/api/profilo/documento-url?tipo=${tipo}&utente_id=${profile.id}`)
+      const json = await res.json()
+      if (json.url) window.open(json.url, '_blank')
+    } finally {
+      setViewingDocAdmin(null)
+    }
+  }
   const [savedTariffe, setSavedTariffe] = useState({
     tariffa_oraria_formatore: profile.tariffa_oraria_formatore ?? null,
     tariffa_oraria_tutor: profile.tariffa_oraria_tutor ?? null,
@@ -252,6 +265,11 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
                 profile.profilo_completo
                   ? <span className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md bg-green-100 text-green-700">Profilo completo</span>
                   : <span className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md bg-red-100 text-red-700">Profilo incompleto</span>
+              )}
+              {(profile.roles.includes('formatore') || profile.roles.includes('tutor')) && (
+                profile.documenti_completi
+                  ? <span className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md bg-green-100 text-green-700">✓ Documenti completi</span>
+                  : <span className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md bg-red-100 text-red-700">Documenti mancanti</span>
               )}
             </div>
           </div>
@@ -486,6 +504,34 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
         </div>
       )}
 
+      {/* Documenti — visibile solo ad admin */}
+      {isAdmin && (profile.roles.includes('formatore') || profile.roles.includes('tutor')) && (
+        <div className="bg-white rounded-xl p-6 mt-6" style={{ border: '0.5px solid #e5e5e5' }}>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-semibold text-gray-900">Documenti</h2>
+            <span className={`inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-md ${profile.documenti_completi ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
+              {profile.documenti_completi ? '✓ Completi' : 'Incompleti'}
+            </span>
+          </div>
+          <div className="space-y-3">
+            <AdminDocRow
+              label="Curriculum Vitae (CV)"
+              path={profile.cv_url ?? null}
+              uploadedAt={profile.cv_uploaded_at ?? null}
+              viewing={viewingDocAdmin === 'cv'}
+              onView={() => handleViewDocAdmin('cv')}
+            />
+            <AdminDocRow
+              label="Documento d'identità"
+              path={profile.ci_url ?? null}
+              uploadedAt={profile.ci_uploaded_at ?? null}
+              viewing={viewingDocAdmin === 'ci'}
+              onView={() => handleViewDocAdmin('ci')}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Modal modifica tariffe */}
       <Modal
         open={tariffaModalOpen}
@@ -650,6 +696,41 @@ function TariffaAdminRow({ label, value }: { label: string; value: number | null
       <span className="text-sm font-medium font-mono text-gray-900">
         {value != null ? `€ ${Number(value).toFixed(2)}/h` : <span className="text-gray-300 font-sans">Non definita</span>}
       </span>
+    </div>
+  )
+}
+
+function AdminDocRow({ label, path, uploadedAt, viewing, onView }: {
+  label: string
+  path: string | null
+  uploadedAt: string | null
+  viewing: boolean
+  onView: () => void
+}) {
+  const dateStr = uploadedAt
+    ? new Date(uploadedAt).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' })
+    : null
+
+  return (
+    <div className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+      <div>
+        <div className="flex items-center gap-2">
+          <span className={`text-xs font-medium ${path ? 'text-green-600' : 'text-red-500'}`}>{path ? '✓' : '●'}</span>
+          <span className="text-sm text-gray-700">{label}</span>
+        </div>
+        {dateStr && <p className="text-xs text-gray-400 mt-0.5 ml-4">Caricato {dateStr}</p>}
+        {!path && <p className="text-xs text-gray-400 mt-0.5 ml-4">Non caricato</p>}
+      </div>
+      {path && (
+        <button
+          type="button"
+          onClick={onView}
+          disabled={viewing}
+          className="px-3 py-1 text-xs font-medium text-gray-600 border border-gray-200 rounded-[7px] hover:border-gray-300 transition-colors disabled:opacity-50"
+        >
+          {viewing ? '…' : 'Scarica'}
+        </button>
+      )}
     </div>
   )
 }

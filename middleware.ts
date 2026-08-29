@@ -82,7 +82,7 @@ export async function middleware(request: NextRequest) {
     try {
       const { data: profile } = await supabase
         .from('profiles')
-        .select('role, password_cambiata, profilo_completo')
+        .select('role, password_cambiata, profilo_completo, documenti_completi')
         .eq('id', user.id)
         .single()
 
@@ -90,6 +90,16 @@ export async function middleware(request: NextRequest) {
         if (!profile.password_cambiata || !profile.profilo_completo) {
           const url = request.nextUrl.clone()
           url.pathname = '/onboarding'
+          url.search = ''
+          const res = NextResponse.redirect(url)
+          supabaseResponse.cookies.getAll().forEach(({ name, value }) =>
+            res.cookies.set(name, value)
+          )
+          return res
+        }
+        if (!profile.documenti_completi && !pathname.startsWith('/onboarding/documenti')) {
+          const url = request.nextUrl.clone()
+          url.pathname = '/onboarding/documenti'
           url.search = ''
           const res = NextResponse.redirect(url)
           supabaseResponse.cookies.getAll().forEach(({ name, value }) =>

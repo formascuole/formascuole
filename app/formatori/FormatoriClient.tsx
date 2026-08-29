@@ -41,6 +41,8 @@ interface UtenteConStats {
   rivalsa_iva?: boolean | null
   partita_iva?: string | null
   telefono?: string | null
+  // Documenti
+  documenti_completi?: boolean | null
   // Formatore stats
   n_corsi_formatore: number
   ore_formatore: number
@@ -178,6 +180,10 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
   const [reinviando, setReinviando] = useState(false)
   const [reinviaError, setReinviaError] = useState('')
   const [reinviaSuccessId, setReinviaSuccessId] = useState<string | null>(null)
+
+  // --- Sollecita documenti state ---
+  const [sollecitando, setSollecitando] = useState(false)
+  const [sollecitaSuccess, setSollecitaSuccess] = useState('')
 
   // Fetch stats client-side via service-role API to bypass RLS
   useEffect(() => {
@@ -337,6 +343,26 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
 
   const canSave = editForm.nome.trim().length > 0 && editForm.roles.length > 0
 
+  const handleSollecitaDocumenti = async () => {
+    setSollecitando(true)
+    setSollecitaSuccess('')
+    try {
+      const res = await fetch('/api/admin/sollecita-documenti', { method: 'POST' })
+      const json = await res.json()
+      if (res.ok) {
+        setSollecitaSuccess(`Email inviate: ${json.sent}`)
+        setTimeout(() => setSollecitaSuccess(''), 4000)
+      }
+    } finally {
+      setSollecitando(false)
+    }
+  }
+
+  const docMancanti = utenti.filter(u =>
+    (u.roles || [u.role]).some(r => r === 'formatore' || r === 'tutor') &&
+    !u.documenti_completi
+  ).length
+
   const handleReinvia = async () => {
     if (!reinviaTarget) return
     setReinviando(true)
@@ -373,6 +399,20 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
             </svg>
             Esporta Excel
           </button>
+          {isSuperAdmin && docMancanti > 0 && (
+            <button
+              onClick={handleSollecitaDocumenti}
+              disabled={sollecitando}
+              className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-[7px] border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-700 transition-colors disabled:opacity-50"
+              title="Invia email di sollecito documenti"
+            >
+              <svg width="15" height="15" fill="none" viewBox="0 0 24 24">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <polyline points="22,6 12,13 2,6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              {sollecitando ? 'Invio…' : sollecitaSuccess ? sollecitaSuccess : `Sollecita documenti mancanti (${docMancanti})`}
+            </button>
+          )}
           <Button onClick={() => setCreateOpen(true)}>
             <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
               <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
