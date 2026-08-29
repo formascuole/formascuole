@@ -1,8 +1,8 @@
 'use client'
-import React, { useState, useRef, useEffect, useMemo } from 'react'
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ProgettoConStats, CorsoConOre, Profile, ChatMessaggio, Referente, Finanziamento, Partner, CatalogoCorso, QuestionarioRisultato } from '@/lib/types'
+import { ProgettoConStats, CorsoConOre, Profile, ChatMessaggio, Referente, Finanziamento, Partner, CatalogoCorso, QuestionarioRisultato, Sessione } from '@/lib/types'
 import { calcCommissionePartner, fmtCur } from '@/lib/economia-utils'
 import { QuestionariBlock } from '@/components/ui/QuestionariBlock'
 import { getFinanziamentoColor, formatAddress } from '@/app/progetti/ProgettiClient'
@@ -35,6 +35,7 @@ interface ProgettoDetailClientProps {
   questionari?: QuestionarioRisultato[]
   oreErogatePerCorso?: Record<string, number>
   oreAssegnateMap?: Record<string, number>
+  sessioni?: Pick<Sessione, 'id' | 'corso_id' | 'data' | 'ora_inizio' | 'ora_fine' | 'ore' | 'completata'>[]
 }
 
 type EditScuolaForm = {
@@ -93,6 +94,7 @@ export function ProgettoDetailClient({
   questionari = [],
   oreErogatePerCorso = {},
   oreAssegnateMap = {},
+  sessioni = [],
 }: ProgettoDetailClientProps) {
   const router = useRouter()
 
@@ -109,6 +111,111 @@ export function ProgettoDetailClient({
     if (corsi.some(c => c.corso_completato)) b.push('Ci sono corsi completati')
     return b
   }, [corsi])
+
+  const handleExportScheda = useCallback(async () => {
+    const XLSX = await import('xlsx')
+    const wb = XLSX.utils.book_new()
+
+    const fin = finanziamenti.find(f => f.id === (progetto as ProgettoConStats & { finanziamento_id?: string | null }).finanziamento_id)
+    const statoLabel: Record<string, string> = { active: 'Attivo', pending: 'In attesa', completed: 'Completato' }
+    const oreErogate = Object.values(oreErogatePerCorso).reduce((s, x) => s + x, 0)
+
+    // ── Foglio 1: Riepilogo progetto ──────────────────────────────
+    const riepilogoRows: (string | number)[][] = [
+      ['DATI PROGETTO', ''],
+      ['Nome scuola', progetto.school_name],
+      ['Indirizzo', [progetto.address, progetto.citta ? (progetto.provincia ? `${progetto.citta} (${progetto.provincia})` : progetto.citta) : ''].filter(Boolean).join(', ') || '—'],
+      ['Regione', progetto.regione ?? '—'],
+      ['Provincia', progetto.provincia ?? '—'],
+      ['Finanziamento', fin?.nome ?? '—'],
+      ['Anno scolastico', progetto.anno_scolastico ?? '—'],
+      ['Stato', statoLabel[progetto.status] ?? progetto.status],
+      ['Totale corsi', Number(progetto.n_corsi)],
+      ['Totale ore previste', Number(progetto.ore_totali)],
+      ['Totale ore erogate', oreErogate],
+      [''],
+      ['REFERENTI', ''],
+    ]
+    if (referenti.length > 0) {
+      riepilogoRows.push(['Nome', 'Ruolo', 'Email', 'Telefono'])
+      for (const r of referenti) {
+        riepilogoRows.push([r.nome, r.ruolo ?? '—', r.email, r.tel ?? '—'])
+      }
+    } else {
+      riepilogoRows.push([progetto.ref_name, progetto.ref_ruolo ?? '—', progetto.ref_email, progetto.ref_tel ?? '—'])
+    }
+    const ws1 = XLSX.utils.aoa_to_sheet(riepilogoRows)
+    ws1['!cols'] = [{ wch: 28 }, { wch: 40 }, { wch: 36 }, { wch: 18 }]
+    XLSX.utils.book_append_sheet(wb, ws1, 'Riepilogo progetto')
+
+    // ── Foglio 2: Corsi e formatori ───────────────────────────────
+    const corsiHeader = [
+      'Titolo corso', 'Tipo', 'Ore totali', 'Modalità',
+      'Formatore', 'Email formatore', 'Tel formatore', 'CV', 'CI',
+      'Tutor', 'Email tutor', 'Tel tutor',
+      'Stato assegnazione', 'Calendario completo',
+    ]
+    const statoAssLabel: Record<string, string> = {
+      non_assegnato: 'Non assegnato', in_attesa: 'In attesa', accettato: 'Accettato', rifiutato: 'Rifiutato',
+    }
+    const corsiRows = corsi.map(c => {
+      const fmt = c.formatore as (Profile & { telefono?: string | null }) | undefined
+      const tut = (c as CorsoConOre & { tutor?: Profile & { telefono?: string | null } }).tutor
+      return [
+        c.title,
+        c.tipo,
+        Number(c.ore_totali),
+        c.modalita ?? '—',
+        fmt?.nome ?? '—',
+        fmt?.email ?? '—',
+        fmt?.telefono ?? '—',
+        'Non disponibile',
+        'Non disponibile',
+        tut?.nome ?? c.tutor_nome ?? '—',
+        tut?.email ?? '—',
+        tut?.telefono ?? '—',
+        statoAssLabel[c.stato_assegnazione ?? 'non_assegnato'] ?? '—',
+        c.calendario_completo ? 'Sì' : 'No',
+      ]
+    })
+    const ws2 = XLSX.utils.aoa_to_sheet([corsiHeader, ...corsiRows])
+    ws2['!cols'] = [{ wch: 36 }, { wch: 8 }, { wch: 12 }, { wch: 16 }, { wch: 22 }, { wch: 28 }, { wch: 16 }, { wch: 20 }, { wch: 20 }, { wch: 22 }, { wch: 28 }, { wch: 16 }, { wch: 20 }, { wch: 20 }]
+    XLSX.utils.book_append_sheet(wb, ws2, 'Corsi e formatori')
+
+    // ── Foglio 3: Calendario sessioni ─────────────────────────────
+    const giorni = ['Domenica', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato']
+    const corsoById = new Map(corsi.map(c => [c.id, c]))
+    const sessioniHeader = ['Corso', 'Formatore', 'Data', 'Giorno', 'Ora inizio', 'Ora fine', 'Ore', 'Stato']
+    const sorted = [...sessioni].sort((a, b) => {
+      const ca = corsoById.get(a.corso_id)?.title ?? ''
+      const cb = corsoById.get(b.corso_id)?.title ?? ''
+      if (ca !== cb) return ca.localeCompare(cb)
+      return a.data.localeCompare(b.data)
+    })
+    const sessioniRows = sorted.map(s => {
+      const corso = corsoById.get(s.corso_id)
+      const fmt = corso?.formatore as (Profile & { telefono?: string | null }) | undefined
+      const d = new Date(s.data + 'T00:00:00')
+      const dataIt = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
+      return [
+        corso?.title ?? '—',
+        fmt?.nome ?? '—',
+        dataIt,
+        giorni[d.getDay()],
+        s.ora_inizio ?? '—',
+        s.ora_fine ?? '—',
+        Number(s.ore),
+        s.completata ? 'Erogata' : 'Pianificata',
+      ]
+    })
+    const ws3 = XLSX.utils.aoa_to_sheet([sessioniHeader, ...sessioniRows])
+    ws3['!cols'] = [{ wch: 36 }, { wch: 22 }, { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 8 }, { wch: 14 }]
+    XLSX.utils.book_append_sheet(wb, ws3, 'Calendario sessioni')
+
+    const safeName = progetto.school_name.replace(/[^a-zA-Z0-9À-ÿ]/g, '_').replace(/_+/g, '_')
+    const today = new Date().toISOString().slice(0, 10)
+    XLSX.writeFile(wb, `Scheda_${safeName}_${today}.xlsx`)
+  }, [progetto, corsi, sessioni, referenti, finanziamenti, oreErogatePerCorso])
 
   // ── Notifica assegnazioni ─────────────────────────────────────
   const [notificaOpen, setNotificaOpen] = useState(false)
@@ -798,6 +905,15 @@ export function ProgettoDetailClient({
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={handleExportScheda}
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3 py-1.5 rounded-[7px] transition-colors"
+            >
+              <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Esporta scheda
+            </button>
             <Button
               variant="secondary"
               size="sm"
@@ -1730,25 +1846,20 @@ export function ProgettoDetailClient({
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
           <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
             <h2 className="text-lg font-semibold text-gray-900">Elimina progetto</h2>
-
             <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
-              ⚠️ Questa azione è <strong>irreversibile</strong>. Tutti i corsi, sessioni e messaggi correlati a <strong>{progetto.school_name}</strong> verranno eliminati definitivamente.
+              ⚠️ Questa azione è <strong>irreversibile</strong>. Tutti i corsi, sessioni e messaggi di <strong>{progetto.school_name}</strong> verranno eliminati definitivamente.
             </div>
-
             {deleteBlockers.length > 0 && (
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-1">
-                <div className="text-sm font-medium text-amber-800">Impossibile eliminare — sblocca prima:</div>
+                <div className="text-sm font-medium text-amber-800">Impossibile eliminare — risolvi prima:</div>
                 <ul className="text-sm text-amber-700 list-disc list-inside space-y-0.5">
                   {deleteBlockers.map(b => <li key={b}>{b}</li>)}
                 </ul>
               </div>
             )}
-
             {deleteBlockers.length === 0 && (
               <div className="space-y-2">
-                <label className="text-sm text-gray-600">
-                  Digita <strong>{progetto.school_name}</strong> per confermare:
-                </label>
+                <label className="text-sm text-gray-600">Digita <strong>{progetto.school_name}</strong> per confermare:</label>
                 <input
                   type="text"
                   value={deleteConfirmText}
@@ -1758,16 +1869,12 @@ export function ProgettoDetailClient({
                 />
               </div>
             )}
-
             {deleteError && <p className="text-sm text-red-600">{deleteError}</p>}
-
             <div className="flex gap-2 justify-end pt-1">
               <button
                 onClick={() => setDeleteProgettoOpen(false)}
                 className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-[7px] transition-colors"
-              >
-                Annulla
-              </button>
+              >Annulla</button>
               <button
                 disabled={deleteBlockers.length > 0 || deleteConfirmText !== progetto.school_name || deletingProgetto}
                 onClick={async () => {
@@ -1777,11 +1884,7 @@ export function ProgettoDetailClient({
                     const res = await fetch(`/api/progetti/${progetto.id}`, { method: 'DELETE' })
                     const json = await res.json()
                     if (!res.ok) {
-                      if (json.blockers?.length) {
-                        setDeleteError(json.blockers.join(', '))
-                      } else {
-                        setDeleteError(json.error || "Errore durante l'eliminazione")
-                      }
+                      setDeleteError(json.blockers?.length ? json.blockers.join(', ') : (json.error || "Errore durante l'eliminazione"))
                       return
                     }
                     router.push('/progetti')

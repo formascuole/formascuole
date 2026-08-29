@@ -42,7 +42,7 @@ export default async function ProgettoDetailPage({ params }: { params: Promise<{
 
   const { data: corsi } = await supabase
     .from('corsi_con_ore')
-    .select('*, formatore:profiles!formatore_id(id,nome,email,avatar_initials)')
+    .select('*, formatore:profiles!formatore_id(id,nome,email,avatar_initials,telefono), tutor:profiles!tutor_id(id,nome,email,telefono)')
     .eq('project_id', id)
     .order('created_at')
 
@@ -94,7 +94,7 @@ export default async function ProgettoDetailPage({ params }: { params: Promise<{
   const corsiIds = (corsi || []).map(c => c.id)
   const adminQ = createAdminClient()
   const { data: partners } = await adminQ.from('partners').select('id,nome,created_at').order('nome')
-  const [{ data: questionari }, { data: sessioniErogate }, { data: corsiStatsFormatori }] = await Promise.all([
+  const [{ data: questionari }, { data: sessioniErogate }, { data: corsiStatsFormatori }, { data: tutteSessioni }] = await Promise.all([
     corsiIds.length > 0
       ? adminQ.from('questionari_risultati').select('*').in('corso_id', corsiIds).not('media_formatore', 'is', null).not('media_contenuti', 'is', null).not('media_apprendimento', 'is', null).order('created_at', { ascending: false })
       : Promise.resolve({ data: [] }),
@@ -103,6 +103,9 @@ export default async function ProgettoDetailPage({ params }: { params: Promise<{
       : Promise.resolve({ data: [] }),
     (formatori?.length ?? 0) > 0
       ? adminQ.from('corsi').select('formatore_id, stato_assegnazione, ore_totali').in('formatore_id', (formatori || []).map(f => f.id)).in('stato_assegnazione', ['accettato', 'in_attesa'])
+      : Promise.resolve({ data: [] }),
+    corsiIds.length > 0
+      ? adminQ.from('sessioni').select('id,corso_id,data,ora_inizio,ora_fine,ore,completata').in('corso_id', corsiIds).order('data').order('ora_inizio')
       : Promise.resolve({ data: [] }),
   ])
   const oreErogatePerCorso: Record<string, number> = {}
@@ -140,6 +143,7 @@ export default async function ProgettoDetailPage({ params }: { params: Promise<{
         questionari={questionari || []}
         oreErogatePerCorso={oreErogatePerCorso}
         oreAssegnateMap={oreAssegnateMap}
+        sessioni={tutteSessioni || []}
       />
     </AppLayout>
   )

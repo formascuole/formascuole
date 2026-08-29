@@ -108,7 +108,7 @@ export function ProgettiClient({ progetti, finanziamenti, partners, inAttesaProj
     )
   }, [progetti, search, filterFinId, inAttesaSet])
 
-  const toggleSelect = (id: string) => setSelectedIds(prev => {
+  const toggleSelect = (id: string) => setSelectedIds((prev: Set<string>) => {
     const next = new Set(prev)
     if (next.has(id)) next.delete(id); else next.add(id)
     return next
@@ -123,11 +123,7 @@ export function ProgettiClient({ progetti, finanziamenti, partners, inAttesaProj
       if (!res.ok) {
         const json = await res.json()
         const p = progetti.find(x => x.id === id)
-        if (json.blockers?.length) {
-          errors.push(`${p?.school_name ?? id}: ${json.blockers.join(', ')}`)
-        } else {
-          errors.push(`${p?.school_name ?? id}: ${json.error || 'Errore'}`)
-        }
+        errors.push(`${p?.school_name ?? id}: ${json.blockers?.length ? json.blockers.join(', ') : (json.error || 'Errore')}`)
       }
     }
     setBulkDeleting(false)
@@ -286,18 +282,15 @@ export function ProgettiClient({ progetti, finanziamenti, partners, inAttesaProj
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
           <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
             <h2 className="text-lg font-semibold text-gray-900">Elimina progetti selezionati</h2>
-
             <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
               ⚠️ Stai per eliminare <strong>{selectedIds.size}</strong> progett{selectedIds.size === 1 ? 'o' : 'i'}. Questa azione è <strong>irreversibile</strong>.
             </div>
-
             <ul className="text-sm text-gray-700 space-y-1 max-h-40 overflow-y-auto">
               {Array.from(selectedIds).map(id => {
                 const p = progetti.find(x => x.id === id)
                 return <li key={id} className="flex items-center gap-1.5"><span className="text-red-400">•</span>{p?.school_name ?? id}</li>
               })}
             </ul>
-
             <div className="space-y-2">
               <label className="text-sm text-gray-600">Digita <strong>ELIMINA</strong> per confermare:</label>
               <input
@@ -308,18 +301,12 @@ export function ProgettiClient({ progetti, finanziamenti, partners, inAttesaProj
                 placeholder="ELIMINA"
               />
             </div>
-
-            {bulkDeleteError && (
-              <pre className="text-xs text-red-600 whitespace-pre-wrap">{bulkDeleteError}</pre>
-            )}
-
+            {bulkDeleteError && <pre className="text-xs text-red-600 whitespace-pre-wrap">{bulkDeleteError}</pre>}
             <div className="flex gap-2 justify-end pt-1">
               <button
                 onClick={() => setBulkDeleteOpen(false)}
                 className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-[7px] transition-colors"
-              >
-                Annulla
-              </button>
+              >Annulla</button>
               <button
                 disabled={bulkDeleteText !== 'ELIMINA' || bulkDeleting}
                 onClick={handleBulkDelete}
