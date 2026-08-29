@@ -112,6 +112,67 @@ export function ProgettoDetailClient({
     return b
   }, [corsi])
 
+  // ── Notifica assegnazioni ─────────────────────────────────────
+  const [notificaOpen, setNotificaOpen] = useState(false)
+  const [notificaSelected, setNotificaSelected] = useState<Set<string>>(new Set())
+  const [sendingNotifiche, setSendingNotifiche] = useState(false)
+  const [notificaError, setNotificaError] = useState('')
+
+  // ── Conferma pre-assegnazioni ─────────────────────────────────
+  const [preConfirmOpen, setPreConfirmOpen] = useState(false)
+  const [preConfirmSelected, setPreConfirmSelected] = useState<Set<string>>(new Set())
+  const [confirmingPre, setConfirmingPre] = useState(false)
+
+  // ── Corso form ──────────────────────────────────────────────
+  const [addCorsoOpen, setAddCorsoOpen] = useState(false)
+  const [addCorsoStep, setAddCorsoStep] = useState<1 | 2>(1)
+  const [catalogoSearch, setCatalogoSearch] = useState('')
+  const [savingCorso, setSavingCorso] = useState(false)
+  const [corsoForm, setCorsoForm] = useState({
+    title: '', tipo: 'PF', ore_totali: '', modalita: 'presenza',
+    tutor_previsto: false, tutor_nome: '', ore_tutoraggio: '',
+    descrizione: '', link_scheda: '', edizione: '', note: '', location: '',
+  })
+
+  // ── Edit scuola ─────────────────────────────────────────────
+  const [editScuolaOpen, setEditScuolaOpen] = useState(false)
+  const [editScuolaForm, setEditScuolaForm] = useState<EditScuolaForm>({
+    school_name: progetto.school_name,
+    address: progetto.address,
+    anno_scolastico: progetto.anno_scolastico || '',
+    finanziamento_id: (progetto as ProgettoConStats & { finanziamento_id?: string | null }).finanziamento_id || '',
+    partner_id: progetto.partner_id || '',
+    is_subappalto: !!(progetto as ProgettoConStats & { is_subappalto?: boolean | null }).is_subappalto,
+    subappalto_tariffa_formatore: String((progetto as ProgettoConStats & { subappalto_tariffa_formatore?: number | null }).subappalto_tariffa_formatore ?? ''),
+    subappalto_tariffa_tutor: String((progetto as ProgettoConStats & { subappalto_tariffa_tutor?: number | null }).subappalto_tariffa_tutor ?? ''),
+    quota_progettazione: String(progetto.quota_progettazione ?? ''),
+    quota_progettazione_note: progetto.quota_progettazione_note ?? '',
+    status: progetto.status,
+    regione: progetto.regione ?? '',
+    provincia: progetto.provincia ?? '',
+    citta: progetto.citta ?? '',
+  })
+  const [savingScuola, setSavingScuola] = useState(false)
+  const [scuolaError, setScuolaError] = useState('')
+
+  // ── Referenti ───────────────────────────────────────────────
+  const [referenti, setReferenti] = useState<Referente[]>(initialReferenti)
+  const [addRefOpen, setAddRefOpen] = useState(false)
+  const [addRefForm, setAddRefForm] = useState(emptyReferenteForm)
+  const [savingRef, setSavingRef] = useState(false)
+  const [refError, setRefError] = useState('')
+  const [editRef, setEditRef] = useState<Referente | null>(null)
+  const [editRefForm, setEditRefForm] = useState(emptyReferenteForm)
+  const [savingEditRef, setSavingEditRef] = useState(false)
+  const [editRefError, setEditRefError] = useState('')
+  // ── Edit referente principale ────────────────────────────────
+  const [mainRef, setMainRef] = useState({ nome: progetto.ref_name, email: progetto.ref_email, tel: progetto.ref_tel || '', ruolo: progetto.ref_ruolo || '' })
+  const [editMainRefOpen, setEditMainRefOpen] = useState(false)
+  const [editMainRefForm, setEditMainRefForm] = useState(emptyReferenteForm)
+  const [savingMainRef, setSavingMainRef] = useState(false)
+  const [mainRefError, setMainRefError] = useState('')
+  const [deletingRefId, setDeletingRefId] = useState<string | null>(null)
+
   const handleExportScheda = useCallback(async () => {
     const XLSX = await import('xlsx')
     const wb = XLSX.utils.book_new()
@@ -216,67 +277,6 @@ export function ProgettoDetailClient({
     const today = new Date().toISOString().slice(0, 10)
     XLSX.writeFile(wb, `Scheda_${safeName}_${today}.xlsx`)
   }, [progetto, corsi, sessioni, referenti, finanziamenti, oreErogatePerCorso])
-
-  // ── Notifica assegnazioni ─────────────────────────────────────
-  const [notificaOpen, setNotificaOpen] = useState(false)
-  const [notificaSelected, setNotificaSelected] = useState<Set<string>>(new Set())
-  const [sendingNotifiche, setSendingNotifiche] = useState(false)
-  const [notificaError, setNotificaError] = useState('')
-
-  // ── Conferma pre-assegnazioni ─────────────────────────────────
-  const [preConfirmOpen, setPreConfirmOpen] = useState(false)
-  const [preConfirmSelected, setPreConfirmSelected] = useState<Set<string>>(new Set())
-  const [confirmingPre, setConfirmingPre] = useState(false)
-
-  // ── Corso form ──────────────────────────────────────────────
-  const [addCorsoOpen, setAddCorsoOpen] = useState(false)
-  const [addCorsoStep, setAddCorsoStep] = useState<1 | 2>(1)
-  const [catalogoSearch, setCatalogoSearch] = useState('')
-  const [savingCorso, setSavingCorso] = useState(false)
-  const [corsoForm, setCorsoForm] = useState({
-    title: '', tipo: 'PF', ore_totali: '', modalita: 'presenza',
-    tutor_previsto: false, tutor_nome: '', ore_tutoraggio: '',
-    descrizione: '', link_scheda: '', edizione: '', note: '', location: '',
-  })
-
-  // ── Edit scuola ─────────────────────────────────────────────
-  const [editScuolaOpen, setEditScuolaOpen] = useState(false)
-  const [editScuolaForm, setEditScuolaForm] = useState<EditScuolaForm>({
-    school_name: progetto.school_name,
-    address: progetto.address,
-    anno_scolastico: progetto.anno_scolastico || '',
-    finanziamento_id: (progetto as ProgettoConStats & { finanziamento_id?: string | null }).finanziamento_id || '',
-    partner_id: progetto.partner_id || '',
-    is_subappalto: !!(progetto as ProgettoConStats & { is_subappalto?: boolean | null }).is_subappalto,
-    subappalto_tariffa_formatore: String((progetto as ProgettoConStats & { subappalto_tariffa_formatore?: number | null }).subappalto_tariffa_formatore ?? ''),
-    subappalto_tariffa_tutor: String((progetto as ProgettoConStats & { subappalto_tariffa_tutor?: number | null }).subappalto_tariffa_tutor ?? ''),
-    quota_progettazione: String(progetto.quota_progettazione ?? ''),
-    quota_progettazione_note: progetto.quota_progettazione_note ?? '',
-    status: progetto.status,
-    regione: progetto.regione ?? '',
-    provincia: progetto.provincia ?? '',
-    citta: progetto.citta ?? '',
-  })
-  const [savingScuola, setSavingScuola] = useState(false)
-  const [scuolaError, setScuolaError] = useState('')
-
-  // ── Referenti ───────────────────────────────────────────────
-  const [referenti, setReferenti] = useState<Referente[]>(initialReferenti)
-  const [addRefOpen, setAddRefOpen] = useState(false)
-  const [addRefForm, setAddRefForm] = useState(emptyReferenteForm)
-  const [savingRef, setSavingRef] = useState(false)
-  const [refError, setRefError] = useState('')
-  const [editRef, setEditRef] = useState<Referente | null>(null)
-  const [editRefForm, setEditRefForm] = useState(emptyReferenteForm)
-  const [savingEditRef, setSavingEditRef] = useState(false)
-  const [editRefError, setEditRefError] = useState('')
-  // ── Edit referente principale ────────────────────────────────
-  const [mainRef, setMainRef] = useState({ nome: progetto.ref_name, email: progetto.ref_email, tel: progetto.ref_tel || '', ruolo: progetto.ref_ruolo || '' })
-  const [editMainRefOpen, setEditMainRefOpen] = useState(false)
-  const [editMainRefForm, setEditMainRefForm] = useState(emptyReferenteForm)
-  const [savingMainRef, setSavingMainRef] = useState(false)
-  const [mainRefError, setMainRefError] = useState('')
-  const [deletingRefId, setDeletingRefId] = useState<string | null>(null)
 
   // ── Assegnazione massiva ─────────────────────────────────────
   const [bulkOpen, setBulkOpen] = useState(false)
