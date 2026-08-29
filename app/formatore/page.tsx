@@ -176,6 +176,9 @@ export default async function FormatorePage() {
         oreErogate={oreErogate}
         oreErogatePerCorso={oreErogatePerCorso}
         documentiCompleti={profile.documenti_completi ?? false}
+        cvUrl={profile.cv_url ?? null}
+        ciUrl={profile.ci_url ?? null}
+        cfUrl={profile.cf_url ?? null}
       />
     </AppLayout>
   )

@@ -399,7 +399,7 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
             </svg>
             Esporta Excel
           </button>
-          {isSuperAdmin && docMancanti > 0 && (
+          {docMancanti > 0 && (
             <button
               onClick={handleSollecitaDocumenti}
               disabled={sollecitando}

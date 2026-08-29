@@ -269,7 +269,10 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
               {(profile.roles.includes('formatore') || profile.roles.includes('tutor')) && (
                 profile.documenti_completi
                   ? <span className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md bg-green-100 text-green-700">✓ Documenti completi</span>
-                  : <span className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md bg-red-100 text-red-700">Documenti mancanti</span>
+                  : (() => {
+                      const nMissing = [!profile.cv_url, !profile.ci_url, !profile.cf_url].filter(Boolean).length
+                      return <span className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md bg-red-100 text-red-700">Documenti mancanti ({nMissing}/3)</span>
+                    })()
               )}
             </div>
           </div>

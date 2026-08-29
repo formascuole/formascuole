@@ -66,9 +66,12 @@ interface FormatoreClientProps {
   oreErogate?: number
   oreErogatePerCorso?: Record<string, number>
   documentiCompleti?: boolean | null
+  cvUrl?: string | null
+  ciUrl?: string | null
+  cfUrl?: string | null
 }
 
-export function FormatoreClient({ corsi, profile, finanziamenti, questionari = [], mediaGlobale = null, corsiDisponibili = [], oreErogate = 0, oreErogatePerCorso = {}, documentiCompleti }: FormatoreClientProps) {
+export function FormatoreClient({ corsi, profile, finanziamenti, questionari = [], mediaGlobale = null, corsiDisponibili = [], oreErogate = 0, oreErogatePerCorso = {}, documentiCompleti, cvUrl, ciUrl, cfUrl }: FormatoreClientProps) {
   const router = useRouter()
 
   // Calendar modal
@@ -235,7 +238,14 @@ export function FormatoreClient({ corsi, profile, finanziamenti, questionari = [
       )}
 
       {/* Banner documenti mancanti */}
-      {!documentiCompleti && (
+      {!documentiCompleti && (() => {
+        const missing = [
+          !cvUrl && 'CV',
+          !ciUrl && "Carta d'Identità",
+          !cfUrl && 'Codice Fiscale',
+        ].filter(Boolean) as string[]
+        if (missing.length === 0) return null
+        return (
         <div className="mb-6 bg-amber-50 border border-amber-300 rounded-xl px-5 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-amber-200 flex items-center justify-center shrink-0">
@@ -245,8 +255,13 @@ export function FormatoreClient({ corsi, profile, finanziamenti, questionari = [
               </svg>
             </div>
             <div>
-              <div className="font-semibold text-amber-800 text-sm">Documenti mancanti</div>
-              <div className="text-xs text-amber-700">Carica CV, Carta d&apos;Identità e Codice Fiscale per completare la registrazione</div>
+              <div className="font-semibold text-amber-800 text-sm flex items-center gap-2 flex-wrap">
+                <span>Documenti mancanti:</span>
+                {missing.map(d => (
+                  <span key={d} className="text-xs font-medium bg-amber-200 text-amber-900 px-1.5 py-0.5 rounded">{d}</span>
+                ))}
+              </div>
+              <div className="text-xs text-amber-700 mt-0.5">Carica i documenti mancanti per completare la registrazione.</div>
             </div>
           </div>
           <a
@@ -257,7 +272,8 @@ export function FormatoreClient({ corsi, profile, finanziamenti, questionari = [
             Carica ora →
           </a>
         </div>
-      )}
+        )
+      })()}
 
       {accettazioneError && (
         <div className="mb-4 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
