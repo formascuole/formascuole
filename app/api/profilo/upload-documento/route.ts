@@ -2,24 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
-const MAX_SIZE = 5 * 1024 * 1024 // 5 MB
-
-const ALLOWED: Record<string, string[]> = {
-  cv: ['application/pdf', 'application/msword',
-       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-       'application/vnd.oasis.opendocument.text'],
-  ci: ['application/pdf', 'image/jpeg', 'image/png'],
-  cf: ['application/pdf', 'image/jpeg', 'image/png'],
-}
-
-const EXT_MAP: Record<string, string> = {
-  'application/pdf': 'pdf',
-  'application/msword': 'doc',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
-  'application/vnd.oasis.opendocument.text': 'odt',
-  'image/jpeg': 'jpg',
-  'image/png': 'png',
-}
+const MAX_SIZE = 2 * 1024 * 1024 // 2 MB
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -47,16 +30,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'File mancante' }, { status: 400 })
   }
   if (file.size > MAX_SIZE) {
-    return NextResponse.json({ error: 'File troppo grande (max 5 MB)' }, { status: 400 })
+    return NextResponse.json({ error: 'File troppo grande (max 2 MB)' }, { status: 400 })
   }
 
   const contentType = file.type
-  if (!ALLOWED[tipo].includes(contentType)) {
-    return NextResponse.json({ error: `Formato non consentito per ${tipo.toUpperCase()}` }, { status: 400 })
+  if (contentType !== 'application/pdf') {
+    return NextResponse.json({ error: 'Solo file PDF accettati' }, { status: 400 })
   }
 
-  const ext = EXT_MAP[contentType] ?? 'bin'
-  const path = `${user.id}/${tipo}.${ext}`
+  const path = `${user.id}/${tipo}.pdf`
 
   const buffer = Buffer.from(await file.arrayBuffer())
   const admin = createAdminClient()

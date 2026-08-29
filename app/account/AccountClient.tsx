@@ -418,7 +418,7 @@ export function AccountClient({
               loading={cvLoading}
               viewing={viewingDoc === 'cv'}
               error={docCvError}
-              accept=".pdf,.doc,.docx,.odt"
+              accept=".pdf"
               onView={() => handleViewDoc('cv')}
               onUpload={f => handleDocUpload('cv', f)}
             />
@@ -429,7 +429,7 @@ export function AccountClient({
               loading={ciLoading}
               viewing={viewingDoc === 'ci'}
               error={docCiError}
-              accept=".pdf,.jpg,.jpeg,.png"
+              accept=".pdf"
               onView={() => handleViewDoc('ci')}
               onUpload={f => handleDocUpload('ci', f)}
             />
@@ -440,12 +440,12 @@ export function AccountClient({
               loading={cfLoading}
               viewing={viewingDoc === 'cf'}
               error={docCfError}
-              accept=".pdf,.jpg,.jpeg,.png"
+              accept=".pdf"
               onView={() => handleViewDoc('cf')}
               onUpload={f => handleDocUpload('cf', f)}
             />
           </div>
-          <p className="text-xs text-gray-400 mt-3">Per la carta d&apos;identità e il codice fiscale scansiona o fotografa fronte e retro in un unico file.</p>
+          <p className="text-xs text-gray-400 mt-3">Tutti i documenti devono essere in formato PDF (max 2 MB). Per carta d&apos;identità e codice fiscale includi fronte e retro in un unico file.</p>
         </div>
       )}
 

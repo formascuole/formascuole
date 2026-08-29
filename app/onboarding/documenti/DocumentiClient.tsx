@@ -105,39 +105,39 @@ export function DocumentiClient({ nome, email, cvUrl, ciUrl, cfUrl, cvUploadedAt
           {/* CV */}
           <UploadCard
             label="Curriculum Vitae (CV)"
-            hint="PDF, DOC, DOCX o ODT — max 5 MB"
+            hint="PDF — max 2 MB"
             uploaded={cvUploaded}
             uploadedAt={cvDate}
             loading={cvLoading}
             error={cvError}
             inputRef={cvRef}
-            accept=".pdf,.doc,.docx,.odt"
+            accept=".pdf"
             onChange={f => handleUpload('cv', f)}
           />
 
           {/* CI */}
           <UploadCard
             label="Carta d'identità o Passaporto (fronte e retro)"
-            hint="PDF, JPG o PNG — max 5 MB"
+            hint="PDF — max 2 MB"
             uploaded={ciUploaded}
             uploadedAt={ciDate}
             loading={ciLoading}
             error={ciError}
             inputRef={ciRef}
-            accept=".pdf,.jpg,.jpeg,.png"
+            accept=".pdf"
             onChange={f => handleUpload('ci', f)}
           />
 
           {/* CF */}
           <UploadCard
             label="Codice Fiscale (fronte e retro in un unico file)"
-            hint="Scansiona o fotografa entrambi i lati — PDF, JPG o PNG — max 5 MB"
+            hint="PDF — max 2 MB"
             uploaded={cfUploaded}
             uploadedAt={cfDate}
             loading={cfLoading}
             error={cfError}
             inputRef={cfRef}
-            accept=".pdf,.jpg,.jpeg,.png"
+            accept=".pdf"
             onChange={f => handleUpload('cf', f)}
           />
         </div>
