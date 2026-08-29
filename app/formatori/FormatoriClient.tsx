@@ -43,6 +43,9 @@ interface UtenteConStats {
   telefono?: string | null
   // Documenti
   documenti_completi?: boolean | null
+  cv_url?: string | null
+  ci_url?: string | null
+  cf_url?: string | null
   // Formatore stats
   n_corsi_formatore: number
   ore_formatore: number
@@ -166,7 +169,7 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
   const [editSuccess, setEditSuccess] = useState('')
 
   const [search, setSearch] = useState('')
-  const [filterProfilo, setFilterProfilo] = useState<'all' | 'completo' | 'manca_tariffa' | 'incompleto'>('all')
+  const [filterProfilo, setFilterProfilo] = useState<'all' | 'completo' | 'manca_tariffa' | 'incompleto' | 'documenti_mancanti'>('all')
   const [filterRegione, setFilterRegione] = useState('')
   const [filterProvincia, setFilterProvincia] = useState('')
   const [statsMap, setStatsMap] = useState<Record<string, UtenteStats>>({})
@@ -231,6 +234,7 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
         if (filterProfilo === 'completo') return u.profilo_completo === true && tariffa != null
         if (filterProfilo === 'manca_tariffa') return u.profilo_completo === true && tariffa == null
         if (filterProfilo === 'incompleto') return u.profilo_completo !== true
+        if (filterProfilo === 'documenti_mancanti') return !u.documenti_completi
         return true
       })
     }
@@ -472,6 +476,7 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
           <option value="completo">✅ Completo</option>
           <option value="manca_tariffa">🟠 Manca tariffa</option>
           <option value="incompleto">🔴 Incompleto</option>
+          <option value="documenti_mancanti">📄 Documenti mancanti</option>
         </select>
         <select
           value={filterRegione}
@@ -521,6 +526,19 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
                           {u.regione && u.indirizzo_provincia
                             ? `${u.regione} (${u.indirizzo_provincia})`
                             : u.regione ?? `(${u.indirizzo_provincia})`}
+                        </div>
+                      )}
+                      {(u.roles || [u.role]).some(r => r === 'formatore' || r === 'tutor') && (
+                        <div className="flex gap-1 mt-1.5 flex-wrap">
+                          {u.documenti_completi ? (
+                            <span className="inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded bg-green-100 text-green-700">Documenti ✓</span>
+                          ) : (
+                            <>
+                              {!u.cv_url && <span className="inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded bg-red-100 text-red-700">CV</span>}
+                              {!u.ci_url && <span className="inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded bg-red-100 text-red-700">CI</span>}
+                              {!u.cf_url && <span className="inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded bg-red-100 text-red-700">CF</span>}
+                            </>
+                          )}
                         </div>
                       )}
                     </div>
