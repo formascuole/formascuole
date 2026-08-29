@@ -14,7 +14,7 @@ export async function POST() {
   const admin = createAdminClient()
   const { data: utenti } = await admin
     .from('profiles')
-    .select('id, nome, email, cv_url, ci_url')
+    .select('id, nome, email, cv_url, ci_url, cf_url')
     .in('role', ['formatore', 'tutor'])
     .eq('documenti_completi', false)
 
@@ -24,12 +24,23 @@ export async function POST() {
 
   let sent = 0
   for (const u of utenti) {
-    const mancanti: string[] = []
-    if (!u.cv_url) mancanti.push('Curriculum Vitae (CV)')
-    if (!u.ci_url) mancanti.push("Documento d'identità")
+    const mancanti: { label: string; note?: string }[] = []
+    if (!u.cv_url) mancanti.push({ label: 'Curriculum Vitae (CV)' })
+    if (!u.ci_url) mancanti.push({ label: "Carta d'Identità o Passaporto", note: 'Fronte e retro in un unico file' })
+    if (!u.cf_url) mancanti.push({ label: 'Codice Fiscale', note: 'Fronte e retro in un unico file' })
     if (mancanti.length === 0) continue
 
-    const body = `Ciao ${u.nome},\n\nPer completare il tuo profilo su Formascuole devi caricare i seguenti documenti:\n\n${mancanti.map(m => `• ${m}`).join('\n')}\n\nAccedi al tuo profilo per effettuare l'upload.`
+    const docLines = mancanti
+      .map(m => m.note ? `✗ ${m.label}\n  ${m.note}` : `✗ ${m.label}`)
+      .join('\n\n')
+
+    const body = `Ciao ${u.nome},
+
+Per completare il tuo profilo su Formascuole devi caricare i seguenti documenti obbligatori:
+
+${docLines}
+
+Accedi al tuo profilo per effettuare il caricamento dei documenti mancanti.`
 
     await sendEmail({
       to: u.email,

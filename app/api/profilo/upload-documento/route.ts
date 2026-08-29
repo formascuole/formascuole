@@ -9,6 +9,7 @@ const ALLOWED: Record<string, string[]> = {
        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
        'application/vnd.oasis.opendocument.text'],
   ci: ['application/pdf', 'image/jpeg', 'image/png'],
+  cf: ['application/pdf', 'image/jpeg', 'image/png'],
 }
 
 const EXT_MAP: Record<string, string> = {
@@ -39,7 +40,7 @@ export async function POST(req: NextRequest) {
   const tipo = formData.get('tipo') as string
   const file = formData.get('file') as File | null
 
-  if (!tipo || !['cv', 'ci'].includes(tipo)) {
+  if (!tipo || !['cv', 'ci', 'cf'].includes(tipo)) {
     return NextResponse.json({ error: 'tipo non valido' }, { status: 400 })
   }
   if (!file) {
@@ -68,20 +69,20 @@ export async function POST(req: NextRequest) {
   }
 
   const now = new Date().toISOString()
-  const updatePayload =
-    tipo === 'cv'
-      ? { cv_url: path, cv_uploaded_at: now }
-      : { ci_url: path, ci_uploaded_at: now }
+  const updatePayload: Record<string, string> =
+    tipo === 'cv' ? { cv_url: path, cv_uploaded_at: now }
+    : tipo === 'ci' ? { ci_url: path, ci_uploaded_at: now }
+    :                 { cf_url: path, cf_uploaded_at: now }
 
   const { data: updatedProfile } = await admin
     .from('profiles')
     .update(updatePayload)
     .eq('id', user.id)
-    .select('cv_url, cv_uploaded_at, ci_url, ci_uploaded_at, documenti_completi')
+    .select('cv_url, ci_url, cf_url, documenti_completi')
     .single()
 
-  // Mark documenti_completi when both cv_url and ci_url are set
-  if (updatedProfile?.cv_url && updatedProfile?.ci_url && !updatedProfile?.documenti_completi) {
+  // Mark documenti_completi when all 3 are present
+  if (updatedProfile?.cv_url && updatedProfile?.ci_url && updatedProfile?.cf_url && !updatedProfile?.documenti_completi) {
     await admin
       .from('profiles')
       .update({ documenti_completi: true })

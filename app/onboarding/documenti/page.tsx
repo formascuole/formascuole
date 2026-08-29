@@ -9,7 +9,7 @@ export default async function OnboardingDocumentiPage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, password_cambiata, profilo_completo, documenti_completi, cv_url, ci_url, cv_uploaded_at, ci_uploaded_at, nome, email')
+    .select('role, password_cambiata, profilo_completo, documenti_completi, cv_url, ci_url, cf_url, cv_uploaded_at, ci_uploaded_at, cf_uploaded_at, nome, email')
     .eq('id', user.id)
     .single()
 
@@ -26,8 +26,10 @@ export default async function OnboardingDocumentiPage() {
       email={profile.email}
       cvUrl={profile.cv_url ?? null}
       ciUrl={profile.ci_url ?? null}
+      cfUrl={profile.cf_url ?? null}
       cvUploadedAt={profile.cv_uploaded_at ?? null}
       ciUploadedAt={profile.ci_uploaded_at ?? null}
+      cfUploadedAt={profile.cf_uploaded_at ?? null}
       redirectTo={redirectTo}
     />
   )

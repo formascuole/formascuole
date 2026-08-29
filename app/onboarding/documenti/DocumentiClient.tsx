@@ -7,8 +7,10 @@ interface DocumentiClientProps {
   email: string
   cvUrl: string | null
   ciUrl: string | null
+  cfUrl: string | null
   cvUploadedAt: string | null
   ciUploadedAt: string | null
+  cfUploadedAt: string | null
   redirectTo: string
 }
 
@@ -17,27 +19,32 @@ function formatDate(iso: string | null) {
   return new Date(iso).toLocaleDateString('it-IT', { day: '2-digit', month: 'long', year: 'numeric' })
 }
 
-export function DocumentiClient({ nome, email, cvUrl, ciUrl, cvUploadedAt, ciUploadedAt, redirectTo }: DocumentiClientProps) {
+export function DocumentiClient({ nome, email, cvUrl, ciUrl, cfUrl, cvUploadedAt, ciUploadedAt, cfUploadedAt, redirectTo }: DocumentiClientProps) {
   const router = useRouter()
   const cvRef = useRef<HTMLInputElement>(null)
   const ciRef = useRef<HTMLInputElement>(null)
+  const cfRef = useRef<HTMLInputElement>(null)
 
   const [cvUploaded, setCvUploaded] = useState(!!cvUrl)
   const [ciUploaded, setCiUploaded] = useState(!!ciUrl)
+  const [cfUploaded, setCfUploaded] = useState(!!cfUrl)
   const [cvDate, setCvDate] = useState(cvUploadedAt)
   const [ciDate, setCiDate] = useState(ciUploadedAt)
+  const [cfDate, setCfDate] = useState(cfUploadedAt)
 
   const [cvLoading, setCvLoading] = useState(false)
   const [ciLoading, setCiLoading] = useState(false)
+  const [cfLoading, setCfLoading] = useState(false)
   const [cvError, setCvError] = useState('')
   const [ciError, setCiError] = useState('')
+  const [cfError, setCfError] = useState('')
   const [completing, setCompleting] = useState(false)
 
-  const canComplete = cvUploaded && ciUploaded
+  const canComplete = cvUploaded && ciUploaded && cfUploaded
 
-  const handleUpload = async (tipo: 'cv' | 'ci', file: File) => {
-    const setLoading = tipo === 'cv' ? setCvLoading : setCiLoading
-    const setError = tipo === 'cv' ? setCvError : setCiError
+  const handleUpload = async (tipo: 'cv' | 'ci' | 'cf', file: File) => {
+    const setLoading = tipo === 'cv' ? setCvLoading : tipo === 'ci' ? setCiLoading : setCfLoading
+    const setError  = tipo === 'cv' ? setCvError  : tipo === 'ci' ? setCiError  : setCfError
     setLoading(true)
     setError('')
     try {
@@ -49,13 +56,14 @@ export function DocumentiClient({ nome, email, cvUrl, ciUrl, cvUploadedAt, ciUpl
       if (!res.ok) { setError(json.error || 'Errore upload'); return }
       const now = new Date().toISOString()
       if (tipo === 'cv') { setCvUploaded(true); setCvDate(now) }
-      else { setCiUploaded(true); setCiDate(now) }
+      else if (tipo === 'ci') { setCiUploaded(true); setCiDate(now) }
+      else { setCfUploaded(true); setCfDate(now) }
     } finally {
       setLoading(false)
     }
   }
 
-  const handleComplete = async () => {
+  const handleComplete = () => {
     setCompleting(true)
     router.push(redirectTo)
   }
@@ -90,10 +98,10 @@ export function DocumentiClient({ nome, email, cvUrl, ciUrl, cvUploadedAt, ciUpl
       <div className="w-full max-w-md bg-white rounded-2xl shadow-sm p-8" style={{ border: '0.5px solid #e5e5e5' }}>
         <h1 className="text-2xl font-bold text-gray-900 mb-1">Carica i tuoi documenti</h1>
         <p className="text-sm text-gray-500 mb-6">
-          Per completare la registrazione devi caricare il tuo CV e un documento d&apos;identità valido.
+          Per completare la registrazione devi caricare CV, documento d&apos;identità e tessera del codice fiscale.
         </p>
 
-        <div className="space-y-5">
+        <div className="space-y-4">
           {/* CV */}
           <UploadCard
             label="Curriculum Vitae (CV)"
@@ -109,7 +117,7 @@ export function DocumentiClient({ nome, email, cvUrl, ciUrl, cvUploadedAt, ciUpl
 
           {/* CI */}
           <UploadCard
-            label="Carta d'identità o Passaporto"
+            label="Carta d'identità o Passaporto (fronte e retro)"
             hint="PDF, JPG o PNG — max 5 MB"
             uploaded={ciUploaded}
             uploadedAt={ciDate}
@@ -118,6 +126,19 @@ export function DocumentiClient({ nome, email, cvUrl, ciUrl, cvUploadedAt, ciUpl
             inputRef={ciRef}
             accept=".pdf,.jpg,.jpeg,.png"
             onChange={f => handleUpload('ci', f)}
+          />
+
+          {/* CF */}
+          <UploadCard
+            label="Codice Fiscale (fronte e retro in un unico file)"
+            hint="Scansiona o fotografa entrambi i lati — PDF, JPG o PNG — max 5 MB"
+            uploaded={cfUploaded}
+            uploadedAt={cfDate}
+            loading={cfLoading}
+            error={cfError}
+            inputRef={cfRef}
+            accept=".pdf,.jpg,.jpeg,.png"
+            onChange={f => handleUpload('cf', f)}
           />
         </div>
 

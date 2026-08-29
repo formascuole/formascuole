@@ -39,6 +39,8 @@ interface AccountClientProps {
   cvUploadedAt?: string | null
   ciUrl?: string | null
   ciUploadedAt?: string | null
+  cfUrl?: string | null
+  cfUploadedAt?: string | null
   documentiCompleti?: boolean | null
 }
 
@@ -71,7 +73,7 @@ export function AccountClient({
   tariffa_oraria_formatore, tariffa_oraria_tutor,
   ha_partita_iva, regime_fiscale, rivalsa_iva, partita_iva, telefono, regione,
   inps_gestione_separata,
-  cvUrl, cvUploadedAt, ciUrl, ciUploadedAt, documentiCompleti,
+  cvUrl, cvUploadedAt, ciUrl, ciUploadedAt, cfUrl, cfUploadedAt, documentiCompleti,
 }: AccountClientProps) {
   // Password change state
   const [pwdModalOpen, setPwdModalOpen] = useState(false)
@@ -119,17 +121,21 @@ export function AccountClient({
   // Documenti state
   const [cvUploaded, setCvUploaded] = useState(!!cvUrl)
   const [ciUploaded, setCiUploaded] = useState(!!ciUrl)
+  const [cfUploaded, setCfUploaded] = useState(!!cfUrl)
   const [cvDateState, setCvDateState] = useState(cvUploadedAt ?? null)
   const [ciDateState, setCiDateState] = useState(ciUploadedAt ?? null)
+  const [cfDateState, setCfDateState] = useState(cfUploadedAt ?? null)
   const [cvLoading, setCvLoading] = useState(false)
   const [ciLoading, setCiLoading] = useState(false)
-  const [cvError, setCvError] = useState('')
-  const [ciError, setCiError] = useState('')
+  const [cfLoading, setCfLoading] = useState(false)
+  const [docCvError, setDocCvError] = useState('')
+  const [docCiError, setDocCiError] = useState('')
+  const [docCfError, setDocCfError] = useState('')
   const [viewingDoc, setViewingDoc] = useState<string | null>(null)
 
-  const handleDocUpload = async (tipo: 'cv' | 'ci', file: File) => {
-    const setLoading = tipo === 'cv' ? setCvLoading : setCiLoading
-    const setError = tipo === 'cv' ? setCvError : setCiError
+  const handleDocUpload = async (tipo: 'cv' | 'ci' | 'cf', file: File) => {
+    const setLoading = tipo === 'cv' ? setCvLoading : tipo === 'ci' ? setCiLoading : setCfLoading
+    const setError   = tipo === 'cv' ? setDocCvError : tipo === 'ci' ? setDocCiError : setDocCfError
     setLoading(true)
     setError('')
     try {
@@ -141,13 +147,14 @@ export function AccountClient({
       if (!res.ok) { setError(json.error || 'Errore upload'); return }
       const now = new Date().toISOString()
       if (tipo === 'cv') { setCvUploaded(true); setCvDateState(now) }
-      else { setCiUploaded(true); setCiDateState(now) }
+      else if (tipo === 'ci') { setCiUploaded(true); setCiDateState(now) }
+      else { setCfUploaded(true); setCfDateState(now) }
     } finally {
       setLoading(false)
     }
   }
 
-  const handleViewDoc = async (tipo: 'cv' | 'ci') => {
+  const handleViewDoc = async (tipo: 'cv' | 'ci' | 'cf') => {
     setViewingDoc(tipo)
     try {
       const res = await fetch(`/api/profilo/documento-url?tipo=${tipo}`)
@@ -399,8 +406,8 @@ export function AccountClient({
               <h2 className="font-semibold text-gray-900">I miei documenti</h2>
               <p className="text-xs text-gray-400 mt-0.5">CV e documento d&apos;identità obbligatori</p>
             </div>
-            <span className={`inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-md ${documentiCompleti || (cvUploaded && ciUploaded) ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
-              {documentiCompleti || (cvUploaded && ciUploaded) ? '✓ Completi' : 'Incompleti'}
+            <span className={`inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-md ${documentiCompleti || (cvUploaded && ciUploaded && cfUploaded) ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
+              {documentiCompleti || (cvUploaded && ciUploaded && cfUploaded) ? '✓ Completi' : 'Incompleti'}
             </span>
           </div>
           <div className="space-y-3">
@@ -410,23 +417,35 @@ export function AccountClient({
               uploadedAt={cvDateState}
               loading={cvLoading}
               viewing={viewingDoc === 'cv'}
-              error={cvError}
+              error={docCvError}
               accept=".pdf,.doc,.docx,.odt"
               onView={() => handleViewDoc('cv')}
               onUpload={f => handleDocUpload('cv', f)}
             />
             <DocRow
-              label="Documento d'identità"
+              label="Carta d'identità o Passaporto (fronte e retro)"
               uploaded={ciUploaded}
               uploadedAt={ciDateState}
               loading={ciLoading}
               viewing={viewingDoc === 'ci'}
-              error={ciError}
+              error={docCiError}
               accept=".pdf,.jpg,.jpeg,.png"
               onView={() => handleViewDoc('ci')}
               onUpload={f => handleDocUpload('ci', f)}
             />
+            <DocRow
+              label="Codice Fiscale (fronte e retro)"
+              uploaded={cfUploaded}
+              uploadedAt={cfDateState}
+              loading={cfLoading}
+              viewing={viewingDoc === 'cf'}
+              error={docCfError}
+              accept=".pdf,.jpg,.jpeg,.png"
+              onView={() => handleViewDoc('cf')}
+              onUpload={f => handleDocUpload('cf', f)}
+            />
           </div>
+          <p className="text-xs text-gray-400 mt-3">Per la carta d&apos;identità e il codice fiscale scansiona o fotografa fronte e retro in un unico file.</p>
         </div>
       )}
 

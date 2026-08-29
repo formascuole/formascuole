@@ -166,8 +166,8 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
   const [tariffaModalOpen, setTariffaModalOpen] = useState(false)
 
   // Documenti
-  const [viewingDocAdmin, setViewingDocAdmin] = useState<'cv' | 'ci' | null>(null)
-  const handleViewDocAdmin = async (tipo: 'cv' | 'ci') => {
+  const [viewingDocAdmin, setViewingDocAdmin] = useState<'cv' | 'ci' | 'cf' | null>(null)
+  const handleViewDocAdmin = async (tipo: 'cv' | 'ci' | 'cf') => {
     setViewingDocAdmin(tipo)
     try {
       const res = await fetch(`/api/profilo/documento-url?tipo=${tipo}&utente_id=${profile.id}`)
@@ -522,11 +522,18 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
               onView={() => handleViewDocAdmin('cv')}
             />
             <AdminDocRow
-              label="Documento d'identità"
+              label="Carta d'identità o Passaporto (fronte e retro)"
               path={profile.ci_url ?? null}
               uploadedAt={profile.ci_uploaded_at ?? null}
               viewing={viewingDocAdmin === 'ci'}
               onView={() => handleViewDocAdmin('ci')}
+            />
+            <AdminDocRow
+              label="Codice Fiscale (fronte e retro)"
+              path={profile.cf_url ?? null}
+              uploadedAt={profile.cf_uploaded_at ?? null}
+              viewing={viewingDocAdmin === 'cf'}
+              onView={() => handleViewDocAdmin('cf')}
             />
           </div>
         </div>

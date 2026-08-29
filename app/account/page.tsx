@@ -71,6 +71,8 @@ export default async function AccountPage() {
         cvUploadedAt={profile.cv_uploaded_at ?? null}
         ciUrl={profile.ci_url ?? null}
         ciUploadedAt={profile.ci_uploaded_at ?? null}
+        cfUrl={profile.cf_url ?? null}
+        cfUploadedAt={profile.cf_uploaded_at ?? null}
         documentiCompleti={profile.documenti_completi ?? false}
       />
     </AppLayout>

@@ -45,6 +45,8 @@ export interface Profile {
   cv_uploaded_at?: string | null
   ci_url?: string | null
   ci_uploaded_at?: string | null
+  cf_url?: string | null
+  cf_uploaded_at?: string | null
   documenti_completi?: boolean | null
 }
 

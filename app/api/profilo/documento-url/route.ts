@@ -7,9 +7,9 @@ export async function GET(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const tipo = req.nextUrl.searchParams.get('tipo') as 'cv' | 'ci' | null
+  const tipo = req.nextUrl.searchParams.get('tipo') as 'cv' | 'ci' | 'cf' | null
   const targetUserId = req.nextUrl.searchParams.get('utente_id')
-  if (!tipo || !['cv', 'ci'].includes(tipo)) {
+  if (!tipo || !['cv', 'ci', 'cf'].includes(tipo)) {
     return NextResponse.json({ error: 'tipo non valido' }, { status: 400 })
   }
 
@@ -31,13 +31,13 @@ export async function GET(req: NextRequest) {
 
   const { data: profile } = await admin
     .from('profiles')
-    .select('cv_url, ci_url')
+    .select('cv_url, ci_url, cf_url')
     .eq('id', resolvedUserId)
     .single()
 
   if (!profile) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-  const path = tipo === 'cv' ? profile.cv_url : profile.ci_url
+  const path = tipo === 'cv' ? profile.cv_url : tipo === 'ci' ? profile.ci_url : profile.cf_url
   if (!path) return NextResponse.json({ error: 'Documento non caricato' }, { status: 404 })
 
   const { data, error } = await admin.storage

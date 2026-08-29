@@ -65,9 +65,10 @@ interface FormatoreClientProps {
   corsiDisponibili?: CorsoDisponibile[]
   oreErogate?: number
   oreErogatePerCorso?: Record<string, number>
+  documentiCompleti?: boolean | null
 }
 
-export function FormatoreClient({ corsi, profile, finanziamenti, questionari = [], mediaGlobale = null, corsiDisponibili = [], oreErogate = 0, oreErogatePerCorso = {} }: FormatoreClientProps) {
+export function FormatoreClient({ corsi, profile, finanziamenti, questionari = [], mediaGlobale = null, corsiDisponibili = [], oreErogate = 0, oreErogatePerCorso = {}, documentiCompleti }: FormatoreClientProps) {
   const router = useRouter()
 
   // Calendar modal
@@ -230,6 +231,31 @@ export function FormatoreClient({ corsi, profile, finanziamenti, questionari = [
             </div>
             <div className="text-xs text-amber-600">Scorri in basso per accettare o rifiutare l'incarico</div>
           </div>
+        </div>
+      )}
+
+      {/* Banner documenti mancanti */}
+      {!documentiCompleti && (
+        <div className="mb-6 bg-amber-50 border border-amber-300 rounded-xl px-5 py-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-amber-200 flex items-center justify-center shrink-0">
+              <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
+                <path d="M12 9v4M12 17h.01" stroke="#92400e" strokeWidth="2" strokeLinecap="round"/>
+                <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="#92400e" strokeWidth="1.5"/>
+              </svg>
+            </div>
+            <div>
+              <div className="font-semibold text-amber-800 text-sm">Documenti mancanti</div>
+              <div className="text-xs text-amber-700">Carica CV, Carta d&apos;Identità e Codice Fiscale per completare la registrazione</div>
+            </div>
+          </div>
+          <a
+            href="/account"
+            className="shrink-0 px-4 py-2 text-xs font-semibold text-white rounded-[7px] transition-colors"
+            style={{ backgroundColor: '#d64b55' }}
+          >
+            Carica ora →
+          </a>
         </div>
       )}
 

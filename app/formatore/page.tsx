@@ -175,6 +175,7 @@ export default async function FormatorePage() {
         corsiDisponibili={corsiDisponibili}
         oreErogate={oreErogate}
         oreErogatePerCorso={oreErogatePerCorso}
+        documentiCompleti={profile.documenti_completi ?? false}
       />
     </AppLayout>
   )
