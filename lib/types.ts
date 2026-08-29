@@ -201,6 +201,16 @@ export interface Corso {
   lettera_tutor_pending?: boolean
   lettera_tutor_inviata_at?: string | null
   lettera_tutor_sollecito_at?: string | null
+  // Rinuncia formatore
+  rinuncia_motivo?: string | null
+  rinuncia_note?: string | null
+  rinuncia_at?: string | null
+  rinuncia_formatore_id?: string | null
+  rinuncia_formatore_nome?: string | null
+  lettera_incarico_annullata?: boolean | null
+  lettera_incarico_annullata_at?: string | null
+  lettera_incarico_annullata_motivo?: string | null
+  lettera_incarico_url_storico?: string | null
 }
 
 export interface Candidatura {

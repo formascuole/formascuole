@@ -496,6 +496,14 @@ export function CorsoDetailClient({
   const [annullandoLetteraTutor, setAnnullandoLetteraTutor] = useState(false)
   const [annullaLetteraTutorError, setAnnullaLetteraTutorError] = useState<string | null>(null)
 
+  // Rinuncia formatore
+  const [rinunciaOpen, setRinunciaOpen] = useState(false)
+  const [rinunciaMotivo, setRinunciaMotivo] = useState('')
+  const [rinunciaNote, setRinunciaNote] = useState('')
+  const [rinunciaEmail, setRinunciaEmail] = useState(true)
+  const [rinunciaSaving, setRinunciaSaving] = useState(false)
+  const [rinunciaError, setRinunciaError] = useState<string | null>(null)
+
   // Time-to-ore helper (round to nearest 0.5h)
   const calcOreFromTime = (start: string, end: string): number => {
     const [sh, sm] = start.split(':').map(Number)
@@ -1049,6 +1057,32 @@ export function CorsoDetailClient({
     }
   }
 
+  const handleRinuncia = async () => {
+    if (!rinunciaMotivo) { setRinunciaError('Seleziona un motivo'); return }
+    setRinunciaSaving(true)
+    setRinunciaError(null)
+    try {
+      const res = await fetch(`/api/corsi/${corso.id}/rinuncia`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          motivo: rinunciaMotivo,
+          note: rinunciaNote.trim() || null,
+          invia_email: rinunciaEmail,
+        }),
+      })
+      if (res.ok) {
+        setRinunciaOpen(false)
+        router.refresh()
+      } else {
+        const j = await res.json().catch(() => ({}))
+        setRinunciaError(j.error || 'Errore durante il salvataggio')
+      }
+    } finally {
+      setRinunciaSaving(false)
+    }
+  }
+
   const handleFirmaLettera = async () => {
     setFirmandoLettera(true)
     setFirmaLetteraError(null)
@@ -1368,20 +1402,37 @@ export function CorsoDetailClient({
       {/* Formatore */}
       <div className="bg-white rounded-xl p-6 mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="font-semibold text-gray-900">Formatore assegnato</h2>
-          {corso.stato_assegnazione && corso.stato_assegnazione !== 'non_assegnato' && (() => {
-            const badges: Record<string, { label: string; className: string }> = {
-              in_attesa: { label: 'In attesa di accettazione', className: 'bg-amber-100 text-amber-800' },
-              accettato:  { label: 'Accettato',               className: 'bg-green-100 text-green-800' },
-              rifiutato:  { label: 'Rifiutato',               className: 'bg-red-100 text-red-700' },
-            }
-            const b = badges[corso.stato_assegnazione]
-            return b ? (
-              <span className={`inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-md ${b.className}`}>
-                {b.label}
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="font-semibold text-gray-900">Formatore assegnato</h2>
+            {corso.rinuncia_at && (
+              <span className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md bg-orange-100 text-orange-700">
+                Rinuncia registrata
               </span>
-            ) : null
-          })()}
+            )}
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            {corso.stato_assegnazione && corso.stato_assegnazione !== 'non_assegnato' && (() => {
+              const badges: Record<string, { label: string; className: string }> = {
+                in_attesa: { label: 'In attesa di accettazione', className: 'bg-amber-100 text-amber-800' },
+                accettato:  { label: 'Accettato',               className: 'bg-green-100 text-green-800' },
+                rifiutato:  { label: 'Rifiutato',               className: 'bg-red-100 text-red-700' },
+              }
+              const b = badges[corso.stato_assegnazione]
+              return b ? (
+                <span className={`inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-md ${b.className}`}>
+                  {b.label}
+                </span>
+              ) : null
+            })()}
+            {isAdmin && corso.stato_assegnazione === 'accettato' && corso.formatore_id && (
+              <button
+                onClick={() => { setRinunciaOpen(true); setRinunciaMotivo(''); setRinunciaNote(''); setRinunciaEmail(true); setRinunciaError(null) }}
+                className="text-xs font-medium text-orange-700 bg-orange-50 border border-orange-200 hover:bg-orange-100 px-2.5 py-1 rounded-[6px] transition-colors"
+              >
+                Registra rinuncia
+              </button>
+            )}
+          </div>
         </div>
         {isAdmin && progetto?.status === 'pending' && corso.formatore_id && (
           <div className="mb-4 flex items-center justify-between p-3 bg-purple-50 border border-purple-100 rounded-[7px]">
@@ -1485,6 +1536,48 @@ export function CorsoDetailClient({
           </div>
         )}
       </div>
+
+      {/* Storico rinuncia */}
+      {isAdmin && corso.rinuncia_at && (
+        <div className="bg-white rounded-xl p-6 mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
+          <h2 className="font-semibold text-gray-900 mb-3">Rinuncia precedente</h2>
+          <div className="space-y-1.5 text-sm text-gray-700">
+            {corso.rinuncia_formatore_nome && (
+              <div><span className="text-gray-400 mr-1">Formatore:</span>{corso.rinuncia_formatore_nome}</div>
+            )}
+            <div><span className="text-gray-400 mr-1">Data:</span>{new Date(corso.rinuncia_at).toLocaleDateString('it-IT')}</div>
+            {corso.rinuncia_motivo && (
+              <div><span className="text-gray-400 mr-1">Motivo:</span>{corso.rinuncia_motivo}</div>
+            )}
+            {corso.rinuncia_note && (
+              <div><span className="text-gray-400 mr-1">Note:</span>{corso.rinuncia_note}</div>
+            )}
+            {corso.lettera_incarico_annullata && (
+              <div className="mt-2 flex items-center gap-2">
+                <span className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md bg-red-100 text-red-700">
+                  Lettera annullata
+                </span>
+                {corso.lettera_incarico_annullata_at && (
+                  <span className="text-xs text-gray-400">
+                    il {new Date(corso.lettera_incarico_annullata_at).toLocaleDateString('it-IT')}
+                  </span>
+                )}
+                {corso.lettera_incarico_url_storico && (
+                  <a
+                    href={corso.lettera_incarico_url_storico}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-800 border border-gray-200 px-2 py-0.5 rounded"
+                  >
+                    <svg width="10" height="10" fill="none" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    PDF storico
+                  </a>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Candidature ricevute */}
       {isAdmin && (candidature.length > 0 || corso.candidature_aperte) && (
@@ -3646,6 +3739,61 @@ export function CorsoDetailClient({
             />
           </div>
           {annullaLetteraTutorError && <p className="text-xs text-red-500">{annullaLetteraTutorError}</p>}
+        </div>
+      </Modal>
+
+      {/* Rinuncia formatore modal */}
+      <Modal
+        open={rinunciaOpen}
+        onClose={() => { setRinunciaOpen(false); setRinunciaError(null) }}
+        title="Registra rinuncia formatore"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => { setRinunciaOpen(false); setRinunciaError(null) }}>Annulla</Button>
+            <Button variant="danger" onClick={handleRinuncia} loading={rinunciaSaving}>Conferma rinuncia</Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            Il formatore verrà rimosso dal corso e l&apos;assegnazione verrà azzerata. Se è presente una lettera d&apos;incarico non ancora firmata, verrà annullata automaticamente. Questa operazione è irreversibile.
+          </p>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Motivo <span className="text-red-500">*</span></label>
+            <select
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={rinunciaMotivo}
+              onChange={e => setRinunciaMotivo(e.target.value)}
+            >
+              <option value="">Seleziona motivo...</option>
+              <option value="Indisponibilità sopravvenuta">Indisponibilità sopravvenuta</option>
+              <option value="Problemi di salute">Problemi di salute</option>
+              <option value="Incompatibilità di orario">Incompatibilità di orario</option>
+              <option value="Riassegnazione a altro corso">Riassegnazione a altro corso</option>
+              <option value="Altro">Altro</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Note aggiuntive</label>
+            <textarea
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              rows={3}
+              value={rinunciaNote}
+              onChange={e => setRinunciaNote(e.target.value)}
+              placeholder="Dettagli aggiuntivi (opzionale)..."
+            />
+          </div>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={rinunciaEmail}
+              onChange={e => setRinunciaEmail(e.target.checked)}
+              className="rounded border-gray-300"
+            />
+            <span className="text-sm text-gray-700">Invia email di notifica al formatore</span>
+          </label>
+          {rinunciaError && <p className="text-xs text-red-500">{rinunciaError}</p>}
         </div>
       </Modal>
     </div>
