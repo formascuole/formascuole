@@ -1,9 +1,9 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendEmail } from '@/lib/email'
 
-export async function POST() {
+export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -11,12 +11,19 @@ export async function POST() {
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
   if (!['admin', 'super_admin'].includes(profile?.role ?? '')) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
+  const body = await req.json().catch(() => ({}))
+  const userIds: string[] | undefined =
+    Array.isArray(body?.user_ids) && body.user_ids.length > 0 ? body.user_ids : undefined
+
   const admin = createAdminClient()
-  const { data: utenti } = await admin
+  let q = admin
     .from('profiles')
     .select('id, nome, email, cv_url, ci_url, cf_url')
     .in('role', ['formatore', 'tutor'])
     .eq('documenti_completi', false)
+  if (userIds) q = q.in('id', userIds)
+
+  const { data: utenti } = await q
 
   if (!utenti || utenti.length === 0) {
     return NextResponse.json({ sent: 0 })
@@ -62,15 +69,27 @@ Il team Formascuole`
   return NextResponse.json({ sent })
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  if (!['admin', 'super_admin'].includes(profile?.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  if (!['admin', 'super_admin'].includes(profile?.role ?? '')) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const admin = createAdminClient()
+  const url = new URL(req.url)
+
+  if (url.searchParams.get('list') === '1') {
+    const { data } = await admin
+      .from('profiles')
+      .select('id, nome, email, cv_url, ci_url, cf_url')
+      .in('role', ['formatore', 'tutor'])
+      .eq('documenti_completi', false)
+      .order('nome')
+    return NextResponse.json({ utenti: data || [] })
+  }
+
   const { count } = await admin
     .from('profiles')
     .select('id', { count: 'exact', head: true })

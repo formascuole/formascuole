@@ -182,8 +182,14 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
   const [reinviaSuccessId, setReinviaSuccessId] = useState<string | null>(null)
 
   // --- Sollecita documenti state ---
-  const [sollecitando, setSollecitando] = useState(false)
-  const [sollecitaSuccess, setSollecitaSuccess] = useState('')
+  type FormatoreMancante = { id: string; nome: string; email: string; cv_url: string | null; ci_url: string | null; cf_url: string | null }
+  const [sollecitaOpen, setSollecitaOpen] = useState(false)
+  const [sollecitaList, setSollecitaList] = useState<FormatoreMancante[]>([])
+  const [sollecitaLoading, setSollecitaLoading] = useState(false)
+  const [sollecitaSelected, setSollecitaSelected] = useState<Set<string>>(new Set())
+  const [invioInCorso, setInvioInCorso] = useState(false)
+  const [invioProgress, setInvioProgress] = useState(0)
+  const [invioSuccess, setInvioSuccess] = useState('')
 
   // Fetch stats client-side via service-role API to bypass RLS
   useEffect(() => {
@@ -343,19 +349,40 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
 
   const canSave = editForm.nome.trim().length > 0 && editForm.roles.length > 0
 
-  const handleSollecitaDocumenti = async () => {
-    setSollecitando(true)
-    setSollecitaSuccess('')
+  const openSollecitaModal = async () => {
+    setSollecitaOpen(true)
+    setSollecitaLoading(true)
+    setSollecitaList([])
+    setSollecitaSelected(new Set())
+    setInvioSuccess('')
+    setInvioProgress(0)
     try {
-      const res = await fetch('/api/admin/sollecita-documenti', { method: 'POST' })
+      const res = await fetch('/api/admin/sollecita-documenti?list=1')
       const json = await res.json()
-      if (res.ok) {
-        setSollecitaSuccess(`Email inviate: ${json.sent}`)
-        setTimeout(() => setSollecitaSuccess(''), 4000)
-      }
+      const list: FormatoreMancante[] = json.utenti || []
+      setSollecitaList(list)
+      setSollecitaSelected(new Set(list.map(u => u.id)))
     } finally {
-      setSollecitando(false)
+      setSollecitaLoading(false)
     }
+  }
+
+  const handleSollecitaInvio = async () => {
+    const ids = [...sollecitaSelected]
+    setInvioInCorso(true)
+    setInvioProgress(0)
+    let sent = 0
+    for (const id of ids) {
+      await fetch('/api/admin/sollecita-documenti', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_ids: [id] }),
+      })
+      sent++
+      setInvioProgress(sent)
+    }
+    setInvioInCorso(false)
+    setInvioSuccess(`Sollecito inviato a ${sent} formator${sent === 1 ? 'e' : 'i'}`)
   }
 
   const docMancanti = utenti.filter(u =>
@@ -401,16 +428,15 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
           </button>
           {docMancanti > 0 && (
             <button
-              onClick={handleSollecitaDocumenti}
-              disabled={sollecitando}
-              className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-[7px] border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-700 transition-colors disabled:opacity-50"
+              onClick={openSollecitaModal}
+              className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-[7px] border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-700 transition-colors"
               title="Invia email di sollecito documenti"
             >
               <svg width="15" height="15" fill="none" viewBox="0 0 24 24">
                 <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                 <polyline points="22,6 12,13 2,6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
-              {sollecitando ? 'Invio…' : sollecitaSuccess ? sollecitaSuccess : `Sollecita documenti mancanti (${docMancanti})`}
+              Sollecita documenti mancanti ({docMancanti})
             </button>
           )}
           <Button onClick={() => setCreateOpen(true)}>
@@ -832,6 +858,104 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
           router.refresh()
         }}
       />
+
+      {/* ── Modal: Sollecita documenti ─────────────────────────────────────── */}
+      <Modal
+        open={sollecitaOpen}
+        onClose={() => { if (!invioInCorso) { setSollecitaOpen(false); setInvioSuccess('') } }}
+        title="Sollecita documenti mancanti"
+        size="md"
+        footer={
+          invioSuccess ? (
+            <Button onClick={() => { setSollecitaOpen(false); setInvioSuccess('') }}>Chiudi</Button>
+          ) : (
+            <>
+              <Button variant="secondary" onClick={() => setSollecitaOpen(false)} disabled={invioInCorso}>Annulla</Button>
+              <Button
+                onClick={handleSollecitaInvio}
+                loading={invioInCorso}
+                disabled={sollecitaLoading || sollecitaSelected.size === 0 || invioInCorso}
+              >
+                {invioInCorso
+                  ? `Invio in corso… (${invioProgress}/${sollecitaSelected.size})`
+                  : `Invia sollecito a ${sollecitaSelected.size} selezionat${sollecitaSelected.size === 1 ? 'o' : 'i'}`}
+              </Button>
+            </>
+          )
+        }
+      >
+        {invioSuccess ? (
+          <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-[7px] px-4 py-3">
+            <svg className="text-green-500 shrink-0" width="18" height="18" fill="none" viewBox="0 0 24 24">
+              <polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            <p className="text-sm font-medium text-green-800">{invioSuccess}</p>
+          </div>
+        ) : sollecitaLoading ? (
+          <div className="py-8 text-center text-sm text-gray-400">Caricamento elenco…</div>
+        ) : (
+          <div>
+            <p className="text-sm text-gray-500 mb-4">
+              Seleziona i formatori a cui inviare il sollecito. Verranno notificati solo i documenti effettivamente mancanti.
+            </p>
+            {sollecitaList.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-4">Nessun formatore con documenti mancanti.</p>
+            ) : (
+              <>
+                <div className="flex items-center gap-3 mb-3">
+                  <button
+                    type="button"
+                    className="text-xs font-medium text-[#d64b55] hover:underline"
+                    onClick={() => setSollecitaSelected(new Set(sollecitaList.map(u => u.id)))}
+                  >
+                    Seleziona tutti
+                  </button>
+                  <span className="text-gray-200">|</span>
+                  <button
+                    type="button"
+                    className="text-xs font-medium text-gray-500 hover:underline"
+                    onClick={() => setSollecitaSelected(new Set())}
+                  >
+                    Deseleziona tutti
+                  </button>
+                </div>
+                <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                  {sollecitaList.map(u => {
+                    const checked = sollecitaSelected.has(u.id)
+                    return (
+                      <label
+                        key={u.id}
+                        className={`flex items-start gap-3 p-3 rounded-[7px] border cursor-pointer transition-colors ${checked ? 'border-[#d64b55] bg-red-50' : 'border-gray-200 hover:border-gray-300'}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => setSollecitaSelected(prev => {
+                            const next = new Set(prev)
+                            if (next.has(u.id)) next.delete(u.id)
+                            else next.add(u.id)
+                            return next
+                          })}
+                          className="mt-0.5 accent-[#d64b55] shrink-0"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium text-gray-900">{u.nome}</div>
+                          <div className="text-xs text-gray-400">{u.email}</div>
+                          <div className="flex gap-1 mt-1.5 flex-wrap">
+                            {!u.cv_url && <span className="inline-flex items-center gap-1 text-xs font-medium px-1.5 py-0.5 rounded bg-red-100 text-red-700">CV</span>}
+                            {!u.ci_url && <span className="inline-flex items-center gap-1 text-xs font-medium px-1.5 py-0.5 rounded bg-red-100 text-red-700">CI</span>}
+                            {!u.cf_url && <span className="inline-flex items-center gap-1 text-xs font-medium px-1.5 py-0.5 rounded bg-red-100 text-red-700">CF</span>}
+                          </div>
+                        </div>
+                      </label>
+                    )
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </Modal>
 
       {/* Reinvia credenziali modal */}
       <Modal
