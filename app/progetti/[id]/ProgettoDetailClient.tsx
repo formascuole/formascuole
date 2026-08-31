@@ -255,7 +255,7 @@ export function ProgettoDetailClient({
       for (const { col, url, label } of docCells) {
         const ref = XLSX.utils.encode_cell({ r: rowIdx + 1, c: col })
         ws2[ref] = url
-          ? { t: 's', v: label, l: { Target: url } }
+          ? { t: 's', v: label, f: `HYPERLINK("${url}","${label}")` }
           : { t: 's', v: '—' }
       }
     })
