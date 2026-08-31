@@ -14,6 +14,10 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}))
   const userIds: string[] | undefined =
     Array.isArray(body?.user_ids) && body.user_ids.length > 0 ? body.user_ids : undefined
+  const messaggioPersonalizzato: string | undefined =
+    typeof body?.messaggio_personalizzato === 'string' && body.messaggio_personalizzato.trim()
+      ? body.messaggio_personalizzato.trim()
+      : undefined
 
   const admin = createAdminClient()
   let q = admin
@@ -45,7 +49,7 @@ export async function POST(req: NextRequest) {
       .join('\n\n')
 
     const body = `Gentile ${u.nome},
-
+${messaggioPersonalizzato ? `\n${messaggioPersonalizzato}\n` : ''}
 per completare la registrazione sulla piattaforma Formascuole è necessario caricare i seguenti documenti accedendo alla sezione "Il mio account":
 
 ${docLines}

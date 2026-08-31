@@ -190,6 +190,7 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
   const [sollecitaList, setSollecitaList] = useState<FormatoreMancante[]>([])
   const [sollecitaLoading, setSollecitaLoading] = useState(false)
   const [sollecitaSelected, setSollecitaSelected] = useState<Set<string>>(new Set())
+  const [sollecitaMessaggio, setSollecitaMessaggio] = useState('')
   const [invioInCorso, setInvioInCorso] = useState(false)
   const [invioProgress, setInvioProgress] = useState(0)
   const [invioSuccess, setInvioSuccess] = useState('')
@@ -380,7 +381,7 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
       await fetch('/api/admin/sollecita-documenti', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_ids: [id] }),
+        body: JSON.stringify({ user_ids: [id], messaggio_personalizzato: sollecitaMessaggio.trim() || undefined }),
       })
       sent++
       setInvioProgress(sent)
@@ -916,6 +917,16 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
             <p className="text-sm text-gray-500 mb-4">
               Seleziona i formatori a cui inviare il sollecito. Verranno notificati solo i documenti effettivamente mancanti.
             </p>
+            <div className="mb-4">
+              <label className="block text-xs font-medium text-gray-700 mb-1">Messaggio personalizzato <span className="text-gray-400 font-normal">(opzionale — verrà aggiunto all&apos;inizio dell&apos;email)</span></label>
+              <textarea
+                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#d64b55] resize-none"
+                rows={4}
+                placeholder="Lascia vuoto per inviare il testo standard..."
+                value={sollecitaMessaggio}
+                onChange={e => setSollecitaMessaggio(e.target.value)}
+              />
+            </div>
             {sollecitaList.length === 0 ? (
               <p className="text-sm text-gray-400 text-center py-4">Nessun formatore con documenti mancanti.</p>
             ) : (
