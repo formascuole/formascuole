@@ -243,7 +243,24 @@ export function ProgettoDetailClient({
       ]
     })
     const ws2 = XLSX.utils.aoa_to_sheet([corsiHeader, ...corsiRows])
-    ws2['!cols'] = [{ wch: 36 }, { wch: 8 }, { wch: 12 }, { wch: 16 }, { wch: 22 }, { wch: 28 }, { wch: 16 }, { wch: 18 }, { wch: 46 }, { wch: 46 }, { wch: 46 }, { wch: 22 }, { wch: 28 }, { wch: 16 }, { wch: 18 }, { wch: 20 }, { wch: 20 }]
+
+    // Patch CV / CI / CF columns with clickable hyperlinks (xlsx supports `l.Target` on individual cells)
+    corsi.forEach((c, rowIdx) => {
+      const fmt = c.formatore as (Profile & { cv_url?: string | null; ci_url?: string | null; cf_url?: string | null }) | undefined
+      const docCells = [
+        { col: 8, url: fmt?.cv_url ?? null, label: 'Apri CV' },
+        { col: 9, url: fmt?.ci_url ?? null, label: 'Apri CI' },
+        { col: 10, url: fmt?.cf_url ?? null, label: 'Apri CF' },
+      ] as const
+      for (const { col, url, label } of docCells) {
+        const ref = XLSX.utils.encode_cell({ r: rowIdx + 1, c: col })
+        ws2[ref] = url
+          ? { t: 's', v: label, l: { Target: url } }
+          : { t: 's', v: '—' }
+      }
+    })
+
+    ws2['!cols'] = [{ wch: 36 }, { wch: 8 }, { wch: 12 }, { wch: 16 }, { wch: 22 }, { wch: 28 }, { wch: 16 }, { wch: 18 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 22 }, { wch: 28 }, { wch: 16 }, { wch: 18 }, { wch: 20 }, { wch: 20 }]
     XLSX.utils.book_append_sheet(wb, ws2, 'Corsi e formatori')
 
     // ── Foglio 3: Calendario sessioni ─────────────────────────────
