@@ -37,16 +37,18 @@ export async function GET(req: NextRequest) {
 
   if (!profile) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-  const path = tipo === 'cv' ? profile.cv_url : tipo === 'ci' ? profile.ci_url : profile.cf_url
-  if (!path) return NextResponse.json({ error: 'Documento non caricato' }, { status: 404 })
+  const stored = tipo === 'cv' ? profile.cv_url : tipo === 'ci' ? profile.ci_url : profile.cf_url
+  if (!stored) return NextResponse.json({ error: 'Documento non caricato' }, { status: 404 })
 
-  const { data, error } = await admin.storage
-    .from('documenti-formatori')
-    .createSignedUrl(path, 3600)
-
-  if (error || !data?.signedUrl) {
-    return NextResponse.json({ error: 'Impossibile generare URL firmato' }, { status: 500 })
+  // If already a full public URL, return it directly
+  if (stored.startsWith('https://')) {
+    return NextResponse.json({ url: stored })
   }
 
-  return NextResponse.json({ url: data.signedUrl })
+  // Fallback: treat as storage path and return public URL
+  const { data: { publicUrl } } = admin.storage
+    .from('documenti-formatori')
+    .getPublicUrl(stored)
+
+  return NextResponse.json({ url: publicUrl })
 }

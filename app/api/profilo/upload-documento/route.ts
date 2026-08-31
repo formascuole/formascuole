@@ -50,11 +50,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: uploadError.message }, { status: 500 })
   }
 
+  const { data: { publicUrl } } = admin.storage
+    .from('documenti-formatori')
+    .getPublicUrl(path)
+
   const now = new Date().toISOString()
   const updatePayload: Record<string, string> =
-    tipo === 'cv' ? { cv_url: path, cv_uploaded_at: now }
-    : tipo === 'ci' ? { ci_url: path, ci_uploaded_at: now }
-    :                 { cf_url: path, cf_uploaded_at: now }
+    tipo === 'cv' ? { cv_url: publicUrl, cv_uploaded_at: now }
+    : tipo === 'ci' ? { ci_url: publicUrl, ci_uploaded_at: now }
+    :                 { cf_url: publicUrl, cf_uploaded_at: now }
 
   const { data: updatedProfile } = await admin
     .from('profiles')
