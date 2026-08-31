@@ -61,7 +61,7 @@ Il team Formascuole`
       to: u.email,
       subject: 'Documenti mancanti — Azione richiesta',
       body,
-      actions: [{ label: 'Carica i documenti', url: `${process.env.NEXT_PUBLIC_SITE_URL}/account`, primary: true }],
+      actions: [{ label: 'Carica i documenti', url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://formascuole.vercel.app'}/account`, primary: true }],
     })
     sent++
   }
