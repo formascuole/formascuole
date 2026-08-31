@@ -319,6 +319,7 @@ export function ProgettoDetailClient({
   // ── Cancellazione massiva ────────────────────────────────────
   const [deleteSelected, setDeleteSelected] = useState<Set<string>>(new Set())
   const [deleteBulkOpen, setDeleteBulkOpen] = useState(false)
+  const [corsiTipoFilter, setCorsiTipoFilter] = useState<string>('all')
   const [deleteBulkConfirmText, setDeleteBulkConfirmText] = useState('')
   const [deletingBulk, setDeletingBulk] = useState(false)
   const [deleteBulkError, setDeleteBulkError] = useState('')
@@ -1373,30 +1374,98 @@ export function ProgettoDetailClient({
             </button>
           </div>
         )}
-        <div className="divide-y divide-gray-50">
-          {corsi.length === 0 ? (
-            <div className="px-6 py-12 text-center text-sm text-gray-400">
-              Nessun corso aggiunto. Clicca &quot;Aggiungi Corso&quot; per iniziare.
-            </div>
-          ) : (
-            corsi.map(corso => (
-              <CourseRow
-                key={corso.id}
-                corso={corso}
-                progettoId={progetto.id}
-                oreErogate={oreErogatePerCorso[corso.id] ?? 0}
-                finanziamentoNome={progettoFinanziamentoNome}
-                selected={deleteSelected.has(corso.id)}
-                onToggle={id => setDeleteSelected(prev => {
-                  const next = new Set(prev)
-                  if (next.has(id)) next.delete(id); else next.add(id)
-                  return next
-                })}
-                deletable={isDeletable(corso)}
-              />
-            ))
-          )}
-        </div>
+        {(() => {
+          const TIPO_ORDER: Record<string, number> = { PF: 0, Lab: 1, MF: 2 }
+          const GRADO_ORDER: Record<string, number> = {
+            infanzia: 0, primaria: 1,
+            'secondaria i': 2, 'secondaria di i': 2, 'secondaria 1': 2,
+            'secondaria ii': 3, 'secondaria di ii': 3, 'secondaria 2': 3,
+          }
+          const edizioneOrder = (ed: string | null | undefined): number => {
+            if (!ed) return Infinity
+            const s = ed.trim().toLowerCase()
+            // numeric: "1", "2", "edizione 1", "ed. 2"
+            const num = s.replace(/^(edizione|ed\.?)\s*/i, '')
+            const n = Number(num)
+            if (!isNaN(n) && n > 0) return n
+            // grado scolastico
+            for (const [key, val] of Object.entries(GRADO_ORDER)) {
+              if (s.includes(key)) return 100 + val
+            }
+            return Infinity
+          }
+
+          const tipiPresenti = [...new Set(corsi.map(c => c.tipo as string))].sort(
+            (a, b) => (TIPO_ORDER[a] ?? 99) - (TIPO_ORDER[b] ?? 99)
+          )
+
+          const sorted = [...corsi].sort((a, b) => {
+            const ta = TIPO_ORDER[a.tipo as string] ?? 99
+            const tb = TIPO_ORDER[b.tipo as string] ?? 99
+            if (ta !== tb) return ta - tb
+            const ea = edizioneOrder(a.edizione)
+            const eb = edizioneOrder(b.edizione)
+            if (ea !== eb) {
+              if (ea === Infinity && eb === Infinity) return a.title.localeCompare(b.title)
+              if (ea === Infinity) return 1
+              if (eb === Infinity) return -1
+              return ea - eb
+            }
+            return a.title.localeCompare(b.title)
+          })
+
+          const displayed = corsiTipoFilter === 'all' ? sorted : sorted.filter(c => c.tipo === corsiTipoFilter)
+
+          return (
+            <>
+              {tipiPresenti.length > 1 && (
+                <div className="px-6 pt-3 pb-0 flex items-center gap-1.5 flex-wrap">
+                  {(['all', ...tipiPresenti] as string[]).map(t => (
+                    <button
+                      key={t}
+                      onClick={() => setCorsiTipoFilter(t)}
+                      className={`text-xs font-medium px-3 py-1 rounded-full border transition-colors ${
+                        corsiTipoFilter === t
+                          ? 'bg-gray-900 text-white border-gray-900'
+                          : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                      }`}
+                    >
+                      {t === 'all' ? 'Tutti' : t}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="divide-y divide-gray-50">
+                {sorted.length === 0 ? (
+                  <div className="px-6 py-12 text-center text-sm text-gray-400">
+                    Nessun corso aggiunto. Clicca &quot;Aggiungi Corso&quot; per iniziare.
+                  </div>
+                ) : displayed.length === 0 ? (
+                  <div className="px-6 py-8 text-center text-sm text-gray-400">
+                    Nessun corso di tipo {corsiTipoFilter}.
+                  </div>
+                ) : (
+                  displayed.map(corso => (
+                    <CourseRow
+                      key={corso.id}
+                      corso={corso}
+                      progettoId={progetto.id}
+                      oreErogate={oreErogatePerCorso[corso.id] ?? 0}
+                      finanziamentoNome={progettoFinanziamentoNome}
+                      selected={deleteSelected.has(corso.id)}
+                      onToggle={id => setDeleteSelected(prev => {
+                        const next = new Set(prev)
+                        if (next.has(id)) next.delete(id); else next.add(id)
+                        return next
+                      })}
+                      deletable={isDeletable(corso)}
+                    />
+                  ))
+                )}
+              </div>
+            </>
+          )
+        })()}
       </div>
 
       {/* Chat */}
@@ -2927,8 +2996,8 @@ function CourseRow({ corso, progettoId, oreErogate = 0, finanziamentoNome, selec
         )}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
-            <span className="font-medium text-sm text-gray-900">{corso.title}</span>
             <StatusBadge variant={corso.tipo} size="sm" />
+            <span className="font-medium text-sm text-gray-900">{corso.title}</span>
             <ModalitaIcon modalita={corso.modalita} tipo={corso.tipo} size={14} />
             {finanziamentoNome && (
               <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${finanziamentoNome.includes('38') ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
