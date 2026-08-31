@@ -212,16 +212,16 @@ export function ProgettoDetailClient({
     // ── Foglio 2: Corsi e formatori ───────────────────────────────
     const corsiHeader = [
       'Titolo corso', 'Tipo', 'Ore totali', 'Modalità',
-      'Formatore', 'Email formatore', 'Tel formatore', 'CV', 'CI',
-      'Tutor', 'Email tutor', 'Tel tutor',
+      'Formatore', 'Email formatore', 'Tel formatore', 'CF Formatore', 'CV', 'CI', 'CF',
+      'Tutor', 'Email tutor', 'Tel tutor', 'CF Tutor',
       'Stato assegnazione', 'Calendario completo',
     ]
     const statoAssLabel: Record<string, string> = {
       non_assegnato: 'Non assegnato', in_attesa: 'In attesa', accettato: 'Accettato', rifiutato: 'Rifiutato',
     }
     const corsiRows = corsi.map(c => {
-      const fmt = c.formatore as (Profile & { telefono?: string | null }) | undefined
-      const tut = (c as CorsoConOre & { tutor?: Profile & { telefono?: string | null } }).tutor
+      const fmt = c.formatore as (Profile & { telefono?: string | null; cv_url?: string | null; ci_url?: string | null; cf_url?: string | null; codice_fiscale?: string | null }) | undefined
+      const tut = (c as CorsoConOre & { tutor?: Profile & { telefono?: string | null; codice_fiscale?: string | null } }).tutor
       return [
         c.title,
         c.tipo,
@@ -230,17 +230,20 @@ export function ProgettoDetailClient({
         fmt?.nome ?? '—',
         fmt?.email ?? '—',
         fmt?.telefono ?? '—',
-        'Non disponibile',
-        'Non disponibile',
+        fmt?.codice_fiscale ?? '—',
+        fmt?.cv_url ?? '—',
+        fmt?.ci_url ?? '—',
+        fmt?.cf_url ?? '—',
         tut?.nome ?? c.tutor_nome ?? '—',
         tut?.email ?? '—',
         tut?.telefono ?? '—',
+        tut?.codice_fiscale ?? '—',
         statoAssLabel[c.stato_assegnazione ?? 'non_assegnato'] ?? '—',
         c.calendario_completo ? 'Sì' : 'No',
       ]
     })
     const ws2 = XLSX.utils.aoa_to_sheet([corsiHeader, ...corsiRows])
-    ws2['!cols'] = [{ wch: 36 }, { wch: 8 }, { wch: 12 }, { wch: 16 }, { wch: 22 }, { wch: 28 }, { wch: 16 }, { wch: 20 }, { wch: 20 }, { wch: 22 }, { wch: 28 }, { wch: 16 }, { wch: 20 }, { wch: 20 }]
+    ws2['!cols'] = [{ wch: 36 }, { wch: 8 }, { wch: 12 }, { wch: 16 }, { wch: 22 }, { wch: 28 }, { wch: 16 }, { wch: 18 }, { wch: 46 }, { wch: 46 }, { wch: 46 }, { wch: 22 }, { wch: 28 }, { wch: 16 }, { wch: 18 }, { wch: 20 }, { wch: 20 }]
     XLSX.utils.book_append_sheet(wb, ws2, 'Corsi e formatori')
 
     // ── Foglio 3: Calendario sessioni ─────────────────────────────

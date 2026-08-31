@@ -42,7 +42,7 @@ export default async function ProgettoDetailPage({ params }: { params: Promise<{
 
   const { data: corsi } = await supabase
     .from('corsi_con_ore')
-    .select('*, formatore:profiles!formatore_id(id,nome,email,avatar_initials,telefono), tutor:profiles!tutor_id(id,nome,email,telefono)')
+    .select('*, formatore:profiles!formatore_id(id,nome,email,avatar_initials,telefono,cv_url,ci_url,cf_url,codice_fiscale), tutor:profiles!tutor_id(id,nome,email,telefono,codice_fiscale)')
     .eq('project_id', id)
     .order('created_at')
 
