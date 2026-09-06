@@ -515,6 +515,7 @@ export function CorsoDetailClient({
 
   const isIbrido = corso.tipo === 'PF' && corso.modalita === 'ibrido'
 
+  const today = new Date().toISOString().slice(0, 10)
   const orePianificate = Number(corso.ore_pianificate)
   const oreResidue = Math.max(Number(corso.ore_totali) - orePianificate, 0)
   // Derive ore from time pickers if both set, otherwise use manual field
@@ -1207,7 +1208,6 @@ export function CorsoDetailClient({
   }
 
   // Sessions stats for the counter
-  const today = new Date().toISOString().split('T')[0]
   const sessioniCompletate = sessioni.filter(s => s.completata).length
   const sessioniScadute = sessioni.filter(s => !s.completata && s.data <= today).length
   const oreErogate = sessioni.filter(s => s.completata).reduce((sum, s) => sum + Number(s.ore), 0)
