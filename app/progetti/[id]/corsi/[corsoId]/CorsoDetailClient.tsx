@@ -523,7 +523,8 @@ export function CorsoDetailClient({
   const newOreNum = Number(effectiveNewOre)
   const oreError = effectiveNewOre && newOreNum > oreResidue ? `Max ${oreResidue}h residue` : (effectiveNewOre && newOreNum <= 0 ? 'Orario non valido' : '')
   const canSubmitSession = newData && newOreNum > 0 && !oreError && oreResidue > 0 &&
-    (!isIbrido || !!newModalitaSessione)
+    (!isIbrido || !!newModalitaSessione) &&
+    (isAdmin || newData >= today)
 
   const handleAddSession = async () => {
     setSessionError(null)
@@ -2544,8 +2545,12 @@ export function CorsoDetailClient({
           <div className="divide-y divide-gray-50">
             {sessioni.map((s) => {
               const isPast = s.data <= today
-              const canConfirm = canConfirmSessions && !s.completata && isPast
               const isFuture = s.data > today
+              const isToday = s.data === today
+              const nowTimeStr = new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', hour12: false })
+              const oraFinePassata = !s.ora_fine || nowTimeStr >= (s.ora_fine as string).substring(0, 5)
+              const canConfirm = canConfirmSessions && !s.completata && isPast && (isAdmin || !isToday || oraFinePassata)
+              const showDisabledConfirm = canConfirmSessions && !s.completata && isToday && !isAdmin && !oraFinePassata
               return (
                 <div key={s.id} className={`px-6 py-3 ${s.completata ? 'bg-green-50/30' : ''}`}>
                   {/* Riga 1: data / orario / ore */}
@@ -2600,6 +2605,18 @@ export function CorsoDetailClient({
                             <polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
                           </svg>
                         )}
+                        Conferma
+                      </button>
+                    )}
+                    {showDisabledConfirm && (
+                      <button
+                        disabled
+                        title={`Disponibile al termine della sessione${s.ora_fine ? ` (${(s.ora_fine as string).substring(0, 5)})` : ''}`}
+                        className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-[7px] text-gray-400 border border-gray-200 cursor-not-allowed opacity-60"
+                      >
+                        <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
+                          <polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
+                        </svg>
                         Conferma
                       </button>
                     )}
@@ -3077,6 +3094,7 @@ export function CorsoDetailClient({
             label="Data sessione *"
             type="date"
             value={newData}
+            min={!isAdmin ? today : undefined}
             onChange={e => { setNewData(e.target.value); setSessionError(null) }}
           />
           <div className="grid grid-cols-2 gap-3">

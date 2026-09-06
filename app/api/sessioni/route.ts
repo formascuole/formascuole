@@ -67,6 +67,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
+  if (!isAdmin) {
+    const todayStr = new Date().toISOString().split('T')[0]
+    if (sessioneData < todayStr) {
+      return NextResponse.json({ error: 'Non puoi aggiungere sessioni con data passata' }, { status: 400 })
+    }
+  }
+
   if (Number(ore) > Number(corso.ore_residue)) {
     return NextResponse.json(
       { error: `Ore (${ore}) exceed remaining hours (${corso.ore_residue})` },

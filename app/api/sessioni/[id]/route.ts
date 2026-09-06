@@ -34,14 +34,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const { data: sessione } = await supabase
     .from('sessioni')
-    .select('corso_id, completata')
+    .select('corso_id, completata, data, ora_fine')
     .eq('id', id)
     .single()
   if (!sessione) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   // Permission: admin or the formatore of the corso
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  if (!['admin','super_admin'].includes(profile?.role)) {
+  const isAdmin = ['admin', 'super_admin'].includes(profile?.role)
+  if (!isAdmin) {
     const { data: corso } = await supabase.from('corsi').select('formatore_id').eq('id', sessione.corso_id).single()
     if (corso?.formatore_id !== user.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -57,6 +58,21 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   if (sessione.completata) {
     return NextResponse.json({ error: 'Already completata' }, { status: 400 })
+  }
+
+  // Formatori cannot confirm future sessions or today's sessions that haven't ended yet
+  if (!isAdmin) {
+    const todayStr = new Date().toISOString().split('T')[0]
+    const sessioneData = sessione.data as string
+    if (sessioneData > todayStr) {
+      return NextResponse.json({ error: 'Non puoi confermare una sessione futura' }, { status: 400 })
+    }
+    if (sessioneData === todayStr && sessione.ora_fine) {
+      const nowTime = new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', hour12: false })
+      if (nowTime < (sessione.ora_fine as string).substring(0, 5)) {
+        return NextResponse.json({ error: 'Non puoi confermare una sessione non ancora conclusa' }, { status: 400 })
+      }
+    }
   }
 
   const { data, error } = await supabase
