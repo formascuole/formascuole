@@ -91,6 +91,8 @@ export function DashboardClient({
   const corsiAssegnati = filteredCorsi.filter(c => c.formatore_id !== null)
   const nCorsiAssegnati = corsiAssegnati.length
   const oreTotaliAssegnate = corsiAssegnati.reduce((s, c) => s + c.ore_totali, 0)
+  const oreFormazione = filteredCorsi.reduce((s, c) => s + Number(c.ore_totali), 0)
+  const oreDaAssegnare = oreFormazione - oreTotaliAssegnate
   const orePianificateAssegnate = corsiAssegnati.reduce((s, c) => s + (orePianificatePerCorso[c.id] ?? 0), 0)
   const oreErogateAssegnate = corsiAssegnati.reduce((s, c) => s + (oreCompletatePerCorso[c.id] ?? 0), 0)
 
@@ -174,8 +176,13 @@ export function DashboardClient({
         />
         <StatCard
           label="Ore formazione totali"
-          value={`${oreTotali}h`}
-          subtitle={`${orePianificate}h pianificate`}
+          value={`${oreFormazione}h`}
+          subtitle={
+            <div className="flex flex-col gap-0.5 mt-0.5">
+              <span className="text-green-600">✅ Assegnate: {oreTotaliAssegnate}h</span>
+              <span className="text-red-500">🔴 Da assegnare: {oreDaAssegnare}h</span>
+            </div>
+          }
           icon={<svg width="20" height="20" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5"/><path d="M12 7v5l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>}
         />
         <StatCard
