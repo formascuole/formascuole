@@ -1,5 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+
+async function replicaReferenteAiCorsi(
+  referenteId: string,
+  progettoId: string,
+  email: string
+): Promise<number> {
+  const admin = createAdminClient()
+  const { data: corsi } = await admin
+    .from('corsi')
+    .select('id, referente_corso_email')
+    .eq('progetto_id', progettoId)
+    .is('referente_id', null)
+
+  if (!corsi || corsi.length === 0) return 0
+
+  const emailLower = email.toLowerCase()
+  const toUpdate = corsi
+    .filter(c => c.referente_corso_email?.toLowerCase() !== emailLower)
+    .map(c => c.id)
+
+  if (toUpdate.length === 0) return 0
+
+  await admin.from('corsi').update({ referente_id: referenteId }).in('id', toUpdate)
+  return toUpdate.length
+}
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient()
@@ -41,5 +67,7 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json(data, { status: 201 })
+
+  const replicated_to = await replicaReferenteAiCorsi(data.id, data.progetto_id, data.email).catch(() => 0)
+  return NextResponse.json({ ...data, replicated_to }, { status: 201 })
 }

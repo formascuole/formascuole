@@ -165,6 +165,12 @@ export function ProgettoDetailClient({
   const [editRefForm, setEditRefForm] = useState(emptyReferenteForm)
   const [savingEditRef, setSavingEditRef] = useState(false)
   const [editRefError, setEditRefError] = useState('')
+  const [replicaToast, setReplicaToast] = useState<string | null>(null)
+  useEffect(() => {
+    if (!replicaToast) return
+    const t = setTimeout(() => setReplicaToast(null), 4000)
+    return () => clearTimeout(t)
+  }, [replicaToast])
   // ── Edit referente principale ────────────────────────────────
   const [mainRef, setMainRef] = useState({ nome: progetto.ref_name, email: progetto.ref_email, tel: progetto.ref_tel || '', ruolo: progetto.ref_ruolo || '' })
   const [editMainRefOpen, setEditMainRefOpen] = useState(false)
@@ -493,6 +499,9 @@ export function ProgettoDetailClient({
       setReferenti(prev => [...prev, json])
       setAddRefOpen(false)
       setAddRefForm(emptyReferenteForm)
+      if (json.replicated_to > 0) {
+        setReplicaToast(`Referente aggiunto a ${json.replicated_to} cors${json.replicated_to === 1 ? 'o' : 'i'} del progetto`)
+      }
     } finally {
       setSavingRef(false)
     }
@@ -518,6 +527,9 @@ export function ProgettoDetailClient({
       if (!res.ok) { setEditRefError(json.error || 'Errore'); return }
       setReferenti(prev => prev.map(r => r.id === json.id ? json : r))
       setEditRef(null)
+      if (json.replicated_to > 0) {
+        setReplicaToast(`Referente aggiunto a ${json.replicated_to} cors${json.replicated_to === 1 ? 'o' : 'i'} del progetto`)
+      }
     } finally {
       setSavingEditRef(false)
     }
@@ -2954,6 +2966,16 @@ export function ProgettoDetailClient({
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Replica referente toast */}
+      {replicaToast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-3 bg-gray-900 text-white text-sm font-medium rounded-xl shadow-xl">
+          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" className="shrink-0 text-green-400">
+            <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          {replicaToast}
         </div>
       )}
     </div>
