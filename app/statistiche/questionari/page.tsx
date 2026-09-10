@@ -66,6 +66,11 @@ export default async function QuestionariStatPage() {
     })
   }
 
+  const { data: attestatiRaw } = await admin
+    .from('attestati')
+    .select('id, corso_id, nome_cognome, email, pdf_url, created_at, corso:corsi(title)')
+    .order('created_at', { ascending: false })
+
   return (
     <AppLayout
       role={profile.role}
@@ -75,7 +80,7 @@ export default async function QuestionariStatPage() {
       notificheBadge={notifiche}
       isSuperAdmin={isSuperAdmin}
     >
-      <QuestionariStatClient questionari={questionari} />
+      <QuestionariStatClient questionari={questionari} attestati={attestatiRaw || []} />
     </AppLayout>
   )
 }

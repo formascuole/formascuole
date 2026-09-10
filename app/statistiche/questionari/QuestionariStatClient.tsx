@@ -65,11 +65,50 @@ async function exportExcel(
   XLSX.writeFile(wb, `questionari-formascuole-${new Date().toISOString().split('T')[0]}.xlsx`)
 }
 
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+interface Attestato {
+  id: string
+  corso_id: string | null
+  nome_cognome: string
+  email: string
+  pdf_url: string | null
+  created_at: string
+  corso: { title: string } | { title: string }[] | null
+}
+
+function getCorsoTitle(corso: { title: string } | { title: string }[] | null): string | undefined {
+  if (!corso) return undefined
+  return Array.isArray(corso) ? corso[0]?.title : corso.title
+}
+
+// ── Excel export attestati ────────────────────────────────────────────────────
+
+async function exportExcelAttestati(attestati: Attestato[]) {
+  const XLSX = await import('xlsx')
+  const wb = XLSX.utils.book_new()
+  const sh = XLSX.utils.aoa_to_sheet([
+    ['Nome', 'Corso', 'Email', 'Data emissione', 'Link PDF'],
+    ...attestati.map(a => [
+      a.nome_cognome,
+      getCorsoTitle(a.corso) || '—',
+      a.email,
+      new Date(a.created_at).toLocaleDateString('it-IT'),
+      a.pdf_url || '—',
+    ]),
+  ])
+  sh['!cols'] = [{ wch: 30 }, { wch: 40 }, { wch: 30 }, { wch: 16 }, { wch: 60 }]
+  XLSX.utils.book_append_sheet(wb, sh, 'Attestati emessi')
+  XLSX.writeFile(wb, `attestati-${new Date().toISOString().split('T')[0]}.xlsx`)
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
-interface Props { questionari: QuestionarioRisultato[] }
+interface Props { questionari: QuestionarioRisultato[]; attestati: Attestato[] }
 
-export function QuestionariStatClient({ questionari }: Props) {
+export function QuestionariStatClient({ questionari, attestati }: Props) {
+  const [tab, setTab] = useState<'questionari' | 'attestati'>('questionari')
+  const [attestatiCorsoFilter, setAttestatiCorsoFilter] = useState('')
   const [anno, setAnno] = useState('')
   const [mese, setMese] = useState('')
   const [linea, setLinea] = useState('')
@@ -198,6 +237,99 @@ export function QuestionariStatClient({ questionari }: Props) {
       </div>
 
       <StatisticheNav />
+
+      {/* Tab selector */}
+      <div className="flex gap-1 mb-6 bg-gray-100 rounded-[10px] p-1 w-fit">
+        {(['questionari', 'attestati'] as const).map(t => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            className={`px-4 py-1.5 rounded-[8px] text-sm font-medium transition-colors ${
+              tab === t ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {t === 'questionari' ? 'Questionari' : `Attestati emessi (${attestati.length})`}
+          </button>
+        ))}
+      </div>
+
+      {/* ── ATTESTATI TAB ─────────────────────────────── */}
+      {tab === 'attestati' && (
+        <div>
+          <div className="flex items-center justify-between mb-4 gap-3">
+            <input
+              value={attestatiCorsoFilter}
+              onChange={e => setAttestatiCorsoFilter(e.target.value)}
+              placeholder="Filtra per corso…"
+              className="text-sm border border-gray-200 rounded-[7px] px-3 py-1.5 focus:outline-none focus:border-[#d64b55] w-60"
+            />
+            <button
+              onClick={() => exportExcelAttestati(attestati.filter(a =>
+                !attestatiCorsoFilter || getCorsoTitle(a.corso)?.toLowerCase().includes(attestatiCorsoFilter.toLowerCase())
+              ))}
+              className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-[7px] border border-gray-200 hover:bg-gray-50 text-gray-600 transition-colors"
+            >
+              <svg width="15" height="15" fill="none" viewBox="0 0 24 24">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Esporta Excel
+            </button>
+          </div>
+          {attestati.length === 0 ? (
+            <div className="bg-white rounded-xl px-6 py-16 text-center" style={{ border: '0.5px solid #e5e5e5' }}>
+              <p className="text-sm text-gray-400">Nessun attestato emesso ancora.</p>
+            </div>
+          ) : (
+            <div className="bg-white rounded-xl overflow-hidden" style={{ border: '0.5px solid #e5e5e5' }}>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100 bg-gray-50">
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Partecipante</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Corso</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Email</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Emesso il</th>
+                    <th className="px-4 py-3"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {attestati
+                    .filter(a => !attestatiCorsoFilter || getCorsoTitle(a.corso)?.toLowerCase().includes(attestatiCorsoFilter.toLowerCase()))
+                    .map(a => (
+                      <tr key={a.id} className="hover:bg-gray-50/50">
+                        <td className="px-4 py-3 font-medium text-gray-800">{a.nome_cognome}</td>
+                        <td className="px-4 py-3 text-gray-600 max-w-[260px] truncate">{getCorsoTitle(a.corso) || '—'}</td>
+                        <td className="px-4 py-3 text-gray-500">{a.email}</td>
+                        <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
+                          {new Date(a.created_at).toLocaleDateString('it-IT')}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          {a.pdf_url ? (
+                            <a
+                              href={a.pdf_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-[7px] bg-[#d64b55]/10 text-[#d64b55] hover:bg-[#d64b55]/20 transition-colors"
+                            >
+                              <svg width="12" height="12" fill="none" viewBox="0 0 24 24">
+                                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                              </svg>
+                              Scarica PDF
+                            </a>
+                          ) : (
+                            <span className="text-xs text-gray-300">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === 'questionari' && (
+      <>
 
       {/* Filters */}
       <div className="bg-white rounded-xl p-4 mb-6 flex flex-wrap gap-3 items-end" style={{ border: '0.5px solid #e5e5e5' }}>
@@ -538,6 +670,7 @@ export function QuestionariStatClient({ questionari }: Props) {
           <p className="text-xs text-gray-300 mt-1">I dati appariranno qui non appena verranno ricevuti via webhook.</p>
         </div>
       )}
+      </>)}
     </div>
   )
 }
