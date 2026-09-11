@@ -195,7 +195,14 @@ export async function POST(request: NextRequest) {
   console.log('[questionari/webhook] inserted id:', data.id)
 
   // Fire-and-forget attestato generation
-  const wantsAttestato = String(vuole_attestato ?? '').toLowerCase().replace('ì', 'i') === 'si'
+  console.log('[questionari/webhook] vuole_attestato:', JSON.stringify(vuole_attestato))
+  console.log('[questionari/webhook] attestato_email:', JSON.stringify(attestato_email))
+  console.log('[questionari/webhook] corso_id:', JSON.stringify(corso_id))
+
+  const vuoleAttestatoNorm = String(vuole_attestato ?? '').toLowerCase().replace(/[ìí]/g, 'i').trim()
+  const wantsAttestato = ['si', 'yes', 'true', '1'].includes(vuoleAttestatoNorm)
+  console.log('[questionari/webhook] wantsAttestato:', wantsAttestato, '(normalized:', vuoleAttestatoNorm, ')')
+
   if (wantsAttestato && corso_id && attestato_nome && attestato_cognome && attestato_email) {
     Promise.allSettled([
       fireAndForgetAttestato({
@@ -205,6 +212,8 @@ export async function POST(request: NextRequest) {
         attestato_email: String(attestato_email),
       }),
     ]).catch(() => {/* silent */})
+  } else {
+    console.log('[questionari/webhook] attestato skipped — missing fields or wantsAttestato=false')
   }
 
   return NextResponse.json({ success: true, id: data.id })
