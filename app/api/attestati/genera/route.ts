@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { generateAttestatoPdf } from '@/lib/generate-attestato-pdf'
+import { generateAttestatoDocx } from '@/lib/generate-attestato-docx'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://formascuole.vercel.app'
@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
 
   const nome_cognome = `${attestato_nome.trim()} ${attestato_cognome.trim()}`
 
-  const pdfBuffer = await generateAttestatoPdf({
+  const docxBuffer = generateAttestatoDocx({
     nome_cognome,
     titolo_corso: corso.title,
     ore_totali: corso.ore_totali,
@@ -68,15 +68,16 @@ export async function POST(req: NextRequest) {
 
   // Upload to storage
   const uuid = crypto.randomUUID()
-  const storagePath = `${corso_id}/${uuid}.pdf`
+  const storagePath = `${corso_id}/${uuid}.docx`
+  const contentType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 
   const { error: uploadError } = await admin.storage
     .from('attestati')
-    .upload(storagePath, pdfBuffer, { contentType: 'application/pdf' })
+    .upload(storagePath, docxBuffer, { contentType })
 
   if (uploadError) {
     console.error('[attestati] Storage upload error:', uploadError)
-    return NextResponse.json({ error: 'Errore durante il salvataggio del PDF' }, { status: 500 })
+    return NextResponse.json({ error: 'Errore durante il salvataggio del file' }, { status: 500 })
   }
 
   const { data: { publicUrl } } = admin.storage.from('attestati').getPublicUrl(storagePath)
@@ -92,7 +93,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: dbError.message }, { status: 500 })
   }
 
-  // Send email with PDF attachment
+  // Send email with docx attachment
   const emailBody = `Gentile ${nome_cognome},
 
 in allegato trovi l'attestato di partecipazione per il corso:
@@ -112,7 +113,7 @@ Il team Formascuole`
       <div style="margin-bottom:24px;"><span style="font-size:20px;font-weight:bold;color:#d64b55;">Formascuole</span></div>
       <div style="white-space:pre-wrap;color:#1a1a1a;line-height:1.6;">${emailBody.replace(/\n/g, '<br/>')}</div>
       <div style="margin-top:24px;">
-        <a href="${publicUrl}" style="display:inline-block;padding:10px 22px;background:#d64b55;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px;">Scarica PDF</a>
+        <a href="${publicUrl}" style="display:inline-block;padding:10px 22px;background:#d64b55;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px;">Scarica Attestato</a>
       </div>
       <div style="margin-top:32px;padding-top:16px;border-top:1px solid #e5e5e5;font-size:12px;color:#888;">
         <p>Formascuole — Piattaforma gestione progetti formativi</p>
@@ -120,8 +121,8 @@ Il team Formascuole`
       </div>
     </div>`,
     attachments: [{
-      filename: `attestato-${nome_cognome.replace(/\s+/g, '-').toLowerCase()}.pdf`,
-      content: pdfBuffer.toString('base64'),
+      filename: `attestato-${nome_cognome.replace(/\s+/g, '-').toLowerCase()}.docx`,
+      content: docxBuffer.toString('base64'),
     }],
   }).catch(err => console.error('[attestati] Email error:', err))
 
