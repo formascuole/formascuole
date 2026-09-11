@@ -1,102 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { generateAttestatoPdf } from '@/lib/generate-attestato-pdf'
-import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://formascuole.vercel.app'
-
-async function fireAndForgetAttestato(params: {
-  corso_id: string
-  attestato_nome: string
-  attestato_cognome: string
-  attestato_email: string
-}) {
-  try {
-    const admin = createAdminClient()
-
-    const { data: corso } = await admin
-      .from('corsi')
-      .select('title, ore_totali')
-      .eq('id', params.corso_id)
-      .single()
-
-    if (!corso) return
-
-    const { data: lastSession } = await admin
-      .from('sessioni')
-      .select('data')
-      .eq('corso_id', params.corso_id)
-      .order('data', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-
-    const dataUltimaSessione = lastSession?.data
-      ? new Date(lastSession.data + 'T00:00:00').toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' })
-      : new Date().toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' })
-
-    const nome_cognome = `${params.attestato_nome.trim()} ${params.attestato_cognome.trim()}`
-
-    const pdfBuffer = await generateAttestatoPdf({
-      nome_cognome,
-      titolo_corso: corso.title,
-      ore_totali: corso.ore_totali,
-      data: dataUltimaSessione,
-    })
-
-    const uuid = crypto.randomUUID()
-    const storagePath = `${params.corso_id}/${uuid}.pdf`
-
-    const { error: uploadError } = await admin.storage
-      .from('attestati')
-      .upload(storagePath, pdfBuffer, { contentType: 'application/pdf' })
-
-    if (uploadError) {
-      console.error('[attestati/questionario] Upload error:', uploadError)
-      return
-    }
-
-    const { data: { publicUrl } } = admin.storage.from('attestati').getPublicUrl(storagePath)
-
-    await admin
-      .from('attestati')
-      .insert({ corso_id: params.corso_id, nome_cognome, email: params.attestato_email.trim(), pdf_url: publicUrl })
-
-    const emailBody = `Gentile ${nome_cognome},
-
-in allegato trovi l'attestato di partecipazione per il corso:
-
-📚 ${corso.title}
-⏱ ${corso.ore_totali} ore di formazione
-
-Cordiali saluti,
-Il team Formascuole`
-
-    await resend.emails.send({
-      from: 'Formascuole <noreply@formascuole.it>',
-      to: params.attestato_email.trim(),
-      subject: `Il tuo attestato di partecipazione — ${corso.title}`,
-      text: emailBody,
-      html: `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto;padding:24px;">
-        <div style="margin-bottom:24px;"><span style="font-size:20px;font-weight:bold;color:#d64b55;">Formascuole</span></div>
-        <div style="white-space:pre-wrap;color:#1a1a1a;line-height:1.6;">${emailBody.replace(/\n/g, '<br/>')}</div>
-        <div style="margin-top:24px;">
-          <a href="${publicUrl}" style="display:inline-block;padding:10px 22px;background:#d64b55;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px;">Scarica PDF</a>
-        </div>
-        <div style="margin-top:32px;padding-top:16px;border-top:1px solid #e5e5e5;font-size:12px;color:#888;">
-          <p>Formascuole — Piattaforma gestione progetti formativi</p>
-          <p><a href="${APP_URL}" style="color:#d64b55;">${APP_URL}</a></p>
-        </div>
-      </div>`,
-      attachments: [{
-        filename: `attestato-${nome_cognome.replace(/\s+/g, '-').toLowerCase()}.pdf`,
-        content: pdfBuffer.toString('base64'),
-      }],
-    })
-  } catch (err) {
-    console.error('[attestati/questionario] Error:', err)
-  }
-}
 
 function stripHtml(s: unknown): string | null {
   if (s == null || s === '') return null
@@ -204,14 +109,28 @@ export async function POST(request: NextRequest) {
   console.log('[questionari/webhook] wantsAttestato:', wantsAttestato, '(normalized:', vuoleAttestatoNorm, ')')
 
   if (wantsAttestato && corso_id && attestato_nome && attestato_cognome && attestato_email) {
-    Promise.allSettled([
-      fireAndForgetAttestato({
-        corso_id: String(corso_id),
-        attestato_nome: String(attestato_nome),
-        attestato_cognome: String(attestato_cognome),
-        attestato_email: String(attestato_email),
-      }),
-    ]).catch(() => {/* silent */})
+    const attestatoUrl = `${APP_URL}/api/attestati/genera`
+    console.log('[questionari/webhook] calling attestato genera:', attestatoUrl)
+    const payload = {
+      corso_id: String(corso_id),
+      attestato_nome: String(attestato_nome),
+      attestato_cognome: String(attestato_cognome),
+      attestato_email: String(attestato_email),
+    }
+    // Fire-and-forget — don't await so the webhook responds immediately
+    fetch(attestatoUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-webhook-secret': process.env.WEBHOOK_SECRET ?? '',
+      },
+      body: JSON.stringify(payload),
+    })
+      .then(async res => {
+        const resBody = await res.json().catch(() => ({}))
+        console.log('[questionari/webhook] attestato genera response:', res.status, JSON.stringify(resBody))
+      })
+      .catch(err => console.error('[questionari/webhook] attestato genera fetch error:', err))
   } else {
     console.log('[questionari/webhook] attestato skipped — missing fields or wantsAttestato=false')
   }

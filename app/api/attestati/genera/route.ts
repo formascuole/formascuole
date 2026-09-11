@@ -16,12 +16,19 @@ async function requireAdmin(supabase: Awaited<ReturnType<typeof createClient>>) 
 }
 
 export async function POST(req: NextRequest) {
-  const supabase = await createClient()
-  if (!await requireAdmin(supabase)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  // Allow internal server-to-server calls via webhook secret
+  const webhookSecret = req.headers.get('x-webhook-secret')
+  const isInternalCall = webhookSecret && webhookSecret === process.env.WEBHOOK_SECRET
+
+  if (!isInternalCall) {
+    const supabase = await createClient()
+    if (!await requireAdmin(supabase)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
   }
 
   const body = await req.json().catch(() => ({}))
+  console.log('[attestati/genera] called with:', JSON.stringify(body))
   const { corso_id, attestato_nome, attestato_cognome, attestato_email } = body
 
   if (!corso_id || !attestato_nome?.trim() || !attestato_cognome?.trim() || !attestato_email?.trim()) {
