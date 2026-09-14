@@ -14,6 +14,11 @@ export type SessioneRow = {
   project_id: string
   formatore_id: string | null
   formatore_nome: string | null
+  ora_inizio: string | null
+  ora_fine: string | null
+  modalita_sessione: string | null
+  tipo: string | null
+  corso_modalita: string | null
 }
 
 export type IndisponibilitaRow = {
@@ -63,6 +68,11 @@ export function CalendarioClient({
       project_id: s.project_id,
       formatore_id: s.formatore_id,
       formatore_nome: s.formatore_nome,
+      ora_inizio: s.ora_inizio,
+      ora_fine: s.ora_fine,
+      modalita_sessione: s.modalita_sessione,
+      tipo: s.tipo,
+      corso_modalita: s.corso_modalita,
     }))
 
     const indEvs: IndisponibilitaCalendarioEvent[] = (showIndisponibilita && !filterProgetto)

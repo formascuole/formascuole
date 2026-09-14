@@ -17,11 +17,12 @@ export default async function CalendarioPage() {
 
   type RawSessione = {
     id: string; data: string; ore: number; completata: boolean; corso_id: string
-    corso: { id: string; title: string; project_id: string; formatore_id: string | null; progetti: { school_name: string } | null } | null
+    ora_inizio: string | null; ora_fine: string | null; modalita_sessione: string | null
+    corso: { id: string; title: string; tipo: string | null; modalita: string | null; project_id: string; formatore_id: string | null; progetti: { school_name: string } | null } | null
   }
   const { data: rawSessioni } = await supabase
     .from('sessioni')
-    .select('id, data, ore, completata, corso_id, corso:corsi(id, title, project_id, formatore_id, progetti(school_name))')
+    .select('id, data, ora_inizio, ora_fine, ore, completata, modalita_sessione, corso_id, corso:corsi(id, title, tipo, modalita, project_id, formatore_id, progetti(school_name))')
     .order('data')
 
   const { data: allProfiles } = await admin.from('profiles').select('id, nome, role')
@@ -38,6 +39,11 @@ export default async function CalendarioPage() {
     project_id: s.corso?.project_id || '',
     formatore_id: s.corso?.formatore_id || null,
     formatore_nome: s.corso?.formatore_id ? (profilesById.get(s.corso.formatore_id)?.nome ?? null) : null,
+    ora_inizio: s.ora_inizio || null,
+    ora_fine: s.ora_fine || null,
+    modalita_sessione: s.modalita_sessione || null,
+    tipo: s.corso?.tipo || null,
+    corso_modalita: s.corso?.modalita || null,
   }))
 
   type RawInd = { id: string; formatore_id: string; data: string; fascia: string; note: string | null }

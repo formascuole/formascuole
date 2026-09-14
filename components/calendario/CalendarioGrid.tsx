@@ -16,6 +16,11 @@ export type SessioneCalendarioEvent = {
   project_id: string
   formatore_id?: string | null
   formatore_nome?: string | null
+  ora_inizio?: string | null
+  ora_fine?: string | null
+  modalita_sessione?: string | null
+  tipo?: string | null
+  corso_modalita?: string | null
 }
 
 export type IndisponibilitaCalendarioEvent = {
@@ -32,6 +37,7 @@ export type CalendarioEvent = SessioneCalendarioEvent | IndisponibilitaCalendari
 
 const MONTHS_IT = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre']
 const DAYS_SHORT = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom']
+const DAYS_LONG = ['Domenica','Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato']
 
 const FASCIA_LABELS: Record<string, string> = {
   mattina: 'Mattina',
@@ -76,12 +82,12 @@ export function CalendarioGrid({
   const today = new Date()
   const todayStr = today.toISOString().split('T')[0]
 
-  const [view, setView] = useState<'month' | 'week'>('month')
+  const [view, setView] = useState<'month' | 'week' | 'day'>('month')
   const [currentDate, setCurrentDate] = useState(() => new Date())
   const [selectedEvent, setSelectedEvent] = useState<CalendarioEvent | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
-  const { calDays, weekDays, headerLabel } = useMemo(() => {
+  const { calDays, weekDays, dayStr, headerLabel } = useMemo(() => {
     const y = currentDate.getFullYear()
     const m = currentDate.getMonth()
     const d = currentDate.getDate()
@@ -97,25 +103,37 @@ export function CalendarioGrid({
         ),
       ]
       while (days.length % 7 !== 0) days.push(null)
-      return { calDays: days, weekDays: [] as string[], headerLabel: `${MONTHS_IT[m]} ${y}` }
+      return { calDays: days, weekDays: [] as string[], dayStr: '', headerLabel: `${MONTHS_IT[m]} ${y}` }
     }
 
-    const dow = new Date(y, m, d).getDay()
-    const monday = new Date(y, m, d - ((dow + 6) % 7))
-    const wdays = Array.from({ length: 7 }, (_, i) => {
-      const day = new Date(monday)
-      day.setDate(monday.getDate() + i)
-      return day.toISOString().split('T')[0]
-    })
-    const start = new Date(wdays[0] + 'T12:00:00')
-    const end = new Date(wdays[6] + 'T12:00:00')
-    let label: string
-    if (start.getMonth() === end.getMonth()) {
-      label = `${start.getDate()}–${end.getDate()} ${MONTHS_IT[start.getMonth()]} ${start.getFullYear()}`
-    } else {
-      label = `${start.getDate()} ${MONTHS_IT[start.getMonth()]} – ${end.getDate()} ${MONTHS_IT[end.getMonth()]} ${end.getFullYear()}`
+    if (view === 'week') {
+      const dow = new Date(y, m, d).getDay()
+      const monday = new Date(y, m, d - ((dow + 6) % 7))
+      const wdays = Array.from({ length: 7 }, (_, i) => {
+        const day = new Date(monday)
+        day.setDate(monday.getDate() + i)
+        return day.toISOString().split('T')[0]
+      })
+      const start = new Date(wdays[0] + 'T12:00:00')
+      const end = new Date(wdays[6] + 'T12:00:00')
+      let label: string
+      if (start.getMonth() === end.getMonth()) {
+        label = `${start.getDate()}–${end.getDate()} ${MONTHS_IT[start.getMonth()]} ${start.getFullYear()}`
+      } else {
+        label = `${start.getDate()} ${MONTHS_IT[start.getMonth()]} – ${end.getDate()} ${MONTHS_IT[end.getMonth()]} ${end.getFullYear()}`
+      }
+      return { calDays: [] as (string | null)[], weekDays: wdays, dayStr: '', headerLabel: label }
     }
-    return { calDays: [] as (string | null)[], weekDays: wdays, headerLabel: label }
+
+    // day view
+    const ds = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+    const dObj = new Date(y, m, d)
+    return {
+      calDays: [] as (string | null)[],
+      weekDays: [] as string[],
+      dayStr: ds,
+      headerLabel: `${DAYS_LONG[dObj.getDay()]} ${d} ${MONTHS_IT[m]} ${y}`,
+    }
   }, [view, currentDate])
 
   const eventsByDate = useMemo(() => {
@@ -130,16 +148,23 @@ export function CalendarioGrid({
   const goBack = () => setCurrentDate(prev => {
     const n = new Date(prev)
     if (view === 'month') n.setMonth(n.getMonth() - 1)
-    else n.setDate(n.getDate() - 7)
+    else if (view === 'week') n.setDate(n.getDate() - 7)
+    else n.setDate(n.getDate() - 1)
     return n
   })
 
   const goForward = () => setCurrentDate(prev => {
     const n = new Date(prev)
     if (view === 'month') n.setMonth(n.getMonth() + 1)
-    else n.setDate(n.getDate() + 7)
+    else if (view === 'week') n.setDate(n.getDate() + 7)
+    else n.setDate(n.getDate() + 1)
     return n
   })
+
+  const jumpToDay = (dateStr: string) => {
+    setCurrentDate(new Date(dateStr + 'T12:00:00'))
+    setView('day')
+  }
 
   const handleDelete = async (id: string) => {
     if (!onDeleteIndisponibilita) return
@@ -183,20 +208,16 @@ export function CalendarioGrid({
             Oggi
           </button>
           <div className="flex rounded-[7px] border border-gray-200 overflow-hidden">
-            <button
-              onClick={() => setView('month')}
-              className={`text-xs font-medium px-3 py-1.5 transition-colors ${view === 'month' ? 'text-white' : 'text-gray-600 hover:bg-gray-50'}`}
-              style={view === 'month' ? { backgroundColor: '#d64b55' } : {}}
-            >
-              Mese
-            </button>
-            <button
-              onClick={() => setView('week')}
-              className={`text-xs font-medium px-3 py-1.5 border-l border-gray-200 transition-colors ${view === 'week' ? 'text-white' : 'text-gray-600 hover:bg-gray-50'}`}
-              style={view === 'week' ? { backgroundColor: '#d64b55' } : {}}
-            >
-              Settimana
-            </button>
+            {(['month', 'week', 'day'] as const).map((v, i) => (
+              <button
+                key={v}
+                onClick={() => setView(v)}
+                className={`text-xs font-medium px-3 py-1.5 transition-colors ${i > 0 ? 'border-l border-gray-200' : ''} ${view === v ? 'text-white' : 'text-gray-600 hover:bg-gray-50'}`}
+                style={view === v ? { backgroundColor: '#d64b55' } : {}}
+              >
+                {v === 'month' ? 'Mese' : v === 'week' ? 'Settimana' : 'Giorno'}
+              </button>
+            ))}
           </div>
         </div>
       </div>
@@ -252,7 +273,12 @@ export function CalendarioGrid({
                       )
                     })}
                     {extra > 0 && (
-                      <div className="text-xs text-gray-400 pl-1">+{extra} altri</div>
+                      <button
+                        onClick={e => { e.stopPropagation(); jumpToDay(dateStr) }}
+                        className="text-xs text-[#d64b55] pl-1 hover:underline cursor-pointer w-full text-left"
+                      >
+                        +{extra} altri
+                      </button>
                     )}
                   </div>
                 </div>
@@ -316,6 +342,113 @@ export function CalendarioGrid({
           })}
         </div>
       )}
+
+      {/* Day view */}
+      {view === 'day' && (() => {
+        const dayEvs = (eventsByDate[dayStr] || [])
+          .filter((ev): ev is SessioneCalendarioEvent => ev.kind === 'sessione')
+          .sort((a, b) => (a.ora_inizio || '99:99').localeCompare(b.ora_inizio || '99:99'))
+        return (
+          <div className="mt-1">
+            {dayEvs.length === 0 ? (
+              <div className="text-sm text-gray-400 text-center py-12">Nessuna sessione pianificata</div>
+            ) : (
+              <div className="space-y-2">
+                {dayEvs.map(ev => {
+                  const effectiveModalita = ev.modalita_sessione || ev.corso_modalita
+                  const isOnline = effectiveModalita === 'online'
+                  const isPresenza = effectiveModalita === 'presenza'
+                  return (
+                    <Link
+                      key={ev.id}
+                      href={`/progetti/${ev.project_id}/corsi/${ev.corso_id}`}
+                      className="block rounded-xl p-4 border border-gray-100 hover:border-gray-200 hover:shadow-sm transition-all bg-white group"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        {/* Time column */}
+                        <div className="shrink-0 text-center min-w-[56px]">
+                          {ev.ora_inizio ? (
+                            <>
+                              <div className="text-sm font-semibold text-gray-800">{ev.ora_inizio.substring(0, 5)}</div>
+                              {ev.ora_fine && <div className="text-xs text-gray-400">{ev.ora_fine.substring(0, 5)}</div>}
+                            </>
+                          ) : (
+                            <div className="text-xs text-gray-300">{ev.ore}h</div>
+                          )}
+                        </div>
+                        {/* Divider */}
+                        <div className="w-px self-stretch bg-gray-100 shrink-0" />
+                        {/* Content */}
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-gray-900 text-sm truncate group-hover:text-[#d64b55] transition-colors">{ev.corso_title}</div>
+                          <div className="text-xs text-gray-500 mt-0.5 truncate">{ev.school_name}</div>
+                          {ev.formatore_nome && (
+                            <div className="text-xs text-gray-400 mt-0.5">{ev.formatore_nome}</div>
+                          )}
+                        </div>
+                        {/* Badges */}
+                        <div className="shrink-0 flex flex-col items-end gap-1.5">
+                          <span
+                            className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md text-white"
+                            style={{ backgroundColor: ev.completata ? '#1D9E75' : '#378ADD' }}
+                          >
+                            {ev.completata ? '🟢 Erogata' : '🔵 Pianificata'}
+                          </span>
+                          <div className="flex items-center gap-1">
+                            {ev.tipo && (
+                              <span className="inline-flex text-xs font-semibold px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">
+                                {ev.tipo}
+                              </span>
+                            )}
+                            {effectiveModalita && (
+                              <span className="inline-flex items-center text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-500" title={effectiveModalita}>
+                                {isOnline ? (
+                                  <svg width="11" height="11" fill="none" viewBox="0 0 24 24">
+                                    <rect x="2" y="3" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2"/>
+                                    <path d="M8 21h8M12 17v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                                  </svg>
+                                ) : isPresenza ? (
+                                  <svg width="11" height="11" fill="none" viewBox="0 0 24 24">
+                                    <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                                    <circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="2"/>
+                                  </svg>
+                                ) : (
+                                  <svg width="11" height="11" fill="none" viewBox="0 0 24 24">
+                                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                  </svg>
+                                )}
+                                <span className="ml-0.5">{effectiveModalita}</span>
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </Link>
+                  )
+                })}
+              </div>
+            )}
+            {/* Show indisponibilita for this day too */}
+            {(eventsByDate[dayStr] || []).filter(ev => ev.kind === 'indisponibilita').length > 0 && (
+              <div className="mt-4 space-y-2">
+                <div className="text-xs font-medium text-gray-400 uppercase tracking-wide">Indisponibilità</div>
+                {(eventsByDate[dayStr] || [])
+                  .filter((ev): ev is IndisponibilitaCalendarioEvent => ev.kind === 'indisponibilita')
+                  .map(ev => (
+                    <button
+                      key={ev.id}
+                      onClick={() => setSelectedEvent(ev)}
+                      className="w-full text-left rounded-xl p-3 border border-orange-100 bg-orange-50 hover:bg-orange-100 transition-colors"
+                    >
+                      <div className="text-xs font-medium text-orange-700">{ev.formatore_nome} — {FASCIA_LABELS[ev.fascia]}</div>
+                      {ev.note && <div className="text-xs text-orange-500 mt-0.5">{ev.note}</div>}
+                    </button>
+                  ))}
+              </div>
+            )}
+          </div>
+        )
+      })()}
 
       {/* Legend */}
       <div className="flex items-center gap-4 mt-3 flex-wrap">
