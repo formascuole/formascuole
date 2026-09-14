@@ -36,9 +36,15 @@ function buildQuestionarioUrlServer(params: {
   return base.toString()
 }
 
-const SOLLECITO_DELAYS = {
-  first: 3,
-  between: 3,
+function addWorkingDays(date: Date, days: number): Date {
+  let count = 0
+  const result = new Date(date)
+  while (count < days) {
+    result.setDate(result.getDate() + 1)
+    const day = result.getDay()
+    if (day !== 0 && day !== 6) count++
+  }
+  return result
 }
 
 export async function GET(request: NextRequest) {
@@ -188,11 +194,13 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // ── FASE 2: Solleciti calendario (logica esistente) ────────────────────────
+    // ── FASE 2: Solleciti calendario ──────────────────────────────────────────
+    // Primo sollecito dopo 5 giorni lavorativi dall'accettazione; successivi ogni 24h.
     const { data: corsiIncomplete } = await supabase
       .from('corsi_con_ore')
       .select(`
         id, title, formatore_id, ore_totali, ore_pianificate, calendario_completo,
+        accettazione_risposta_at,
         project:progetti(school_name, ref_name, ref_email),
         formatore:profiles!formatore_id(nome, email)
       `)
@@ -221,26 +229,31 @@ export async function GET(request: NextRequest) {
         continue
       }
 
-      const assegnazioneLog = (solleciti || []).find(s => s.tipo === 'assegnazione')
-      const referenceDate = assegnazioneLog ? new Date(assegnazioneLog.sent_at) : now
-      const daysSinceAssignment = Math.floor((now.getTime() - referenceDate.getTime()) / (1000 * 60 * 60 * 24))
+      // Reference for email copy: days since acceptance
+      const accettazioneAt = corso.accettazione_risposta_at ? new Date(corso.accettazione_risposta_at as string) : null
+      const daysSinceAssignment = accettazioneAt
+        ? Math.floor((now.getTime() - accettazioneAt.getTime()) / (1000 * 60 * 60 * 24))
+        : 0
 
       let nextSollecito: 'sollecito_1' | 'sollecito_2' | 'sollecito_3' | null = null
       let numeroSollecito: 1 | 2 | 3 | null = null
 
       if (!solleciti_tipi.includes('sollecito_1')) {
-        if (daysSinceAssignment >= SOLLECITO_DELAYS.first) { nextSollecito = 'sollecito_1'; numeroSollecito = 1 }
+        // First reminder: only after 5 working days from acceptance
+        if (accettazioneAt && now >= addWorkingDays(accettazioneAt, 5)) {
+          nextSollecito = 'sollecito_1'; numeroSollecito = 1
+        }
       } else if (!solleciti_tipi.includes('sollecito_2')) {
         const s1 = (solleciti || []).find(s => s.tipo === 'sollecito_1')
         if (s1) {
-          const d = Math.floor((now.getTime() - new Date(s1.sent_at).getTime()) / (1000 * 60 * 60 * 24))
-          if (d >= SOLLECITO_DELAYS.between) { nextSollecito = 'sollecito_2'; numeroSollecito = 2 }
+          const hoursSince = (now.getTime() - new Date(s1.sent_at).getTime()) / (1000 * 60 * 60)
+          if (hoursSince >= 24) { nextSollecito = 'sollecito_2'; numeroSollecito = 2 }
         }
       } else if (!solleciti_tipi.includes('sollecito_3')) {
         const s2 = (solleciti || []).find(s => s.tipo === 'sollecito_2')
         if (s2) {
-          const d = Math.floor((now.getTime() - new Date(s2.sent_at).getTime()) / (1000 * 60 * 60 * 24))
-          if (d >= SOLLECITO_DELAYS.between) { nextSollecito = 'sollecito_3'; numeroSollecito = 3 }
+          const hoursSince = (now.getTime() - new Date(s2.sent_at).getTime()) / (1000 * 60 * 60)
+          if (hoursSince >= 24) { nextSollecito = 'sollecito_3'; numeroSollecito = 3 }
         }
       }
 
@@ -680,22 +693,31 @@ Il team Formascuole`
     }
 
     // ── FASE 7: Solleciti firma lettere ───────────────────────────────────────
+    // Primo sollecito: dopo 5 giorni lavorativi dall'invio.
+    // Solleciti successivi: ogni 24h dall'ultimo sollecito.
     const sollecitiFirmaResults: { corso_id: string; action: string }[] = []
-    const cutoff24hLettera = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString()
+    const cutoff24h_firma = new Date(now.getTime() - 24 * 60 * 60 * 1000)
 
-    // Formatore: inviata >24h ago, not signed, (no sollecito or sollecito >24h ago)
+    // Fetch all unsigned letters (broad filter — refine per-row below)
     const { data: corsiSollecitaFormatore } = await supabase
       .from('corsi')
-      .select('id, title, formatore_id, project_id, lettera_incarico_sollecito_at')
+      .select('id, title, formatore_id, project_id, lettera_incarico_inviata_at, lettera_incarico_sollecito_at')
       .not('lettera_incarico_inviata_at', 'is', null)
       .eq('lettera_incarico_firmata', false)
-      .lt('lettera_incarico_inviata_at', cutoff24hLettera)
 
     const sollecitaFormGroups = new Map<string, { formatore_id: string; project_id: string; corsi: Array<{ id: string; title: string; sollecito_at: string | null }> }>()
     for (const c of corsiSollecitaFormatore || []) {
+      const inviatAt = new Date(c.lettera_incarico_inviata_at as string)
       const sollecitoAt = c.lettera_incarico_sollecito_at as string | null
-      // Skip if sollecito was sent less than 24h ago
-      if (sollecitoAt && new Date(sollecitoAt) > new Date(cutoff24hLettera)) continue
+
+      if (sollecitoAt === null) {
+        // First reminder: must be at least 5 working days after letter was sent
+        if (now < addWorkingDays(inviatAt, 5)) continue
+      } else {
+        // Subsequent reminders: at least 24h since last reminder
+        if (new Date(sollecitoAt) > cutoff24h_firma) continue
+      }
+
       const key = `${c.formatore_id}::${c.project_id}`
       if (!sollecitaFormGroups.has(key)) {
         sollecitaFormGroups.set(key, { formatore_id: c.formatore_id as string, project_id: c.project_id as string, corsi: [] })
@@ -746,15 +768,21 @@ Il team Formascuole`
     // Tutor: same pattern
     const { data: corsiSollecitaTutor } = await supabase
       .from('corsi')
-      .select('id, title, tutor_id, project_id, lettera_tutor_sollecito_at')
+      .select('id, title, tutor_id, project_id, lettera_tutor_inviata_at, lettera_tutor_sollecito_at')
       .not('lettera_tutor_inviata_at', 'is', null)
       .eq('lettera_tutor_firmata', false)
-      .lt('lettera_tutor_inviata_at', cutoff24hLettera)
 
     const sollecitaTutorGroups = new Map<string, { tutor_id: string; project_id: string; corsi: Array<{ id: string; title: string; sollecito_at: string | null }> }>()
     for (const c of corsiSollecitaTutor || []) {
+      const inviatAt = new Date(c.lettera_tutor_inviata_at as string)
       const sollecitoAt = c.lettera_tutor_sollecito_at as string | null
-      if (sollecitoAt && new Date(sollecitoAt) > new Date(cutoff24hLettera)) continue
+
+      if (sollecitoAt === null) {
+        if (now < addWorkingDays(inviatAt, 5)) continue
+      } else {
+        if (new Date(sollecitoAt) > cutoff24h_firma) continue
+      }
+
       const key = `${c.tutor_id}::${c.project_id}`
       if (!sollecitaTutorGroups.has(key)) {
         sollecitaTutorGroups.set(key, { tutor_id: c.tutor_id as string, project_id: c.project_id as string, corsi: [] })
