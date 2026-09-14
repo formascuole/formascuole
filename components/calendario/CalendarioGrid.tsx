@@ -64,6 +64,25 @@ function formatDateIT(d: string): string {
   return `${day}/${m}/${y}`
 }
 
+function calcDayOre(evs: CalendarioEvent[]): number {
+  return evs
+    .filter((ev): ev is SessioneCalendarioEvent => ev.kind === 'sessione')
+    .reduce((sum, ev) => {
+      if (ev.ore) return sum + Number(ev.ore)
+      if (ev.ora_inizio && ev.ora_fine) {
+        const [sh, sm] = ev.ora_inizio.split(':').map(Number)
+        const [eh, em] = ev.ora_fine.split(':').map(Number)
+        return sum + (eh * 60 + em - sh * 60 - sm) / 60
+      }
+      return sum
+    }, 0)
+}
+
+function fmtOre(ore: number): string {
+  const rounded = Math.round(ore * 2) / 2
+  return `${rounded}h`
+}
+
 interface CalendarioGridProps {
   events: CalendarioEvent[]
   isAdmin: boolean
@@ -199,6 +218,10 @@ export function CalendarioGrid({
             </svg>
           </button>
           <span className="font-semibold text-gray-900 ml-1">{headerLabel}</span>
+          {view === 'day' && (() => {
+            const dayOre = calcDayOre(eventsByDate[dayStr] || [])
+            return dayOre > 0 ? <span className="text-sm text-gray-400 font-normal">· {fmtOre(dayOre)} totali</span> : null
+          })()}
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -241,6 +264,7 @@ export function CalendarioGrid({
               const shown = dayEvs.slice(0, 3)
               const extra = dayEvs.length - 3
               const canAdd = dayEvs.length === 0 && !!onDayClick
+              const dayOre = calcDayOre(dayEvs)
               return (
                 <div
                   key={idx}
@@ -254,6 +278,9 @@ export function CalendarioGrid({
                     >
                       {dayNum}
                     </span>
+                    {dayOre > 0 && (
+                      <span className="text-[10px] text-gray-400 pr-0.5">{fmtOre(dayOre)}</span>
+                    )}
                     {canAdd && (
                       <span className="text-xs text-gray-200 group-hover:text-gray-400 transition-colors pr-1 select-none">+</span>
                     )}
@@ -297,6 +324,7 @@ export function CalendarioGrid({
             const dayNum = Number(dateStr.split('-')[2])
             const d = new Date(dateStr + 'T12:00:00')
             const dow = DAYS_SHORT[(d.getDay() + 6) % 7]
+            const dayOre = calcDayOre(dayEvs)
             return (
               <div key={dateStr} className="border-r border-b border-gray-100 min-h-[320px] p-2">
                 <div className="flex flex-col items-center mb-2">
@@ -307,6 +335,9 @@ export function CalendarioGrid({
                   >
                     {dayNum}
                   </span>
+                  {dayOre > 0 && (
+                    <span className="text-[10px] text-gray-400 mt-0.5">{fmtOre(dayOre)}</span>
+                  )}
                 </div>
                 <div className="space-y-1">
                   {dayEvs.map((ev, i) => {
