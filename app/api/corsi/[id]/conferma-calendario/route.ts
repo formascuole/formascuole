@@ -3,6 +3,31 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { generateCalendarioConfermatoAdminEmail, generateCalendarioConfermatoScuolaEmail, sendEmail } from '@/lib/email'
 
+export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const admin = createAdminClient()
+  const { data: corso } = await admin.from('corsi').select('id, formatore_id').eq('id', id).single()
+  if (!corso) return NextResponse.json({ error: 'Corso non trovato' }, { status: 404 })
+
+  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+  const isAdmin = ['admin', 'super_admin'].includes(profile?.role)
+  if (!isAdmin && corso.formatore_id !== user.id) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
+  await admin.from('corsi').update({
+    calendario_confermato: true,
+    confermato_manualmente: true,
+    calendario_confermato_at: new Date().toISOString(),
+  }).eq('id', id)
+
+  return NextResponse.json({ success: true })
+}
+
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createClient()

@@ -165,6 +165,7 @@ export interface Corso {
   calendario_inviato_at?: string | null
   calendario_confermato?: boolean
   calendario_confermato_at?: string | null
+  confermato_manualmente?: boolean
   corso_completato?: boolean
   corso_completato_at?: string | null
   tariffa_oraria?: number | null

@@ -424,6 +424,8 @@ export function CorsoDetailClient({
   const [invioError, setInvioError] = useState<string | null>(null)
   const [confermaLoading, setConfermaLoading] = useState(false)
   const [calendarioConfermatoLocal, setCalendarioConfermatoLocal] = useState(corso.calendario_confermato ?? false)
+  const [confermatoManualmenteLocal, setConfermatoManualmenteLocal] = useState(corso.confermato_manualmente ?? false)
+  const [confermandoManualmente, setConfermandoManualmente] = useState(false)
   const [calendarioInviatoAt, setCalendarioInviatoAt] = useState(corso.calendario_inviato_at ?? null)
 
   // Completamento corso
@@ -929,6 +931,20 @@ export function CorsoDetailClient({
     }
   }
 
+  const handleConfermaManuale = async () => {
+    setConfermandoManualmente(true)
+    try {
+      const res = await fetch(`/api/corsi/${corso.id}/conferma-calendario`, { method: 'PATCH' })
+      if (res.ok) {
+        setCalendarioConfermatoLocal(true)
+        setConfermatoManualmenteLocal(true)
+        router.refresh()
+      }
+    } finally {
+      setConfermandoManualmente(false)
+    }
+  }
+
   const handleCompletaCorso = async () => {
     setCompletamentoLoading(true)
     setCompletamentoError(null)
@@ -1268,17 +1284,21 @@ export function CorsoDetailClient({
               </span>
             )}
             {calendarioConfermatoLocal ? (
-              <span className="inline-flex items-center gap-1 text-xs text-blue-700 bg-blue-100 px-2.5 py-1 rounded-md font-medium">
+              <span className="inline-flex items-center gap-1 text-xs text-green-700 bg-green-100 px-2.5 py-1 rounded-md font-medium">
                 <svg width="10" height="10" fill="none" viewBox="0 0 24 24">
                   <polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
                 </svg>
-                Confermato scuola
+                {confermatoManualmenteLocal ? 'Calendario confermato' : 'Calendario confermato dalla scuola'}
               </span>
             ) : calendarioInviatoAt ? (
               <span className="inline-flex items-center gap-1 text-xs text-amber-700 bg-amber-100 px-2.5 py-1 rounded-md font-medium">
-                In attesa conferma
+                In attesa di conferma
               </span>
-            ) : null}
+            ) : (
+              <span className="inline-flex items-center gap-1 text-xs text-gray-500 bg-gray-100 px-2.5 py-1 rounded-md font-medium">
+                Da inviare alla scuola
+              </span>
+            )}
             {corsoCompletatoLocal && (
               <span className="inline-flex items-center gap-1 text-xs text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-md font-medium">
                 <svg width="10" height="10" fill="none" viewBox="0 0 24 24">
@@ -2026,20 +2046,40 @@ export function CorsoDetailClient({
             {calendarioInviatoAt && (
               <div className="flex items-center justify-between pt-4 border-t border-gray-100">
                 <div>
-                  <div className="text-sm font-medium text-gray-700">Calendario confermato dalla scuola</div>
+                  <div className="text-sm font-medium text-gray-700">Conferma calendario</div>
                   {calendarioConfermatoLocal && corso.calendario_confermato_at && (
                     <div className="text-xs text-gray-400 mt-0.5">
                       Confermato il {new Date(corso.calendario_confermato_at).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' })}
                     </div>
                   )}
                 </div>
-                <button
-                  onClick={() => handleConfermaCalendario(!calendarioConfermatoLocal)}
-                  disabled={confermaLoading}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none disabled:opacity-50 ${calendarioConfermatoLocal ? 'bg-[#d64b55]' : 'bg-gray-200'}`}
-                >
-                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${calendarioConfermatoLocal ? 'translate-x-6' : 'translate-x-1'}`} />
-                </button>
+                {calendarioConfermatoLocal ? (
+                  <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-md text-green-700 bg-green-100">
+                    <svg width="10" height="10" fill="none" viewBox="0 0 24 24">
+                      <polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
+                    </svg>
+                    {confermatoManualmenteLocal ? 'Calendario confermato' : 'Calendario confermato dalla scuola'}
+                  </span>
+                ) : (
+                  <button
+                    onClick={handleConfermaManuale}
+                    disabled={confermandoManualmente}
+                    className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-[7px] text-white transition-colors disabled:opacity-50"
+                    style={{ backgroundColor: '#3B82F6' }}
+                  >
+                    {confermandoManualmente ? (
+                      <svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                      </svg>
+                    ) : (
+                      <svg width="12" height="12" fill="none" viewBox="0 0 24 24">
+                        <polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
+                      </svg>
+                    )}
+                    Segna come confermato
+                  </button>
+                )}
               </div>
             )}
           </div>
