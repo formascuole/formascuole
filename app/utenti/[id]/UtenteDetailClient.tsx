@@ -122,6 +122,9 @@ function CorsiTable({ corsi, oreErogateMap = {} }: { corsi: CorsoConProgetto[]; 
 export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSuperAdmin, currentUserId, nRifiutati = 0, tassoAccettazione = null, questionari = [], mediaGlobale = null, oreErogateFormatore = 0, oreErogateTutor = 0, oreErogatePerCorsoFormatore = {}, oreErogatePerCorsoTutor = {}, isAdmin, sessionDatesByCorso = {}, skills = [], allTags = [] }: UtenteDetailClientProps) {
   const router = useRouter()
   const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleteConfirmEmail, setDeleteConfirmEmail] = useState('')
+  const [deleteLoading, setDeleteLoading] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
 
   // Skills state
   const [localSkills, setLocalSkills] = useState<Tag[]>(skills)
@@ -191,7 +194,7 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
   const isTutor = profile.roles.includes('tutor')
   const isSelf = profile.id === currentUserId
   const isTargetSuperAdmin = profile.roles.includes('super_admin')
-  const canDelete = isSuperAdmin && !isSelf && !isTargetSuperAdmin
+  const canDelete = isAdmin && !isSelf && !isTargetSuperAdmin
 
   const handleSaveTariffe = async () => {
     setTariffaSaving(true)
@@ -283,7 +286,7 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
             </div>
             {canDelete && (
               <button
-                onClick={() => setDeleteOpen(true)}
+                onClick={() => { setDeleteOpen(true); setDeleteConfirmEmail(''); setDeleteError('') }}
                 className="inline-flex items-center gap-1.5 text-xs font-medium text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 px-3 py-1.5 rounded-[7px] transition-colors"
               >
                 <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
@@ -669,21 +672,93 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
         </div>
       </Modal>
 
-      <DeleteConfirmModal
+      {/* Zona pericolosa */}
+      {canDelete && (
+        <div className="mt-8 border border-red-200 rounded-xl p-6 bg-red-50/30">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h3 className="font-semibold text-red-700 text-sm">Zona pericolosa</h3>
+              <p className="text-xs text-red-500 mt-0.5">Azioni irreversibili sull&apos;account utente</p>
+            </div>
+          </div>
+          <div className="mt-4 flex items-center justify-between">
+            <div>
+              <div className="text-sm font-medium text-gray-700">Elimina utente</div>
+              <div className="text-xs text-gray-400 mt-0.5">Rimuovi definitivamente l&apos;account e tutti i dati associati</div>
+            </div>
+            <button
+              onClick={() => { setDeleteOpen(true); setDeleteConfirmEmail(''); setDeleteError('') }}
+              className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-[7px] text-white bg-red-600 hover:bg-red-700 transition-colors"
+            >
+              <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
+                <polyline points="3 6 5 6 21 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                <path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Elimina utente
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal elimina utente */}
+      <Modal
         open={deleteOpen}
-        onClose={() => setDeleteOpen(false)}
-        title={`Elimina utente — ${profile.nome}`}
-        description={`Sei sicuro di voler eliminare ${profile.nome}? Questa azione è irreversibile. I corsi assegnati a questo utente rimarranno ma perderanno il riferimento al formatore/tutor.`}
-        confirmName="CANCELLA"
-        onConfirm={async () => {
-          const res = await fetch(`/api/formatori/${profile.id}`, { method: 'DELETE' })
-          if (!res.ok) {
-            const json = await res.json()
-            throw new Error(json.error || 'Errore durante l\'eliminazione')
-          }
-          router.push('/formatori')
-        }}
-      />
+        onClose={() => { if (!deleteLoading) { setDeleteOpen(false); setDeleteConfirmEmail(''); setDeleteError('') } }}
+        title="Elimina utente"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => { setDeleteOpen(false); setDeleteConfirmEmail(''); setDeleteError('') }} disabled={deleteLoading}>
+              Annulla
+            </Button>
+            <button
+              disabled={deleteConfirmEmail !== profile.email || deleteLoading}
+              onClick={async () => {
+                setDeleteLoading(true)
+                setDeleteError('')
+                try {
+                  const res = await fetch(`/api/utenti/${profile.id}`, { method: 'DELETE' })
+                  if (!res.ok) {
+                    const j = await res.json().catch(() => ({}))
+                    setDeleteError(j.error || 'Errore durante l\'eliminazione')
+                    return
+                  }
+                  router.push('/formatori')
+                } finally {
+                  setDeleteLoading(false)
+                }
+              }}
+              className="inline-flex items-center gap-1.5 text-sm font-medium px-4 py-2 rounded-[7px] text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{ backgroundColor: '#d64b55' }}
+            >
+              {deleteLoading ? 'Eliminando…' : 'Elimina definitivamente'}
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div className="flex items-start gap-2.5 p-3 rounded-[7px] bg-red-50 border border-red-200">
+            <span className="text-base leading-none mt-0.5">⚠️</span>
+            <p className="text-sm text-red-700">
+              Questa operazione è irreversibile. L&apos;utente e tutti i suoi dati verranno eliminati definitivamente.
+            </p>
+          </div>
+          <div>
+            <label className="block text-sm text-gray-600 mb-1.5">
+              Digita l&apos;email dell&apos;utente per confermare:
+            </label>
+            <Input
+              value={deleteConfirmEmail}
+              onChange={e => setDeleteConfirmEmail(e.target.value)}
+              placeholder={profile.email}
+              autoFocus
+            />
+          </div>
+          {deleteError && (
+            <p className="text-sm text-red-600">{deleteError}</p>
+          )}
+        </div>
+      </Modal>
     </div>
   )
 }

@@ -56,7 +56,7 @@ export default async function FormatoriPage() {
       avatarInitials={profile.avatar_initials}
       notificheBadge={notifiche}
     >
-      <FormatoriClient utenti={utentiConStats} isSuperAdmin={isSuperAdmin} />
+      <FormatoriClient utenti={utentiConStats} isSuperAdmin={isSuperAdmin} isAdmin={['admin', 'super_admin'].includes(profile.role)} />
     </AppLayout>
   )
 }

@@ -59,6 +59,7 @@ interface UtenteConStats {
 interface FormatoriClientProps {
   utenti: UtenteConStats[]
   isSuperAdmin: boolean
+  isAdmin: boolean
 }
 
 const SELECTABLE_ROLES: { value: UserRole; label: string; desc: string }[] = [
@@ -149,7 +150,7 @@ const initialCreateForm = { nome: '', email: '', ruolo: 'formatore' as UserRole,
 
 type EditForm = { nome: string; roles: UserRole[] }
 
-export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) {
+export function FormatoriClient({ utenti, isSuperAdmin, isAdmin }: FormatoriClientProps) {
   const router = useRouter()
 
   // --- Create state ---
@@ -177,6 +178,13 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
 
   // --- Delete state ---
   const [deleteTarget, setDeleteTarget] = useState<UtenteConStats | null>(null)
+
+  // --- Bulk delete state ---
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState('')
+  const [bulkDeleteLoading, setBulkDeleteLoading] = useState(false)
+  const [bulkDeleteError, setBulkDeleteError] = useState('')
 
   // --- Reinvia credenziali state ---
   const [reinviaTarget, setReinviaTarget] = useState<UtenteConStats | null>(null)
@@ -390,6 +398,46 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
     setInvioSuccess(`Sollecito inviato a ${sent} formator${sent === 1 ? 'e' : 'i'}`)
   }
 
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleSelectAll = () => {
+    const deletable = filtered.filter(u => !(u.roles || [u.role]).includes('super_admin'))
+    if (deletable.every(u => selectedIds.has(u.id))) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(deletable.map(u => u.id)))
+    }
+  }
+
+  const handleBulkDelete = async () => {
+    setBulkDeleteLoading(true)
+    setBulkDeleteError('')
+    try {
+      const res = await fetch('/api/utenti/bulk-delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: [...selectedIds] }),
+      })
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}))
+        setBulkDeleteError(j.error || 'Errore durante l\'eliminazione')
+        return
+      }
+      setBulkDeleteOpen(false)
+      setSelectedIds(new Set())
+      router.refresh()
+    } finally {
+      setBulkDeleteLoading(false)
+    }
+  }
+
   const docMancanti = utenti.filter(u =>
     (u.roles || [u.role]).some(r => r === 'formatore' || r === 'tutor') &&
     !u.documenti_completi
@@ -442,6 +490,18 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
                 <polyline points="22,6 12,13 2,6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
               Sollecita documenti mancanti ({docMancanti})
+            </button>
+          )}
+          {selectedIds.size > 0 && (
+            <button
+              onClick={() => { setBulkDeleteOpen(true); setBulkDeleteConfirm(''); setBulkDeleteError('') }}
+              className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-[7px] text-white bg-red-600 hover:bg-red-700 transition-colors"
+            >
+              <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
+                <polyline points="3 6 5 6 21 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                <path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Elimina selezionati ({selectedIds.size})
             </button>
           )}
           <Button onClick={() => setCreateOpen(true)}>
@@ -501,6 +561,16 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
         <table className="w-full">
           <thead>
             <tr className="border-b border-gray-100">
+              {isAdmin && (
+                <th className="px-4 py-3 w-8">
+                  <input
+                    type="checkbox"
+                    className="rounded border-gray-300 text-[#d64b55] focus:ring-[#d64b55] cursor-pointer"
+                    checked={filtered.filter(u => !(u.roles || [u.role]).includes('super_admin')).length > 0 && filtered.filter(u => !(u.roles || [u.role]).includes('super_admin')).every(u => selectedIds.has(u.id))}
+                    onChange={toggleSelectAll}
+                  />
+                </th>
+              )}
               <th className="text-left text-xs font-medium text-gray-400 px-4 py-3">UTENTE</th>
               <th className="text-left text-xs font-medium text-gray-400 px-3 py-3">RUOLO</th>
               <th className="text-center text-xs font-medium text-gray-400 px-2 py-3">C.FORM.</th>
@@ -514,8 +584,23 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
-            {filtered.map(u => (
-              <tr key={u.id} className="hover:bg-gray-50">
+            {filtered.map(u => {
+              const canSelectU = isAdmin && !(u.roles || [u.role]).includes('super_admin')
+              return (
+              <tr key={u.id} className={`hover:bg-gray-50 ${selectedIds.has(u.id) ? 'bg-red-50/40' : ''}`}>
+                {isAdmin && (
+                  <td className="px-4 py-3 w-8">
+                    {canSelectU && (
+                      <input
+                        type="checkbox"
+                        className="rounded border-gray-300 text-[#d64b55] focus:ring-[#d64b55] cursor-pointer"
+                        checked={selectedIds.has(u.id)}
+                        onChange={() => toggleSelect(u.id)}
+                        onClick={e => e.stopPropagation()}
+                      />
+                    )}
+                  </td>
+                )}
                 <td className="px-4 py-3">
                   <Link href={`/utenti/${u.id}`} className="flex items-center gap-2.5 group">
                     <Avatar nome={u.nome} id={u.id} initials={u.avatar_initials} size="md" />
@@ -654,7 +739,7 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
                         </svg>
                       )}
                     </button>
-                    {isSuperAdmin && !(u.roles || [u.role]).includes('super_admin') && (
+                    {isAdmin && !(u.roles || [u.role]).includes('super_admin') && (
                       <button
                         onClick={() => setDeleteTarget(u)}
                         className="p-1.5 rounded-[7px] text-red-300 hover:text-red-500 hover:bg-red-50 transition-colors"
@@ -669,10 +754,10 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
                   </div>
                 </td>
               </tr>
-            ))}
+            )})}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={10} className="px-6 py-12 text-center text-sm text-gray-400">
+                <td colSpan={isAdmin ? 11 : 10} className="px-6 py-12 text-center text-sm text-gray-400">
                   {search ? 'Nessun utente trovato per questa ricerca' : 'Nessun utente registrato'}
                 </td>
               </tr>
@@ -865,10 +950,10 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
         title={`Elimina utente — ${deleteTarget?.nome ?? ''}`}
-        description={`Sei sicuro di voler eliminare ${deleteTarget?.nome}? Questa azione è irreversibile. I corsi assegnati a questo utente rimarranno ma perderanno il riferimento al formatore/tutor.`}
+        description={`Sei sicuro di voler eliminare ${deleteTarget?.nome}? Questa azione è irreversibile.`}
         confirmName="CANCELLA"
         onConfirm={async () => {
-          const res = await fetch(`/api/formatori/${deleteTarget!.id}`, { method: 'DELETE' })
+          const res = await fetch(`/api/utenti/${deleteTarget!.id}`, { method: 'DELETE' })
           if (!res.ok) {
             const json = await res.json()
             throw new Error(json.error || 'Errore durante l\'eliminazione')
@@ -877,6 +962,56 @@ export function FormatoriClient({ utenti, isSuperAdmin }: FormatoriClientProps) 
           router.refresh()
         }}
       />
+
+      {/* ── Modal: Bulk delete ──────────────────────────────────────────────── */}
+      <Modal
+        open={bulkDeleteOpen}
+        onClose={() => { if (!bulkDeleteLoading) { setBulkDeleteOpen(false); setBulkDeleteConfirm(''); setBulkDeleteError('') } }}
+        title="Elimina utenti selezionati"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => { setBulkDeleteOpen(false); setBulkDeleteConfirm(''); setBulkDeleteError('') }} disabled={bulkDeleteLoading}>
+              Annulla
+            </Button>
+            <button
+              disabled={bulkDeleteConfirm !== 'ELIMINA' || bulkDeleteLoading}
+              onClick={handleBulkDelete}
+              className="inline-flex items-center gap-1.5 text-sm font-medium px-4 py-2 rounded-[7px] text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{ backgroundColor: '#d64b55' }}
+            >
+              {bulkDeleteLoading ? 'Eliminando…' : `Elimina definitivamente (${selectedIds.size})`}
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div className="flex items-start gap-2.5 p-3 rounded-[7px] bg-red-50 border border-red-200">
+            <span className="text-base leading-none mt-0.5">⚠️</span>
+            <p className="text-sm text-red-700">
+              Questa operazione è irreversibile. {selectedIds.size === 1 ? 'L\'utente selezionato verrà eliminato' : `I ${selectedIds.size} utenti selezionati verranno eliminati`} definitivamente.
+            </p>
+          </div>
+          <div className="text-sm text-gray-600">
+            <span className="font-medium">Utenti selezionati: </span>
+            {utenti.filter(u => selectedIds.has(u.id)).map(u => u.nome).join(', ')}
+          </div>
+          <div>
+            <label className="block text-sm text-gray-600 mb-1.5">
+              Digita <span className="font-mono font-semibold text-gray-800">ELIMINA</span> per confermare:
+            </label>
+            <Input
+              value={bulkDeleteConfirm}
+              onChange={e => setBulkDeleteConfirm(e.target.value)}
+              placeholder="ELIMINA"
+              autoFocus
+            />
+          </div>
+          {bulkDeleteError && (
+            <p className="text-sm text-red-600">{bulkDeleteError}</p>
+          )}
+        </div>
+      </Modal>
 
       {/* ── Modal: Sollecita documenti ─────────────────────────────────────── */}
       <Modal
