@@ -2046,6 +2046,142 @@ export function CorsoDetailClient({
         </div>
       )}
 
+      {/* Sessioni */}
+      <div className="bg-white rounded-xl mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <div className="flex items-center gap-3">
+            <h2 className="font-semibold text-gray-900">Sessioni pianificate ({sessioni.length})</h2>
+            {sessioni.length > 0 && sessioniScadute > 0 && (
+              <span className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md bg-amber-100 text-amber-700">
+                {sessioniScadute} da confermare
+              </span>
+            )}
+          </div>
+          {canConfirmSessions && (
+            <Button size="sm" onClick={() => setCalendarOpen(true)} disabled={oreResidue === 0}>
+              <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
+                <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+              Aggiungi Sessione
+            </Button>
+          )}
+        </div>
+
+        {sessioni.length === 0 ? (
+          <div className="px-6 py-12 text-center text-sm text-gray-400">
+            Nessuna sessione pianificata.
+            {oreResidue > 0 && canConfirmSessions && (
+              <div className="mt-1 text-xs">Clicca &quot;Aggiungi Sessione&quot; per iniziare.</div>
+            )}
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-50">
+            {sessioni.map((s) => {
+              const isPast = s.data <= today
+              const isFuture = s.data > today
+              const isToday = s.data === today
+              const nowTimeStr = new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', hour12: false })
+              const oraFinePassata = !s.ora_fine || nowTimeStr >= (s.ora_fine as string).substring(0, 5)
+              const canConfirm = canConfirmSessions && !s.completata && isPast && (isAdmin || !isToday || oraFinePassata)
+              const showDisabledConfirm = canConfirmSessions && !s.completata && isToday && !isAdmin && !oraFinePassata
+              return (
+                <div key={s.id} className={`px-6 py-3 ${s.completata ? 'bg-green-50/30' : ''}`}>
+                  {/* Riga 1: data / orario / ore */}
+                  <div className="flex items-center justify-between gap-3 mb-2">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="font-medium text-gray-800 text-sm shrink-0">{formatDate(s.data)}</span>
+                      {s.ora_inizio && s.ora_fine && (
+                        <span className="text-sm text-gray-500 shrink-0">{s.ora_inizio.substring(0,5)}–{s.ora_fine.substring(0,5)}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-sm font-semibold text-gray-700">{s.ore}h</span>
+                      {isIbrido && s.modalita_sessione && (
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-md ${s.modalita_sessione === 'presenza' ? 'bg-blue-100 text-blue-700' : 'bg-violet-100 text-violet-700'}`}>
+                          {s.modalita_sessione === 'presenza' ? '🏫 Presenza' : '💻 Online'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {/* Riga 2: stato / azioni */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {s.completata ? (
+                      <div className="flex flex-col gap-0.5">
+                        <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-md bg-green-100 text-green-700">
+                          <svg width="10" height="10" fill="none" viewBox="0 0 24 24">
+                            <polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
+                          </svg>
+                          Completata
+                        </span>
+                        {s.completata_at && (
+                          <span style={{ fontSize: '11px' }} className="text-gray-400 pl-0.5">Confermata il {formatDate(s.completata_at)}</span>
+                        )}
+                      </div>
+                    ) : isFuture ? (
+                      <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-blue-100 text-blue-700">Pianificata</span>
+                    ) : (
+                      <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-gray-100 text-gray-600">Da confermare</span>
+                    )}
+                    {canConfirm && (
+                      <button
+                        onClick={() => handleConfirmSession(s.id)}
+                        disabled={confirmingId === s.id}
+                        className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-[7px] transition-colors text-gray-600 hover:text-green-700 hover:bg-green-50 border border-gray-200 hover:border-green-300 disabled:opacity-50"
+                      >
+                        {confirmingId === s.id ? (
+                          <svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                          </svg>
+                        ) : (
+                          <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
+                            <polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
+                          </svg>
+                        )}
+                        Conferma
+                      </button>
+                    )}
+                    {showDisabledConfirm && (
+                      <button
+                        disabled
+                        title={`Disponibile al termine della sessione${s.ora_fine ? ` (${(s.ora_fine as string).substring(0, 5)})` : ''}`}
+                        className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-[7px] text-gray-400 border border-gray-200 cursor-not-allowed opacity-60"
+                      >
+                        <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
+                          <polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
+                        </svg>
+                        Conferma
+                      </button>
+                    )}
+                    {canConfirmSessions && !s.completata && (
+                      <button
+                        onClick={() => openEditModal(s)}
+                        title="Modifica sessione"
+                        className="p-1.5 rounded-[7px] text-gray-400 hover:text-blue-600 hover:bg-blue-50 border border-gray-200 hover:border-blue-300 transition-colors"
+                      >
+                        <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
+                          <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                          <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      </button>
+                    )}
+                    {isAdmin && !s.completata && (
+                      <button
+                        onClick={() => handleDeleteSession(s.id)}
+                        disabled={deletingId === s.id}
+                        className="text-xs text-red-400 hover:text-red-600 transition-colors disabled:opacity-50 ml-auto"
+                      >
+                        {deletingId === s.id ? '...' : 'Elimina'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
       {/* Scheda corso */}
       {(corso.link_scheda || corso.descrizione || isAdmin) && (
         <div className="bg-white rounded-xl p-6 mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
@@ -2512,142 +2648,6 @@ export function CorsoDetailClient({
           </p>
         </div>
       )}
-
-      {/* Sessioni */}
-      <div className="bg-white rounded-xl mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <div className="flex items-center gap-3">
-            <h2 className="font-semibold text-gray-900">Sessioni pianificate ({sessioni.length})</h2>
-            {sessioni.length > 0 && sessioniScadute > 0 && (
-              <span className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md bg-amber-100 text-amber-700">
-                {sessioniScadute} da confermare
-              </span>
-            )}
-          </div>
-          {canConfirmSessions && (
-            <Button size="sm" onClick={() => setCalendarOpen(true)} disabled={oreResidue === 0}>
-              <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
-                <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-              </svg>
-              Aggiungi Sessione
-            </Button>
-          )}
-        </div>
-
-        {sessioni.length === 0 ? (
-          <div className="px-6 py-12 text-center text-sm text-gray-400">
-            Nessuna sessione pianificata.
-            {oreResidue > 0 && canConfirmSessions && (
-              <div className="mt-1 text-xs">Clicca &quot;Aggiungi Sessione&quot; per iniziare.</div>
-            )}
-          </div>
-        ) : (
-          <div className="divide-y divide-gray-50">
-            {sessioni.map((s) => {
-              const isPast = s.data <= today
-              const isFuture = s.data > today
-              const isToday = s.data === today
-              const nowTimeStr = new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', hour12: false })
-              const oraFinePassata = !s.ora_fine || nowTimeStr >= (s.ora_fine as string).substring(0, 5)
-              const canConfirm = canConfirmSessions && !s.completata && isPast && (isAdmin || !isToday || oraFinePassata)
-              const showDisabledConfirm = canConfirmSessions && !s.completata && isToday && !isAdmin && !oraFinePassata
-              return (
-                <div key={s.id} className={`px-6 py-3 ${s.completata ? 'bg-green-50/30' : ''}`}>
-                  {/* Riga 1: data / orario / ore */}
-                  <div className="flex items-center justify-between gap-3 mb-2">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <span className="font-medium text-gray-800 text-sm shrink-0">{formatDate(s.data)}</span>
-                      {s.ora_inizio && s.ora_fine && (
-                        <span className="text-sm text-gray-500 shrink-0">{s.ora_inizio.substring(0,5)}–{s.ora_fine.substring(0,5)}</span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-sm font-semibold text-gray-700">{s.ore}h</span>
-                      {isIbrido && s.modalita_sessione && (
-                        <span className={`text-xs font-medium px-2 py-0.5 rounded-md ${s.modalita_sessione === 'presenza' ? 'bg-blue-100 text-blue-700' : 'bg-violet-100 text-violet-700'}`}>
-                          {s.modalita_sessione === 'presenza' ? '🏫 Presenza' : '💻 Online'}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  {/* Riga 2: stato / azioni */}
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {s.completata ? (
-                      <div className="flex flex-col gap-0.5">
-                        <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-md bg-green-100 text-green-700">
-                          <svg width="10" height="10" fill="none" viewBox="0 0 24 24">
-                            <polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
-                          </svg>
-                          Completata
-                        </span>
-                        {s.completata_at && (
-                          <span style={{ fontSize: '11px' }} className="text-gray-400 pl-0.5">Confermata il {formatDate(s.completata_at)}</span>
-                        )}
-                      </div>
-                    ) : isFuture ? (
-                      <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-blue-100 text-blue-700">Pianificata</span>
-                    ) : (
-                      <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-gray-100 text-gray-600">Da confermare</span>
-                    )}
-                    {canConfirm && (
-                      <button
-                        onClick={() => handleConfirmSession(s.id)}
-                        disabled={confirmingId === s.id}
-                        className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-[7px] transition-colors text-gray-600 hover:text-green-700 hover:bg-green-50 border border-gray-200 hover:border-green-300 disabled:opacity-50"
-                      >
-                        {confirmingId === s.id ? (
-                          <svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                          </svg>
-                        ) : (
-                          <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
-                            <polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
-                          </svg>
-                        )}
-                        Conferma
-                      </button>
-                    )}
-                    {showDisabledConfirm && (
-                      <button
-                        disabled
-                        title={`Disponibile al termine della sessione${s.ora_fine ? ` (${(s.ora_fine as string).substring(0, 5)})` : ''}`}
-                        className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-[7px] text-gray-400 border border-gray-200 cursor-not-allowed opacity-60"
-                      >
-                        <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
-                          <polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
-                        </svg>
-                        Conferma
-                      </button>
-                    )}
-                    {canConfirmSessions && !s.completata && (
-                      <button
-                        onClick={() => openEditModal(s)}
-                        title="Modifica sessione"
-                        className="p-1.5 rounded-[7px] text-gray-400 hover:text-blue-600 hover:bg-blue-50 border border-gray-200 hover:border-blue-300 transition-colors"
-                      >
-                        <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
-                          <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                          <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                        </svg>
-                      </button>
-                    )}
-                    {isAdmin && !s.completata && (
-                      <button
-                        onClick={() => handleDeleteSession(s.id)}
-                        disabled={deletingId === s.id}
-                        className="text-xs text-red-400 hover:text-red-600 transition-colors disabled:opacity-50 ml-auto"
-                      >
-                        {deletingId === s.id ? '...' : 'Elimina'}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </div>
 
       {/* Note */}
       <div className="bg-white rounded-xl" style={{ border: '0.5px solid #e5e5e5' }}>
