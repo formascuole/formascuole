@@ -21,6 +21,7 @@ export type SessioneCalendarioEvent = {
   modalita_sessione?: string | null
   tipo?: string | null
   corso_modalita?: string | null
+  calendario_confermato?: boolean | null
 }
 
 export type IndisponibilitaCalendarioEvent = {
@@ -45,13 +46,21 @@ const FASCIA_LABELS: Record<string, string> = {
   tutto_il_giorno: 'Tutto il giorno',
 }
 
-function getEventColors(ev: CalendarioEvent): { bg: string; color: string } {
+function getSessioneStateLabel(ev: SessioneCalendarioEvent, confirmedCorsiSet: Set<string>): string {
+  if (ev.completata) return 'Erogata'
+  if ((ev.calendario_confermato ?? false) || confirmedCorsiSet.has(ev.corso_id)) return 'Confermata'
+  return 'In proposta'
+}
+
+function getEventColors(ev: CalendarioEvent, confirmedCorsiSet?: Set<string>): { bg: string; color: string } {
   if (ev.kind === 'sessione') {
-    return ev.completata ? { bg: '#1D9E75', color: '#fff' } : { bg: '#378ADD', color: '#fff' }
+    if (ev.completata) return { bg: '#10B981', color: '#fff' }
+    if ((ev.calendario_confermato ?? false) || (confirmedCorsiSet?.has(ev.corso_id) ?? false)) {
+      return { bg: '#3B82F6', color: '#fff' }
+    }
+    return { bg: '#F59E0B', color: '#fff' }
   }
-  if (ev.fascia === 'mattina') return { bg: '#FED7AA', color: '#9A3412' }
-  if (ev.fascia === 'pomeriggio') return { bg: '#FB923C', color: '#fff' }
-  return { bg: '#EA580C', color: '#fff' }
+  return { bg: '#EF4444', color: '#fff' }
 }
 
 function getEventLabel(ev: CalendarioEvent): string {
@@ -162,6 +171,14 @@ export function CalendarioGrid({
       map[ev.data].push(ev)
     })
     return map
+  }, [events])
+
+  const confirmedCorsiSet = useMemo(() => {
+    const s = new Set<string>()
+    events.forEach(ev => {
+      if (ev.kind === 'sessione' && ev.completata) s.add(ev.corso_id)
+    })
+    return s
   }, [events])
 
   const goBack = () => setCurrentDate(prev => {
@@ -287,7 +304,7 @@ export function CalendarioGrid({
                   </div>
                   <div className="space-y-0.5">
                     {shown.map((ev, i) => {
-                      const col = getEventColors(ev)
+                      const col = getEventColors(ev, confirmedCorsiSet)
                       return (
                         <button
                           key={`${ev.id}-${i}`}
@@ -341,7 +358,7 @@ export function CalendarioGrid({
                 </div>
                 <div className="space-y-1">
                   {dayEvs.map((ev, i) => {
-                    const col = getEventColors(ev)
+                    const col = getEventColors(ev, confirmedCorsiSet)
                     return (
                       <button
                         key={`${ev.id}-${i}`}
@@ -351,7 +368,7 @@ export function CalendarioGrid({
                       >
                         <div className="font-medium truncate">{getEventLabel(ev)}</div>
                         {ev.kind === 'sessione' && (
-                          <div className="opacity-75 mt-0.5">{ev.ore}h · {ev.completata ? 'Completata' : 'Pianificata'}</div>
+                          <div className="opacity-75 mt-0.5">{ev.ore}h · {getSessioneStateLabel(ev, confirmedCorsiSet)}</div>
                         )}
                         {ev.kind === 'indisponibilita' && ev.formatore_nome && (
                           <div className="opacity-75 truncate mt-0.5">{ev.formatore_nome}</div>
@@ -421,9 +438,9 @@ export function CalendarioGrid({
                         <div className="shrink-0 flex flex-col items-end gap-1.5">
                           <span
                             className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md text-white"
-                            style={{ backgroundColor: ev.completata ? '#1D9E75' : '#378ADD' }}
+                            style={{ backgroundColor: getEventColors(ev, confirmedCorsiSet).bg }}
                           >
-                            {ev.completata ? '🟢 Erogata' : '🔵 Pianificata'}
+                            {getSessioneStateLabel(ev, confirmedCorsiSet)}
                           </span>
                           <div className="flex items-center gap-1">
                             {ev.tipo && (
@@ -469,10 +486,10 @@ export function CalendarioGrid({
                     <button
                       key={ev.id}
                       onClick={() => setSelectedEvent(ev)}
-                      className="w-full text-left rounded-xl p-3 border border-orange-100 bg-orange-50 hover:bg-orange-100 transition-colors"
+                      className="w-full text-left rounded-xl p-3 border border-red-100 bg-red-50 hover:bg-red-100 transition-colors"
                     >
-                      <div className="text-xs font-medium text-orange-700">{ev.formatore_nome} — {FASCIA_LABELS[ev.fascia]}</div>
-                      {ev.note && <div className="text-xs text-orange-500 mt-0.5">{ev.note}</div>}
+                      <div className="text-xs font-medium text-red-700">{ev.formatore_nome} — {FASCIA_LABELS[ev.fascia]}</div>
+                      {ev.note && <div className="text-xs text-red-500 mt-0.5">{ev.note}</div>}
                     </button>
                   ))}
               </div>
@@ -484,16 +501,15 @@ export function CalendarioGrid({
       {/* Legend */}
       <div className="flex items-center gap-4 mt-3 flex-wrap">
         {([
-          { bg: '#378ADD', label: 'Sessione pianificata' },
-          { bg: '#1D9E75', label: 'Sessione completata' },
-          { bg: '#FED7AA', label: 'Indisp. mattina', border: '#FB923C' },
-          { bg: '#FB923C', label: 'Indisp. pomeriggio' },
-          { bg: '#EA580C', label: 'Indisp. tutto il giorno' },
-        ] as { bg: string; label: string; border?: string }[]).map(item => (
+          { bg: '#F59E0B', label: 'In proposta (calendario non accettato)' },
+          { bg: '#3B82F6', label: 'Confermata (calendario accettato)' },
+          { bg: '#10B981', label: 'Erogata (completata)' },
+          { bg: '#EF4444', label: 'Indisponibilità formatore' },
+        ] as { bg: string; label: string }[]).map(item => (
           <div key={item.label} className="flex items-center gap-1.5">
             <div
               className="w-3 h-3 rounded-sm shrink-0"
-              style={{ backgroundColor: item.bg, border: item.border ? `1px solid ${item.border}` : undefined }}
+              style={{ backgroundColor: item.bg }}
             />
             <span className="text-xs text-gray-500">{item.label}</span>
           </div>
@@ -573,9 +589,9 @@ function EventDetailModal({
             <div className="text-xs text-gray-400 mb-0.5">Stato</div>
             <span
               className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md text-white"
-              style={{ backgroundColor: event.completata ? '#1D9E75' : '#378ADD' }}
+              style={{ backgroundColor: event.completata ? '#10B981' : (event.calendario_confermato ? '#3B82F6' : '#F59E0B') }}
             >
-              {event.completata ? 'Completata' : 'Pianificata'}
+              {event.completata ? 'Erogata' : (event.calendario_confermato ? 'Confermata' : 'In proposta')}
             </span>
           </div>
           {event.formatore_nome && (

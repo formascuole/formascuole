@@ -2111,16 +2111,16 @@ export function CorsoDetailClient({
                           <svg width="10" height="10" fill="none" viewBox="0 0 24 24">
                             <polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
                           </svg>
-                          Completata
+                          Erogata
                         </span>
                         {s.completata_at && (
                           <span style={{ fontSize: '11px' }} className="text-gray-400 pl-0.5">Confermata il {formatDate(s.completata_at)}</span>
                         )}
                       </div>
-                    ) : isFuture ? (
-                      <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-blue-100 text-blue-700">Pianificata</span>
+                    ) : (calendarioConfermatoLocal || oreErogate > 0) ? (
+                      <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-blue-100 text-blue-700">Confermata</span>
                     ) : (
-                      <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-gray-100 text-gray-600">Da confermare</span>
+                      <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-amber-100 text-amber-700">In proposta</span>
                     )}
                     {canConfirm && (
                       <button

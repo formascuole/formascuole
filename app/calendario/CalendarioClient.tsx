@@ -19,6 +19,7 @@ export type SessioneRow = {
   modalita_sessione: string | null
   tipo: string | null
   corso_modalita: string | null
+  calendario_confermato: boolean | null
 }
 
 export type IndisponibilitaRow = {
@@ -73,6 +74,7 @@ export function CalendarioClient({
       modalita_sessione: s.modalita_sessione,
       tipo: s.tipo,
       corso_modalita: s.corso_modalita,
+      calendario_confermato: s.calendario_confermato,
     }))
 
     const indEvs: IndisponibilitaCalendarioEvent[] = (showIndisponibilita && !filterProgetto)
