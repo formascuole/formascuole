@@ -33,12 +33,13 @@ export default function LoginPage() {
     setResetLoading(true)
     setResetError('')
     const supabase = createClient()
-    const { error: resetErr } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-      redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
+    const { data: resetData, error: resetErr } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+      redirectTo: 'https://formascuole.vercel.app/auth/callback?next=/reset-password',
     })
+    console.log('reset email result:', { data: resetData, error: resetErr })
     setResetLoading(false)
     if (resetErr) {
-      setResetError('Email non trovata o errore nell\'invio. Contatta formazione@formascuole.it')
+      setResetError(`Errore nell'invio: ${resetErr.message}. Contatta formazione@formascuole.it`)
     } else {
       setResetSent(true)
     }
