@@ -272,31 +272,63 @@ export function ProgettoDetailClient({
     // ── Foglio 3: Calendario sessioni ─────────────────────────────
     const giorni = ['Domenica', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato']
     const corsoById = new Map(corsi.map(c => [c.id, c]))
-    const sessioniHeader = ['Corso', 'Formatore', 'Data', 'Giorno', 'Ora inizio', 'Ora fine', 'Ore', 'Stato']
-    const sorted = [...sessioni].sort((a, b) => {
-      const ca = corsoById.get(a.corso_id)?.title ?? ''
-      const cb = corsoById.get(b.corso_id)?.title ?? ''
-      if (ca !== cb) return ca.localeCompare(cb)
-      return a.data.localeCompare(b.data)
-    })
-    const sessioniRows = sorted.map(s => {
-      const corso = corsoById.get(s.corso_id)
-      const fmt = corso?.formatore as (Profile & { telefono?: string | null }) | undefined
-      const d = new Date(s.data + 'T00:00:00')
-      const dataIt = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
-      return [
-        corso?.title ?? '—',
-        fmt?.nome ?? '—',
-        dataIt,
-        giorni[d.getDay()],
-        s.ora_inizio ?? '—',
-        s.ora_fine ?? '—',
-        Number(s.ore),
-        s.completata ? 'Erogata' : 'Pianificata',
-      ]
-    })
-    const ws3 = XLSX.utils.aoa_to_sheet([sessioniHeader, ...sessioniRows])
-    ws3['!cols'] = [{ wch: 36 }, { wch: 22 }, { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 8 }, { wch: 14 }]
+    const tipoOrder: Record<string, number> = { PF: 0, Lab: 1, MF: 2 }
+    const sessioniByCorso = new Map<string, typeof sessioni>()
+    for (const s of sessioni) {
+      const arr = sessioniByCorso.get(s.corso_id) ?? []
+      arr.push(s)
+      sessioniByCorso.set(s.corso_id, arr)
+    }
+    const corsiConSessioni = [...sessioniByCorso.keys()]
+      .map(id => corsoById.get(id)!)
+      .filter(Boolean)
+      .sort((a, b) => {
+        const ta = tipoOrder[a.tipo ?? ''] ?? 99
+        const tb = tipoOrder[b.tipo ?? ''] ?? 99
+        if (ta !== tb) return ta - tb
+        return (a.title ?? '').localeCompare(b.title ?? '')
+      })
+    const ws3Rows: unknown[][] = []
+    const headerRowIndices: number[] = []
+    const sessionRowIndices: number[] = []
+    for (const corso of corsiConSessioni) {
+      const fmt = corso.formatore as (Profile & { telefono?: string | null }) | undefined
+      const edizione = (corso as CorsoConOre & { edizione?: string }).edizione
+      const titoloEdizione = edizione ? `${corso.title} — ${edizione}` : (corso.title ?? '—')
+      headerRowIndices.push(ws3Rows.length)
+      ws3Rows.push([titoloEdizione, corso.tipo ?? '—', fmt?.nome ?? '—', '', '', ''])
+      const corsoSessioni = (sessioniByCorso.get(corso.id) ?? []).sort((a, b) => a.data.localeCompare(b.data))
+      corsoSessioni.forEach((s, idx) => {
+        const d = new Date(s.data + 'T00:00:00')
+        const dataIt = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
+        const stato = s.completata ? 'Erogata' : (corso.calendario_confermato ? 'Confermata' : 'In proposta')
+        sessionRowIndices.push(ws3Rows.length)
+        ws3Rows.push([dataIt, giorni[d.getDay()], s.ora_inizio ?? '—', s.ora_fine ?? '—', Number(s.ore), stato, idx % 2 === 1 ? 'alt' : ''])
+      })
+      ws3Rows.push(['', '', '', '', '', ''])
+    }
+    const ws3 = XLSX.utils.aoa_to_sheet(ws3Rows.map(r => r.slice(0, 6)))
+    ws3['!cols'] = [{ wch: 42 }, { wch: 10 }, { wch: 22 }, { wch: 12 }, { wch: 8 }, { wch: 14 }]
+    const headerFill = { patternType: 'solid', fgColor: { rgb: '404040' } }
+    const headerFont = { bold: true, color: { rgb: 'FFFFFF' } }
+    const altFill = { patternType: 'solid', fgColor: { rgb: 'F0F0F0' } }
+    for (const ri of headerRowIndices) {
+      for (let ci = 0; ci < 6; ci++) {
+        const ref = XLSX.utils.encode_cell({ r: ri, c: ci })
+        if (!ws3[ref]) ws3[ref] = { t: 's', v: '' }
+        ws3[ref].s = { fill: headerFill, font: headerFont }
+      }
+    }
+    for (const ri of sessionRowIndices) {
+      const isAlt = (ws3Rows[ri] as unknown[])[6] === 'alt'
+      if (isAlt) {
+        for (let ci = 0; ci < 6; ci++) {
+          const ref = XLSX.utils.encode_cell({ r: ri, c: ci })
+          if (!ws3[ref]) ws3[ref] = { t: 's', v: '' }
+          ws3[ref].s = { fill: altFill }
+        }
+      }
+    }
     XLSX.utils.book_append_sheet(wb, ws3, 'Calendario sessioni')
 
     const safeName = progetto.school_name.replace(/[^a-zA-Z0-9À-ÿ]/g, '_').replace(/_+/g, '_')
