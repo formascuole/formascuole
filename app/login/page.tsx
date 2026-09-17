@@ -28,8 +28,8 @@ export default function LoginPage() {
     }
   }, [])
 
-  const handleResetPassword = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleResetPassword = async () => {
+    if (!resetEmail) return
     setResetLoading(true)
     setResetError('')
     const supabase = createClient()
@@ -149,25 +149,25 @@ export default function LoginPage() {
                     Email inviata! Controlla la tua casella di posta (anche la cartella spam).
                   </div>
                 ) : (
-                  <form onSubmit={handleResetPassword} className="space-y-2">
+                  <div className="space-y-2">
                     <Input
                       label=""
                       type="email"
                       placeholder="Inserisci la tua email"
                       value={resetEmail}
                       onChange={(e) => setResetEmail(e.target.value)}
-                      required
                       autoComplete="email"
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleResetPassword() } }}
                     />
                     {resetError && (
                       <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-[7px] px-3 py-2">
                         {resetError}
                       </div>
                     )}
-                    <Button type="submit" loading={resetLoading} size="sm" className="w-full">
+                    <Button type="button" onClick={handleResetPassword} loading={resetLoading} size="sm" className="w-full">
                       Invia link di reset
                     </Button>
-                  </form>
+                  </div>
                 )}
               </div>
             )}
