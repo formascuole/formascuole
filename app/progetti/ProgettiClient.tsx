@@ -54,6 +54,7 @@ export function ProgettiClient({ progetti, finanziamenti, partners, inAttesaProj
   const router = useRouter()
   const [search, setSearch] = useState('')
   const [filterFinId, setFilterFinId] = useState('')
+  const [filterSubappalto, setFilterSubappalto] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
@@ -97,6 +98,9 @@ export function ProgettiClient({ progetti, finanziamenti, partners, inAttesaProj
     if (filterFinId) {
       list = list.filter(p => (p as ProgettoConStats & { finanziamento_id?: string | null }).finanziamento_id === filterFinId)
     }
+    if (filterSubappalto) {
+      list = list.filter(p => (p as ProgettoConStats & { is_subappalto?: boolean | null }).is_subappalto === true)
+    }
     if (!search.trim()) return list
     const q = search.toLowerCase()
     return list.filter(p =>
@@ -106,7 +110,7 @@ export function ProgettiClient({ progetti, finanziamenti, partners, inAttesaProj
       (p.anno_scolastico || '').includes(q) ||
       p.ref_name.toLowerCase().includes(q)
     )
-  }, [progetti, search, filterFinId, inAttesaSet])
+  }, [progetti, search, filterFinId, filterSubappalto, inAttesaSet])
 
   const toggleSelect = (id: string) => setSelectedIds((prev: Set<string>) => {
     const next = new Set(prev)
@@ -249,7 +253,16 @@ export function ProgettiClient({ progetti, finanziamenti, partners, inAttesaProj
             ))}
           </select>
         )}
-        {(search || filterFinId) && (
+        <label className="flex items-center gap-2 cursor-pointer select-none">
+          <div
+            onClick={() => setFilterSubappalto(v => !v)}
+            className={`relative w-8 h-4 rounded-full transition-colors ${filterSubappalto ? 'bg-[#d64b55]' : 'bg-gray-200'}`}
+          >
+            <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-transform ${filterSubappalto ? 'translate-x-4' : 'translate-x-0.5'}`} />
+          </div>
+          <span className="text-sm text-gray-600">Solo subappalto</span>
+        </label>
+        {(search || filterFinId || filterSubappalto) && (
           <span className="text-xs text-gray-400">{filtered.length} risultat{filtered.length === 1 ? 'o' : 'i'}</span>
         )}
       </div>
@@ -261,7 +274,7 @@ export function ProgettiClient({ progetti, finanziamenti, partners, inAttesaProj
             <path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" stroke="currentColor" strokeWidth="1.5"/>
           </svg>
           <p className="text-sm">Nessun progetto trovato</p>
-          {(search || filterFinId) && <p className="text-xs mt-1">Prova a modificare i filtri</p>}
+          {(search || filterFinId || filterSubappalto) && <p className="text-xs mt-1">Prova a modificare i filtri</p>}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
