@@ -345,8 +345,13 @@ export function ProgettoDetailClient({
   const [newMsg, setNewMsg] = useState('')
   const [sendingMsg, setSendingMsg] = useState(false)
   const chatBottomRef = useRef<HTMLDivElement>(null)
+  const chatMountedRef = useRef(false)
 
   useEffect(() => {
+    if (!chatMountedRef.current) {
+      chatMountedRef.current = true
+      return
+    }
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messaggi])
 
