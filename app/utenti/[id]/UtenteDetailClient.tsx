@@ -1,5 +1,6 @@
 'use client'
 import { useState, useMemo } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Profile, CorsoConOre, UserRole, QuestionarioRisultato, Tag } from '@/lib/types'
@@ -125,6 +126,24 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
   const [deleteConfirmEmail, setDeleteConfirmEmail] = useState('')
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [deleteError, setDeleteError] = useState('')
+
+  const [resetLoading, setResetLoading] = useState(false)
+  const [resetMsg, setResetMsg] = useState('')
+
+  const handleSendPasswordReset = async () => {
+    setResetLoading(true)
+    setResetMsg('')
+    const supabase = createClient()
+    const { error } = await supabase.auth.resetPasswordForEmail(profile.email, {
+      redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
+    })
+    setResetLoading(false)
+    if (error) {
+      setResetMsg(`Errore nell'invio. Contatta il supporto tecnico.`)
+    } else {
+      setResetMsg(`Email di reset inviata a ${profile.email}`)
+    }
+  }
 
   // Skills state
   const [localSkills, setLocalSkills] = useState<Tag[]>(skills)
@@ -671,6 +690,47 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
           )}
         </div>
       </Modal>
+
+      {/* Reset password */}
+      {isAdmin && (
+        <div className="mt-6 border border-gray-200 rounded-xl p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h3 className="font-semibold text-gray-700 text-sm">Accesso account</h3>
+              <p className="text-xs text-gray-400 mt-0.5">Invia un&apos;email di reset password all&apos;utente</p>
+            </div>
+          </div>
+          <div className="mt-4 flex items-center justify-between gap-4">
+            <div>
+              <div className="text-sm font-medium text-gray-700">Reset password</div>
+              <div className="text-xs text-gray-400 mt-0.5">L&apos;utente riceverà un link per impostare una nuova password</div>
+            </div>
+            <button
+              onClick={handleSendPasswordReset}
+              disabled={resetLoading}
+              className="shrink-0 inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-[7px] text-white transition-colors disabled:opacity-50"
+              style={{ backgroundColor: '#3B82F6' }}
+            >
+              {resetLoading ? (
+                <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                </svg>
+              ) : (
+                <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
+                  <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              )}
+              Invia reset password
+            </button>
+          </div>
+          {resetMsg && (
+            <div className={`mt-3 text-sm rounded-[7px] px-3 py-2 border ${resetMsg.startsWith('Errore') ? 'text-red-600 bg-red-50 border-red-200' : 'text-green-700 bg-green-50 border-green-200'}`}>
+              {resetMsg}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Zona pericolosa */}
       {canDelete && (

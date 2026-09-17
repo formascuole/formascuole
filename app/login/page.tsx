@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -9,6 +9,40 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [successMsg, setSuccessMsg] = useState('')
+
+  // Password reset state
+  const [showReset, setShowReset] = useState(false)
+  const [resetEmail, setResetEmail] = useState('')
+  const [resetLoading, setResetLoading] = useState(false)
+  const [resetSent, setResetSent] = useState(false)
+  const [resetError, setResetError] = useState('')
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('msg') === 'password-aggiornata') {
+      setSuccessMsg('Password aggiornata con successo! Puoi ora accedere.')
+    }
+    if (params.get('error')) {
+      setError(decodeURIComponent(params.get('error')!))
+    }
+  }, [])
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setResetLoading(true)
+    setResetError('')
+    const supabase = createClient()
+    const { error: resetErr } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+      redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
+    })
+    setResetLoading(false)
+    if (resetErr) {
+      setResetError('Email non trovata o errore nell\'invio. Contatta formazione@formascuole.it')
+    } else {
+      setResetSent(true)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -82,15 +116,66 @@ export default function LoginPage() {
               required
               autoComplete="email"
             />
-            <Input
-              label="Password"
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              autoComplete="current-password"
-            />
+            <div>
+              <Input
+                label="Password"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+              />
+              <div className="mt-1.5 text-right">
+                <button
+                  type="button"
+                  onClick={() => { setShowReset(v => !v); setResetSent(false); setResetError('') }}
+                  className="text-xs text-gray-400 hover:text-[#d64b55] transition-colors"
+                >
+                  Hai dimenticato la password?
+                </button>
+              </div>
+            </div>
+
+            {/* Password reset panel */}
+            {showReset && (
+              <div className="rounded-[7px] border border-gray-200 bg-gray-50 p-4 space-y-3">
+                <p className="text-xs text-gray-500">
+                  Riceverai un&apos;email con il link per reimpostare la password.
+                </p>
+                {resetSent ? (
+                  <div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-[7px] px-3 py-2">
+                    Email inviata! Controlla la tua casella di posta (anche la cartella spam).
+                  </div>
+                ) : (
+                  <form onSubmit={handleResetPassword} className="space-y-2">
+                    <Input
+                      label=""
+                      type="email"
+                      placeholder="Inserisci la tua email"
+                      value={resetEmail}
+                      onChange={(e) => setResetEmail(e.target.value)}
+                      required
+                      autoComplete="email"
+                    />
+                    {resetError && (
+                      <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-[7px] px-3 py-2">
+                        {resetError}
+                      </div>
+                    )}
+                    <Button type="submit" loading={resetLoading} size="sm" className="w-full">
+                      Invia link di reset
+                    </Button>
+                  </form>
+                )}
+              </div>
+            )}
+
+            {successMsg && (
+              <div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-[7px] px-3 py-2">
+                {successMsg}
+              </div>
+            )}
             {error && (
               <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-[7px] px-3 py-2">
                 {error}

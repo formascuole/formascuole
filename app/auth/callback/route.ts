@@ -21,6 +21,11 @@ export async function GET(request: Request) {
     const supabase = await createClient()
     const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
     if (!exchangeError) {
+      // If an explicit next destination was provided (e.g. /reset-password), honour it
+      if (next && next.startsWith('/') && next !== '/') {
+        const safeNext = next.startsWith('/') ? next : '/'
+        return NextResponse.redirect(`${origin}${safeNext}`)
+      }
       // Code exchanged successfully — determine destination by role
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {

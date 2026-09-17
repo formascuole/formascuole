@@ -37,7 +37,8 @@ export async function middleware(request: NextRequest) {
     pathname === '/auth/callback' ||        // Supabase PKCE / email confirmation
     pathname.startsWith('/auth/') ||
     pathname.startsWith('/assegnazioni/') ||       // token-based public acceptance page
-    pathname.startsWith('/pre-assegnazioni/')       // token-based public pre-assignment page
+    pathname.startsWith('/pre-assegnazioni/') ||   // token-based public pre-assignment page
+    pathname === '/reset-password'                  // password reset (session set by auth callback)
   ) {
     return supabaseResponse
   }
