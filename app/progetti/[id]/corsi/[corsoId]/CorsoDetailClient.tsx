@@ -239,6 +239,7 @@ export function CorsoDetailClient({
   const [assigningId, setAssigningId] = useState<string | null>(null)
   const [assigningReferente, setAssigningReferente] = useState(false)
   const [assignError, setAssignError] = useState<string | null>(null)
+  const [letteraBlock, setLetteraBlock] = useState<{ errorCode: string; formatoreName: string } | null>(null)
 
   // Tariffa mancante modal state
   interface TariffaMancanteInfo {
@@ -643,11 +644,18 @@ export function CorsoDetailClient({
   }
 
   const handleRemoveFormatore = async () => {
-    await fetch(`/api/corsi/${corso.id}/formatore`, {
+    const res = await fetch(`/api/corsi/${corso.id}/formatore`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ formatore_id: null }),
     })
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}))
+      if (j.error === 'LETTERA_FIRMATA' || j.error === 'LETTERA_GENERATA') {
+        setLetteraBlock({ errorCode: j.error, formatoreName: corso.formatore?.nome ?? '—' })
+        return
+      }
+    }
     router.refresh()
   }
 
@@ -3205,6 +3213,44 @@ export function CorsoDetailClient({
           )}
         </div>
       </Modal>
+
+      {/* Lettera blocco modal */}
+      {letteraBlock && (
+        <Modal
+          open
+          onClose={() => setLetteraBlock(null)}
+          title={letteraBlock.errorCode === 'LETTERA_FIRMATA' ? '⚠️ Lettera d\'incarico firmata' : '⚠️ Lettera d\'incarico presente'}
+          size="sm"
+          footer={<Button variant="secondary" onClick={() => setLetteraBlock(null)}>Chiudi</Button>}
+        >
+          {letteraBlock.errorCode === 'LETTERA_FIRMATA' ? (
+            <div className="space-y-3 text-sm text-gray-700">
+              <p>Il formatore <strong>{letteraBlock.formatoreName}</strong> ha già firmato la lettera d&apos;incarico per questo corso.</p>
+              <div className="bg-amber-50 border border-amber-200 rounded-[7px] p-3 space-y-1">
+                <p className="font-medium text-amber-800 text-xs uppercase tracking-wide">Per rimuoverlo correttamente:</p>
+                <ol className="list-decimal list-inside text-xs text-amber-700 space-y-0.5">
+                  <li>Scorri in basso alla sezione &quot;Formatore assegnato&quot;</li>
+                  <li>Clicca il bottone <strong>Registra rinuncia formatore</strong></li>
+                  <li>Inserisci il motivo della rinuncia</li>
+                </ol>
+              </div>
+              <p className="text-xs text-gray-400">Questo processo annullerà correttamente la lettera d&apos;incarico e notificherà il formatore.</p>
+            </div>
+          ) : (
+            <div className="space-y-3 text-sm text-gray-700">
+              <p>Il formatore <strong>{letteraBlock.formatoreName}</strong> ha una lettera d&apos;incarico generata ma non ancora firmata.</p>
+              <div className="bg-amber-50 border border-amber-200 rounded-[7px] p-3 space-y-1">
+                <p className="font-medium text-amber-800 text-xs uppercase tracking-wide">Per rimuoverlo correttamente:</p>
+                <ol className="list-decimal list-inside text-xs text-amber-700 space-y-0.5">
+                  <li>Scorri in basso alla sezione <strong>Lettera d&apos;incarico</strong></li>
+                  <li>Clicca <strong>Annulla lettera</strong> oppure usa <strong>Registra rinuncia</strong></li>
+                  <li>Poi potrai rimuovere il formatore</li>
+                </ol>
+              </div>
+            </div>
+          )}
+        </Modal>
+      )}
 
       {/* Formatore Picker Modal */}
       <Modal

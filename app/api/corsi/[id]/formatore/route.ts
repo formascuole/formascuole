@@ -38,6 +38,29 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
   }
 
+  // When removing the formatore, check for lettera d'incarico
+  if (!formatore_id) {
+    const { data: corsoCheck } = await adminClient
+      .from('corsi')
+      .select('lettera_incarico_firmata, lettera_incarico_url')
+      .eq('id', id)
+      .single()
+
+    if (corsoCheck?.lettera_incarico_firmata) {
+      return NextResponse.json({
+        error: 'LETTERA_FIRMATA',
+        message: 'Impossibile rimuovere il formatore — la lettera d\'incarico è già stata firmata digitalmente. Per gestire questa situazione vai alla scheda corso e usa il bottone \'Registra rinuncia\' nella sezione del formatore.',
+      }, { status: 422 })
+    }
+
+    if (corsoCheck?.lettera_incarico_url) {
+      return NextResponse.json({
+        error: 'LETTERA_GENERATA',
+        message: 'Il formatore ha una lettera d\'incarico già generata (non ancora firmata). Rimuovendo il formatore la lettera verrà annullata automaticamente. Per procedere usa il bottone \'Registra rinuncia\' nella scheda corso oppure annulla prima la lettera dalla sezione \'Lettera d\'incarico\'.',
+      }, { status: 422 })
+    }
+  }
+
   const updateData = formatore_id
     ? {
         formatore_id,
