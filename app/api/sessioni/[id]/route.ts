@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { generateModificaSessioneEmail, sendEmail } from '@/lib/email'
 import { maybeNotificaCalendarioCompleto, maybeNotificaCorsoConcluso } from '@/lib/notifiche-corso'
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -172,33 +171,27 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (oreChanged) logRows.push({ ...logBase, tipo_modifica: 'modifica_ore', ore_precedenti: Number(sessione.ore), ore_nuove: Number(newOre) })
   if (logRows.length > 0) await adminQ.from('sessioni_log').insert(logRows)
 
-  // Notify all admins when modified by formatore
+  // Accumulate in digest log when modified by formatore (admin email sent at 21:00)
   if (!isAdmin) {
-    const [{ data: corsoInfo }, { data: admins }] = await Promise.all([
-      adminQ.from('corsi').select('title, project_id').eq('id', sessione.corso_id).single(),
-      adminQ.from('profiles').select('email').in('role', ['admin', 'super_admin']),
-    ])
-    const { data: progettoInfo } = corsoInfo
-      ? await adminQ.from('progetti').select('school_name').eq('id', corsoInfo.project_id).single()
+    const { data: corsoInfo } = await adminQ.from('corsi').select('title, project_id').eq('id', sessione.corso_id).single()
+    const { data: progettoInfo } = corsoInfo?.project_id
+      ? await adminQ.from('progetti').select('school_name').eq('id', corsoInfo.project_id as string).single()
       : { data: null }
 
     if (corsoInfo && progettoInfo && profile) {
-      const corsoUrl = `${process.env.NEXT_PUBLIC_APP_URL}/progetti/${corsoInfo.project_id}/corsi/${sessione.corso_id}`
-      const { subject, body: emailBody } = await generateModificaSessioneEmail({
-        formatore_nome: profile.nome,
-        corso_title: corsoInfo.title,
-        school_name: progettoInfo.school_name,
-        data_precedente: dateChanged ? (sessione.data as string) : undefined,
-        data_nuova: dateChanged ? newData : undefined,
-        ore_precedenti: oreChanged ? Number(sessione.ore) : undefined,
-        ore_nuove: oreChanged ? Number(newOre) : undefined,
-        motivazione_categoria,
-        motivazione_dettaglio: motivazione_dettaglio?.trim() || undefined,
-        corso_admin_url: corsoUrl,
+      void adminQ.from('admin_digest_log').insert({
+        tipo: 'sessione_modificata',
+        payload: {
+          corso_id: sessione.corso_id,
+          titolo_corso: corsoInfo.title,
+          scuola: progettoInfo.school_name,
+          formatore: profile.nome,
+          data_sessione: dateChanged ? newData : (sessione.data as string),
+          ora_vecchia: oreChanged ? `${sessione.ore}h` : undefined,
+          ora_nuova: oreChanged ? `${newOre}h` : undefined,
+          motivazione: motivazione_dettaglio?.trim() || motivazione_categoria || undefined,
+        },
       })
-      await Promise.allSettled(
-        (admins || []).map(a => sendEmail({ to: a.email, subject, body: emailBody, actions: [{ label: 'Vedi corso', url: corsoUrl, primary: true }] }))
-      )
     }
   }
 

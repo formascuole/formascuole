@@ -4,7 +4,6 @@ import QRCode from 'qrcode'
 import {
   generateSollecitoEmail,
   generateSollecitoAccettazioneEmail,
-  generateRispostaFormatoreEmail,
   generateReminderSessioneEmail,
   generateReminderQuestionarioEmail,
   generateCandidaturaDisponibileEmail,
@@ -95,32 +94,18 @@ export async function GET(request: NextRequest) {
           })
           .eq('id', corso.id)
 
-        // Notify all admins
+        // Accumulate in digest log (admin email sent at 21:00)
         if (formatore && progetto) {
-          const { data: admins } = await supabase
-            .from('profiles')
-            .select('email')
-            .in('role', ['admin', 'super_admin'])
-
-          try {
-            const emailBody = await generateRispostaFormatoreEmail({
-              formatore_nome: formatore.nome,
-              corso_title: corso.title,
-              school_name: progetto.school_name,
-              risposta: 'rifiutato',
-              motivazione: `Nessuna risposta entro 48 ore — corso rimesso disponibile automaticamente`,
-              corso_admin_url: `${APP_URL}/progetti/${corso.project_id}/corsi/${corso.id}`,
-            })
-
-            for (const a of admins || []) {
-              sendEmail({
-                to: a.email,
-                subject: `Formascuole — Nessuna risposta da ${formatore.nome}: ${corso.title} rimesso disponibile`,
-                body: emailBody,
-                actions: [{ label: 'Riassegna il corso', url: `${APP_URL}/progetti/${corso.project_id}/corsi/${corso.id}`, primary: true }],
-              }).catch(() => {})
-            }
-          } catch { /* ignore email errors */ }
+          void supabase.from('admin_digest_log').insert({
+            tipo: 'nessuna_risposta',
+            payload: {
+              corso_id: corso.id,
+              titolo_corso: corso.title,
+              scuola: progetto.school_name,
+              formatore: formatore.nome,
+              data_invio_notifica: corso.accettazione_richiesta_at,
+            },
+          })
         }
 
         accettazioneResults.push({ corso_id: corso.id, action: 'auto_reset_48h' })
@@ -848,24 +833,18 @@ Il team Formascuole`
           byProgetto.get(key)!.push(c)
         }
 
-        const { data: admins } = await supabase
-          .from('profiles')
-          .select('email')
-          .in('role', ['admin', 'super_admin'])
-        const adminEmails = (admins || []).map(a => a.email as string).filter(Boolean)
-
         for (const [progettoId, corsiRisposta] of byProgetto) {
           try {
-            // De-duplication: send at most one riepilogo per project per calendar day
-            const { data: alreadySent } = await supabase
+            // De-duplication: insert at most once per project per calendar day
+            const { data: alreadyLogged } = await supabase
               .from('solleciti_log')
               .select('id')
               .eq('corso_id', progettoId)
               .eq('tipo', 'riepilogo_accettazioni')
               .gte('sent_at', `${todayStr}T00:00:00Z`)
               .maybeSingle()
-            if (alreadySent) {
-              riepilogoResults.push({ project_id: progettoId, action: 'already_sent_today' })
+            if (alreadyLogged) {
+              riepilogoResults.push({ project_id: progettoId, action: 'already_logged_today' })
               continue
             }
 
@@ -888,60 +867,23 @@ Il team Formascuole`
               : { data: [] }
             const nomeFmt = new Map((formatori || []).map(f => [f.id as string, f.nome as string]))
 
-            const accettati = corsiRisposta.filter(c => c.stato_assegnazione === 'accettato')
-            const rifiutati = corsiRisposta.filter(c => c.stato_assegnazione === 'rifiutato')
-            const todayFmt = now.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' })
-
-            const lines: string[] = [
-              `Riepilogo delle risposte ricevute oggi per il progetto presso ${progetto.school_name}:`,
-              '',
-            ]
-
-            if (accettati.length > 0) {
-              lines.push('✅ ACCETTATI:')
-              for (const c of accettati) {
-                lines.push(`  - ${nomeFmt.get(c.formatore_id as string) ?? '—'} — ${c.title} — ${c.ore_totali}h`)
-              }
-              lines.push('')
+            // Insert one digest record per corso with response
+            const digestRows = corsiRisposta.map(c => ({
+              tipo: 'accettazione_corso',
+              payload: {
+                corso_id: c.id,
+                titolo_corso: c.title,
+                scuola: progetto.school_name,
+                formatore: nomeFmt.get(c.formatore_id as string) ?? '—',
+                risposta: c.stato_assegnazione as string,
+                motivazione: c.rifiuto_motivazione as string | null ?? undefined,
+              },
+            }))
+            if (digestRows.length > 0) {
+              await supabase.from('admin_digest_log').insert(digestRows)
             }
 
-            if (rifiutati.length > 0) {
-              lines.push('❌ RIFIUTATI:')
-              for (const c of rifiutati) {
-                lines.push(`  - ${nomeFmt.get(c.formatore_id as string) ?? '—'} — ${c.title} — ${c.ore_totali}h`)
-                if (c.rifiuto_motivazione) lines.push(`    Motivazione: ${c.rifiuto_motivazione}`)
-              }
-              lines.push('')
-            }
-
-            if ((corsiInAttesa || []).length > 0) {
-              lines.push('⏳ ANCORA IN ATTESA:')
-              for (const c of corsiInAttesa || []) {
-                const dataInvio = c.accettazione_richiesta_at
-                  ? new Date(c.accettazione_richiesta_at as string).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' })
-                  : '—'
-                lines.push(`  - ${nomeFmt.get(c.formatore_id as string) ?? '—'} — ${c.title} — ${c.ore_totali}h`)
-                lines.push(`    (inviato il ${dataInvio})`)
-              }
-              lines.push('')
-            }
-
-            const progettoUrl = `${APP_URL}/progetti/${progettoId}`
-            lines.push(`Accedi alla piattaforma per gestire le assegnazioni:\n${progettoUrl}`)
-
-            const subject = `Riepilogo accettazioni — ${progetto.school_name} — ${todayFmt}`
-            const body = lines.join('\n')
-
-            for (const email of adminEmails) {
-              await sendEmail({
-                to: email,
-                subject,
-                body,
-                actions: [{ label: 'Gestisci assegnazioni', url: progettoUrl, primary: true }],
-              }).catch(() => {})
-            }
-
-            // Log so subsequent cron runs skip this project today
+            // Mark as logged to prevent duplicate inserts on subsequent cron runs today
             const { data: firstAdmin } = await supabase
               .from('profiles').select('id').in('role', ['admin', 'super_admin']).limit(1).single()
             if (firstAdmin) {
@@ -954,7 +896,7 @@ Il team Formascuole`
 
             riepilogoResults.push({
               project_id: progettoId,
-              action: `sent (${accettati.length} acc, ${rifiutati.length} rif, ${(corsiInAttesa || []).length} att)`,
+              action: `logged (${corsiRisposta.length} risposte)`,
             })
           } catch (err) {
             console.error('[cron] Riepilogo failed for project', progettoId, err)

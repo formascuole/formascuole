@@ -186,43 +186,26 @@ Il team Formascuole`
       }
     }
 
-    // ── EMAIL RIEPILOGATIVA ADMIN (una sola email con tutti i corsi) ───────────
+    // ── DIGEST LOG ADMIN (corsi inclusi nel riepilogo delle 21:00) ────────────
     if (corsiDaEmailAdmin.length > 0) {
-      const { data: admins } = await supabase
-        .from('profiles')
-        .select('email')
-        .in('role', ['admin', 'super_admin'])
-
-      const adminEmails = (admins || []).map(a => a.email as string).filter(Boolean)
-      const dateFmt = now.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' })
-
-      const elenco = corsiDaEmailAdmin
-        .map(c => `• ${c.title} — ${c.school_name} — ${c.formatore_nome} — ${c.ore_erogate}h su ${c.ore_totali}h erogate`)
-        .join('\n')
-
-      const adminBody = `Riepilogo corsi con ultima sessione oggi non ancora segnati come completati:
-
-${elenco}
-
-Totale: ${corsiDaEmailAdmin.length} ${corsiDaEmailAdmin.length === 1 ? 'corso da concludere' : 'corsi da concludere'}
-
-Accedi alla piattaforma per verificare lo stato dei corsi:
-${APP_URL}`
-
-      for (const email of adminEmails) {
-        sendEmail({
-          to: email,
-          subject: `Corsi da concludere oggi — ${dateFmt}`,
-          body: adminBody,
-          actions: [{ label: 'Vai ai corsi', url: APP_URL, primary: true }],
-        }).catch(() => {})
-      }
+      const digestRows = corsiDaEmailAdmin.map(c => ({
+        tipo: 'corso_da_concludere',
+        payload: {
+          corso_id: c.corso_id,
+          titolo_corso: c.title,
+          scuola: c.school_name,
+          formatore: c.formatore_nome,
+          ore_erogate: c.ore_erogate,
+          ore_totali: c.ore_totali,
+        },
+      }))
+      await supabase.from('admin_digest_log').insert(digestRows)
     }
 
     return NextResponse.json({
       success: true,
       corsi_trovati: corsiEleggibili.length,
-      email_admin_sent: corsiDaEmailAdmin.length > 0,
+      digest_log_added: corsiDaEmailAdmin.length,
       results,
       timestamp: now.toISOString(),
     })
