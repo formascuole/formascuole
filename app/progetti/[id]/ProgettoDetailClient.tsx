@@ -2058,7 +2058,7 @@ export function ProgettoDetailClient({
               <Button
                 onClick={handleAddCorso}
                 loading={savingCorso}
-                disabled={!corsoForm.title || !corsoForm.ore_totali || (corsoForm.tipo === 'PF' && !corsoForm.modalita) || (corsoForm.tutor_previsto && !corsoForm.tutor_nome) || (['residenziale', 'semi_residenziale'].includes(corsoForm.modalita) && !corsoForm.location.trim())}
+                disabled={!corsoForm.title || !corsoForm.ore_totali || (corsoForm.tipo === 'PF' && !corsoForm.modalita) || (['residenziale', 'semi_residenziale'].includes(corsoForm.modalita) && !corsoForm.location.trim())}
               >
                 Aggiungi corso
               </Button>
@@ -2204,7 +2204,7 @@ export function ProgettoDetailClient({
                 </label>
                 {corsoForm.tutor_previsto && (
                   <div className="grid grid-cols-2 gap-3 pl-6">
-                    <Input label="Nome tutor *" value={corsoForm.tutor_nome} onChange={e => setCorsoForm(f => ({ ...f, tutor_nome: e.target.value }))} placeholder="Es. Anna Verdi" />
+                    <Input label="Nome tutor" value={corsoForm.tutor_nome} onChange={e => setCorsoForm(f => ({ ...f, tutor_nome: e.target.value }))} placeholder="Es. Anna Verdi (opzionale)" />
                     <Input label="Ore tutoraggio" type="number" min={1} value={corsoForm.ore_tutoraggio} onChange={e => setCorsoForm(f => ({ ...f, ore_tutoraggio: e.target.value }))} placeholder="Es. 10" />
                   </div>
                 )}
