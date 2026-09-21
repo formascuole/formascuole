@@ -1675,39 +1675,50 @@ export function CorsoDetailClient({
         </div>
       )}
 
-      {/* Tutor — shown for all PF courses */}
-      {corso.tipo === 'PF' && (
+      {/* Tutor — shown when tutor_previsto = true */}
+      {corso.tutor_previsto && (
         <div className="bg-white rounded-xl p-6 mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
           <h2 className="font-semibold text-gray-900 mb-4">Tutor assegnato</h2>
           {corso.tutor ? (
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
               <div className="flex items-center gap-3">
                 <Avatar nome={corso.tutor.nome} id={corso.tutor.id} initials={corso.tutor.avatar_initials} size="lg" />
                 <div>
                   <div className="font-medium text-gray-900">{corso.tutor.nome}</div>
                   <a href={`mailto:${corso.tutor.email}`} className="text-sm text-blue-600 hover:underline">{corso.tutor.email}</a>
+                  {(corso.tutor as Profile & { telefono?: string | null }).telefono && (
+                    <div className="text-sm text-gray-500">
+                      <a href={telHref((corso.tutor as Profile & { telefono?: string | null }).telefono!)} className="hover:underline">
+                        {(corso.tutor as Profile & { telefono?: string | null }).telefono}
+                      </a>
+                    </div>
+                  )}
                 </div>
               </div>
               {isAdmin && (
                 <div className="flex gap-2">
-                  <Button variant="secondary" size="sm" onClick={() => setTutorePickerOpen(true)}>Cambia</Button>
-                  <Button variant="danger" size="sm" onClick={handleRemoveTutor}>Rimuovi</Button>
+                  <Button variant="secondary" size="sm" onClick={() => setTutorePickerOpen(true)}>Cambia tutor</Button>
+                  <Button variant="danger" size="sm" onClick={handleRemoveTutor}>Rimuovi tutor</Button>
                 </div>
               )}
             </div>
           ) : (
-            <div className="flex items-center justify-between py-2">
+            <div className="flex items-center justify-between py-2 gap-3 flex-wrap">
               <p className="text-sm text-gray-400">
                 Nessun tutor assegnato.{corso.tutor_nome && <span className="text-gray-500"> ({corso.tutor_nome})</span>}
               </p>
-              {isAdmin && <Button size="sm" onClick={() => setTutorePickerOpen(true)}>Assegna Tutor</Button>}
+              {isAdmin && (
+                <Button size="sm" onClick={() => setTutorePickerOpen(true)}>
+                  Assegna tutor
+                </Button>
+              )}
             </div>
           )}
         </div>
       )}
 
       {/* Ore tutor section */}
-      {corso.tipo === 'PF' && corso.tutor && oreTutoraggio > 0 && (
+      {corso.tutor_previsto && corso.tutor && oreTutoraggio > 0 && (
         <div className="bg-white rounded-xl p-6 mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
           <h2 className="font-semibold text-gray-900 mb-4">Ore tutoraggio</h2>
           <div className="grid grid-cols-4 gap-4">
