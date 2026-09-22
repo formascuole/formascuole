@@ -20,18 +20,24 @@ export default async function DashboardPage() {
   thisMonthStart.setDate(1)
   thisMonthStart.setHours(0, 0, 0, 0)
 
+  const isSuperAdmin = profile.role === 'super_admin'
+
   const [
     { data: progettiRaw },
     { data: corsiRaw },
     { data: sessioniRaw },
     { data: finanziamentiRaw },
     notifiche,
+    { count: formatoriSenzaPrivacyCount },
   ] = await Promise.all([
     admin.from('progetti_con_stats').select('*').order('created_at', { ascending: false }),
     admin.from('corsi').select('id, project_id, formatore_id, tutor_previsto, ore_tutoraggio, ore_totali, calendario_inviato_at, calendario_confermato, stato_assegnazione, accettazione_risposta_at, finanziamento_id'),
     admin.from('sessioni').select('corso_id, ore, completata'),
     admin.from('finanziamenti').select('id, nome').eq('attivo', true).order('nome'),
     getUnreadNotificheCount(supabase, user.id),
+    isSuperAdmin
+      ? admin.from('profiles').select('id', { count: 'exact', head: true }).in('role', ['formatore', 'tutor']).eq('privacy_accettata', false)
+      : Promise.resolve({ count: 0 }),
   ])
 
   const progetti = (progettiRaw || []) as ProgettoConStats[]
@@ -91,6 +97,8 @@ export default async function DashboardPage() {
         orePianificatePerCorso={orePianificatePerCorso}
         oreErogatePerProgetto={oreErogatePerProgetto}
         thisMonthStart={thisMonthStart.toISOString()}
+        isSuperAdmin={isSuperAdmin}
+        formatoriSenzaPrivacy={formatoriSenzaPrivacyCount ?? 0}
       />
     </AppLayout>
   )

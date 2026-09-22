@@ -48,6 +48,9 @@ export interface Profile {
   cf_url?: string | null
   cf_uploaded_at?: string | null
   documenti_completi?: boolean | null
+  privacy_accettata?: boolean | null
+  privacy_accettata_at?: string | null
+  privacy_accettata_ip?: string | null
 }
 
 export interface Partner {

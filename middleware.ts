@@ -76,22 +76,32 @@ export async function middleware(request: NextRequest) {
   }
 
   // ── Onboarding redirect for formatori/tutori ───────────────────────────
-  // /onboarding is exempt to avoid an infinite redirect loop.
-  // We query only 3 columns by PK — the smallest possible footprint.
+  // /onboarding (all sub-paths) is exempt to avoid an infinite redirect loop.
+  // We query only 4 columns by PK — the smallest possible footprint.
   // On DB error we silently let through; the page itself handles auth.
   if (!pathname.startsWith('/onboarding')) {
     try {
       const { data: profile } = await supabase
         .from('profiles')
-        .select('role, password_cambiata, profilo_completo')
+        .select('role, privacy_accettata, password_cambiata, profilo_completo')
         .eq('id', user.id)
         .single()
 
       if (profile && (profile.role === 'formatore' || profile.role === 'tutor')) {
+        const url = request.nextUrl.clone()
+        url.search = ''
+        // Step 0: privacy must be accepted first
+        if (!profile.privacy_accettata) {
+          url.pathname = '/onboarding/privacy'
+          const res = NextResponse.redirect(url)
+          supabaseResponse.cookies.getAll().forEach(({ name, value }) =>
+            res.cookies.set(name, value)
+          )
+          return res
+        }
+        // Steps 1-2: password + profilo
         if (!profile.password_cambiata || !profile.profilo_completo) {
-          const url = request.nextUrl.clone()
           url.pathname = '/onboarding'
-          url.search = ''
           const res = NextResponse.redirect(url)
           supabaseResponse.cookies.getAll().forEach(({ name, value }) =>
             res.cookies.set(name, value)

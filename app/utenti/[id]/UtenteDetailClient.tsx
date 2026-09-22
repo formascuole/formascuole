@@ -296,6 +296,11 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
                       return <span className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md bg-red-100 text-red-700">Documenti mancanti ({nMissing}/3)</span>
                     })()
               )}
+              {(profile.roles.includes('formatore') || profile.roles.includes('tutor')) && (
+                profile.privacy_accettata
+                  ? <span className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md bg-green-100 text-green-700">✓ Privacy accettata</span>
+                  : <span className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md bg-red-100 text-red-700">Privacy non accettata</span>
+              )}
             </div>
           </div>
           <div className="flex flex-col items-end gap-3 shrink-0">

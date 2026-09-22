@@ -44,6 +44,8 @@ interface DashboardClientProps {
   orePianificatePerCorso: Record<string, number>
   oreErogatePerProgetto: Record<string, number>
   thisMonthStart: string
+  isSuperAdmin?: boolean
+  formatoriSenzaPrivacy?: number
 }
 
 export function DashboardClient({
@@ -54,8 +56,12 @@ export function DashboardClient({
   orePianificatePerCorso,
   oreErogatePerProgetto,
   thisMonthStart,
+  isSuperAdmin = false,
+  formatoriSenzaPrivacy = 0,
 }: DashboardClientProps) {
   const [filterFinId, setFilterFinId] = useState('')
+  const [privacyBannerDismissed, setPrivacyBannerDismissed] = useState(false)
+  const [privacySollecito, setPrivacySollecito] = useState<'idle' | 'sending' | 'done' | 'error'>('idle')
 
   const finMap = useMemo(() => new Map(finanziamenti.map(f => [f.id, f.nome])), [finanziamenti])
 
@@ -137,8 +143,53 @@ export function DashboardClient({
 
   const selectCls = 'text-sm border border-gray-200 rounded-[7px] px-3 py-1.5 focus:outline-none focus:border-[#d64b55] bg-white'
 
+  async function handleSollecitoPrivacy() {
+    setPrivacySollecito('sending')
+    try {
+      const res = await fetch('/api/admin/sollecito-privacy', { method: 'POST' })
+      setPrivacySollecito(res.ok ? 'done' : 'error')
+    } catch {
+      setPrivacySollecito('error')
+    }
+  }
+
   return (
     <div className="p-8 max-w-7xl mx-auto">
+      {isSuperAdmin && formatoriSenzaPrivacy > 0 && !privacyBannerDismissed && (
+        <div className="flex items-center justify-between gap-4 bg-amber-50 border border-amber-200 rounded-xl px-5 py-3 mb-6">
+          <div className="flex items-center gap-2 text-sm text-amber-800">
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
+              <path d="M12 9v4M12 17h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="currentColor" strokeWidth="1.5"/>
+            </svg>
+            <span>
+              <strong>{formatoriSenzaPrivacy} {formatoriSenzaPrivacy === 1 ? 'utente non ha' : 'utenti non hanno'}</strong> ancora accettato la privacy policy.
+            </span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {privacySollecito === 'done' && <span className="text-xs text-green-700">✓ Sollecito inviato</span>}
+            {privacySollecito === 'error' && <span className="text-xs text-red-600">Errore nell&apos;invio</span>}
+            {privacySollecito !== 'done' && (
+              <button
+                onClick={handleSollecitoPrivacy}
+                disabled={privacySollecito === 'sending'}
+                className="text-xs font-medium text-amber-800 bg-amber-100 hover:bg-amber-200 border border-amber-300 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {privacySollecito === 'sending' ? 'Invio…' : 'Invia sollecito →'}
+              </button>
+            )}
+            <button
+              onClick={() => setPrivacyBannerDismissed(true)}
+              className="text-amber-500 hover:text-amber-700 p-0.5"
+              aria-label="Chiudi"
+            >
+              <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
+                <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
