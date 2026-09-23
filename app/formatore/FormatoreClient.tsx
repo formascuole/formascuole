@@ -310,7 +310,7 @@ export function FormatoreClient({ corsi, profile, finanziamenti, questionari = [
                   <div className="flex items-start justify-between gap-3 mb-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <h3 className="font-medium text-gray-900 text-sm">{corso.title}</h3>
+                        <h3 className="font-medium text-gray-900 text-sm">{corso.title}{(corso as { edizione?: string | null }).edizione ? ` — ${(corso as { edizione?: string | null }).edizione}` : ''}</h3>
                         <StatusBadge variant={corso.tipo as 'PF' | 'Lab'} size="sm" />
                       </div>
                       <div className="flex items-center gap-3 text-xs text-gray-400 flex-wrap">
@@ -515,7 +515,7 @@ export function FormatoreClient({ corsi, profile, finanziamenti, questionari = [
                         <div className="flex flex-col gap-2 mb-3 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap mb-1">
-                              <h3 className="font-medium text-gray-900 text-sm">{corso.title}</h3>
+                              <h3 className="font-medium text-gray-900 text-sm">{corso.title}{corso.edizione ? ` — ${corso.edizione}` : ''}</h3>
                               <StatusBadge variant={corso.tipo} size="sm" />
                               <span className="text-xs font-medium px-2 py-0.5 rounded-md"
                                 style={{ backgroundColor: statoCalendario.bg, color: statoCalendario.text }}>

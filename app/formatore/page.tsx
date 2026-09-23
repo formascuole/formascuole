@@ -76,7 +76,7 @@ export default async function FormatorePage() {
   // Corsi disponibili (candidature aperte, nessun formatore assegnato)
   const { data: corsiAperti } = await admin
     .from('corsi')
-    .select('id, title, tipo, ore_totali, project_id, candidature_aperte_at, link_scheda, modalita')
+    .select('id, title, tipo, ore_totali, project_id, candidature_aperte_at, link_scheda, modalita, edizione')
     .eq('candidature_aperte', true)
     .is('formatore_id', null)
 

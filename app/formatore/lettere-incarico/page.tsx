@@ -19,7 +19,7 @@ export default async function LettereIncaricoPage() {
   // Fetch formatore letters (for both formatore and tutor roles — user might have both)
   const { data: corsiFormatore } = profile.role === 'formatore' ? await admin
     .from('corsi')
-    .select('id, title, tipo, ore_totali, project_id, lettera_incarico_url, lettera_incarico_firmata, lettera_incarico_firmata_at, lettera_incarico_inviata_at')
+    .select('id, title, edizione, tipo, ore_totali, project_id, lettera_incarico_url, lettera_incarico_firmata, lettera_incarico_firmata_at, lettera_incarico_inviata_at')
     .eq('formatore_id', user.id)
     .not('lettera_incarico_url', 'is', null)
     .order('created_at') : { data: [] }
@@ -27,7 +27,7 @@ export default async function LettereIncaricoPage() {
   // Fetch tutor letters
   const { data: corsiTutor } = await admin
     .from('corsi')
-    .select('id, title, ore_tutoraggio, project_id, lettera_tutor_url, lettera_tutor_firmata, lettera_tutor_firmata_at, lettera_tutor_inviata_at')
+    .select('id, title, edizione, ore_tutoraggio, project_id, lettera_tutor_url, lettera_tutor_firmata, lettera_tutor_firmata_at, lettera_tutor_inviata_at')
     .eq('tutor_id', user.id)
     .not('lettera_tutor_url', 'is', null)
     .order('created_at')
@@ -50,14 +50,14 @@ export default async function LettereIncaricoPage() {
 
   // Build grouped structure
   type LetteraFormatore = {
-    id: string; title: string; tipo: string; ore_totali: number
+    id: string; title: string; edizione: string | null; tipo: string; ore_totali: number
     lettera_incarico_url: string
     lettera_incarico_firmata: boolean
     lettera_incarico_firmata_at: string | null
     lettera_incarico_inviata_at: string | null
   }
   type LetteraTutor = {
-    id: string; title: string; ore_tutoraggio: number
+    id: string; title: string; edizione: string | null; ore_tutoraggio: number
     lettera_tutor_url: string
     lettera_tutor_firmata: boolean
     lettera_tutor_firmata_at: string | null
@@ -84,6 +84,7 @@ export default async function LettereIncaricoPage() {
     progettiLettere.get(pid)!.lettere_formatore.push({
       id: c.id as string,
       title: c.title as string,
+      edizione: (c.edizione as string | null) ?? null,
       tipo: c.tipo as string,
       ore_totali: Number(c.ore_totali),
       lettera_incarico_url: c.lettera_incarico_url as string,
@@ -106,6 +107,7 @@ export default async function LettereIncaricoPage() {
     progettiLettere.get(pid)!.lettere_tutor.push({
       id: c.id as string,
       title: c.title as string,
+      edizione: (c.edizione as string | null) ?? null,
       ore_tutoraggio: Number(c.ore_tutoraggio || 0),
       lettera_tutor_url: c.lettera_tutor_url as string,
       lettera_tutor_firmata: Boolean(c.lettera_tutor_firmata),

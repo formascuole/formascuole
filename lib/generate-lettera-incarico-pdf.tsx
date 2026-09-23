@@ -10,6 +10,7 @@ export interface LetteraIncaricoFormatore {
   formatore_provincia?: string | null
   formatore_codice_fiscale?: string | null
   corso_title: string
+  corso_edizione?: string | null
   corso_tipo: string
   modalita?: string | null
   location?: string | null
@@ -35,6 +36,7 @@ export interface LetteraIncaricoTutor {
   tutor_provincia?: string | null
   tutor_codice_fiscale?: string | null
   corso_title: string
+  corso_edizione?: string | null
   corso_tipo?: string | null
   modalita?: string | null
   location?: string | null
@@ -259,7 +261,7 @@ function LetteraFormatorePDF({ data }: { data: LetteraIncaricoFormatore }) {
             </View>
             <View style={s.tableRow}>
               <Text style={[s.tableCell, { width: col.scuola, paddingRight: 4 }]}>{data.school_name}</Text>
-              <Text style={[s.tableCell, { width: col.corso, paddingRight: 4 }]}>{data.corso_title}</Text>
+              <Text style={[s.tableCell, { width: col.corso, paddingRight: 4 }]}>{data.corso_edizione ? `${data.corso_title} — ${data.corso_edizione}` : data.corso_title}</Text>
               <Text style={[s.tableCell, { width: col.ore, textAlign: 'center' }]}>{data.ore_totali}h</Text>
               <Text style={[s.tableCell, { width: col.tariffa, textAlign: 'right' }]}>
                 {data.tariffa != null ? `€ ${data.tariffa.toFixed(2)}/h` : '—'}
@@ -482,7 +484,7 @@ function LetteraTutorPDF({ data }: { data: LetteraIncaricoTutor }) {
             </View>
             <View style={s.tableRow}>
               <Text style={[s.tableCell, { width: colTutor.scuola, paddingRight: 4 }]}>{data.school_name}</Text>
-              <Text style={[s.tableCell, { width: colTutor.corso, paddingRight: 4 }]}>{data.corso_title}</Text>
+              <Text style={[s.tableCell, { width: colTutor.corso, paddingRight: 4 }]}>{data.corso_edizione ? `${data.corso_title} — ${data.corso_edizione}` : data.corso_title}</Text>
               <Text style={[s.tableCell, { width: colTutor.ore, textAlign: 'center' }]}>{data.ore_tutoraggio}h</Text>
               <Text style={[s.tableCell, { width: colTutor.tariffa, textAlign: 'right' }]}>
                 {data.tariffa_tutor != null ? `€ ${data.tariffa_tutor.toFixed(2)}/h` : '—'}

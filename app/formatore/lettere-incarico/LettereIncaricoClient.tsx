@@ -3,7 +3,7 @@
 import { useState } from 'react'
 
 type LetteraFormatore = {
-  id: string; title: string; tipo: string; ore_totali: number
+  id: string; title: string; edizione: string | null; tipo: string; ore_totali: number
   lettera_incarico_url: string
   lettera_incarico_firmata: boolean
   lettera_incarico_firmata_at: string | null
@@ -11,7 +11,7 @@ type LetteraFormatore = {
 }
 
 type LetteraTutor = {
-  id: string; title: string; ore_tutoraggio: number
+  id: string; title: string; edizione: string | null; ore_tutoraggio: number
   lettera_tutor_url: string
   lettera_tutor_firmata: boolean
   lettera_tutor_firmata_at: string | null
@@ -223,7 +223,7 @@ export function LettereIncaricoClient({ progetti, role }: Props) {
                       className={`flex items-center justify-between px-5 py-3 ${idx < progetto.lettere_formatore.length - 1 || progetto.lettere_tutor.length > 0 ? 'border-b border-gray-100' : ''}`}
                     >
                       <div className="flex-1 min-w-0 mr-4">
-                        <p className="text-sm font-medium text-gray-800 truncate">{l.title}</p>
+                        <p className="text-sm font-medium text-gray-800 truncate">{l.title}{l.edizione ? ` — ${l.edizione}` : ''}</p>
                         <p className="text-xs text-gray-400 mt-0.5">{l.ore_totali}h · {l.tipo}</p>
                       </div>
                       <div className="flex items-center gap-3 shrink-0">
@@ -271,7 +271,7 @@ export function LettereIncaricoClient({ progetti, role }: Props) {
                       className={`flex items-center justify-between px-5 py-3 ${idx < progetto.lettere_tutor.length - 1 ? 'border-b border-gray-100' : ''}`}
                     >
                       <div className="flex-1 min-w-0 mr-4">
-                        <p className="text-sm font-medium text-gray-800 truncate">{l.title}</p>
+                        <p className="text-sm font-medium text-gray-800 truncate">{l.title}{l.edizione ? ` — ${l.edizione}` : ''}</p>
                         <p className="text-xs text-gray-400 mt-0.5">{l.ore_tutoraggio}h tutoraggio</p>
                       </div>
                       <div className="flex items-center gap-3 shrink-0">

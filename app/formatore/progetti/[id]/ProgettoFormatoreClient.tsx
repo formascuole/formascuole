@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/Input'
 import { formatDate, telHref } from '@/lib/utils'
 import { QuestionarioModal, buildQuestionarioUrl } from '@/components/ui/QuestionarioModal'
 
-type CorsoInAttesa = { id: string; title: string }
+type CorsoInAttesa = { id: string; title: string; edizione?: string | null }
 
 const BADGE_PALETTE = [
   { bg: '#dbeafe', text: '#1e40af' },
@@ -313,7 +313,7 @@ export function ProgettoFormatoreClient({ progetto, corsi, finanziamenti, format
               <div className="flex flex-col gap-2 mb-3 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                    <h3 className="font-semibold text-gray-900">{corso.title}</h3>
+                    <h3 className="font-semibold text-gray-900">{corso.title}{corso.edizione ? ` — ${corso.edizione}` : ''}</h3>
                     <StatusBadge variant={corso.tipo} size="sm" />
                     <ModalitaIcon modalita={corso.modalita} tipo={corso.tipo} size={14} />
                     <span

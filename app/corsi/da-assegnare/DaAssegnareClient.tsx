@@ -302,7 +302,7 @@ function CorsoRow({
       {/* Corso info row */}
       <div className="flex items-center gap-3 px-6 py-3">
         {corso.tipo && <TipoBadge tipo={corso.tipo} />}
-        <span className="flex-1 text-sm font-medium text-gray-800 truncate">{corso.title}</span>
+        <span className="flex-1 text-sm font-medium text-gray-800 truncate">{corso.title}{corso.edizione ? ` — ${corso.edizione}` : ''}</span>
         <span className="text-sm text-gray-400 shrink-0">{corso.ore_totali}h</span>
         {corso.modalita && <ModalitaIcon modalita={corso.modalita} />}
         <button
@@ -879,7 +879,7 @@ export function DaAssegnareClient({ corsi, corsiInAttesa, progetti, finanziament
                         return (
                           <div key={corso.id} className="flex items-center gap-3 px-6 py-3">
                             {corso.tipo && <TipoBadge tipo={corso.tipo} />}
-                            <span className="flex-1 text-sm font-medium text-gray-800 truncate">{corso.title}</span>
+                            <span className="flex-1 text-sm font-medium text-gray-800 truncate">{corso.title}{corso.edizione ? ` — ${corso.edizione}` : ''}</span>
                             <span className="text-sm text-gray-400 shrink-0">{corso.ore_totali}h</span>
                             {corso.modalita && <ModalitaIcon modalita={corso.modalita} />}
                             <div className="flex items-center gap-2 shrink-0">
