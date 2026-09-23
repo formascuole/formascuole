@@ -63,6 +63,8 @@ export function DashboardClient({
   const [privacyBannerDismissed, setPrivacyBannerDismissed] = useState(false)
   const [privacySollecito, setPrivacySollecito] = useState<'idle' | 'sending' | 'done' | 'error'>('idle')
 
+  console.log('[DashboardClient] isSuperAdmin:', isSuperAdmin, '| formatoriSenzaPrivacy:', formatoriSenzaPrivacy)
+
   const finMap = useMemo(() => new Map(finanziamenti.map(f => [f.id, f.nome])), [finanziamenti])
 
   const filteredProjects = useMemo(() =>

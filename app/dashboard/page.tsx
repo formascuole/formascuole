@@ -28,7 +28,7 @@ export default async function DashboardPage() {
     { data: sessioniRaw },
     { data: finanziamentiRaw },
     notifiche,
-    { count: formatoriSenzaPrivacyCount },
+    privacyCountResult,
   ] = await Promise.all([
     admin.from('progetti_con_stats').select('*').order('created_at', { ascending: false }),
     admin.from('corsi').select('id, project_id, formatore_id, tutor_previsto, ore_tutoraggio, ore_totali, calendario_inviato_at, calendario_confermato, stato_assegnazione, accettazione_risposta_at, finanziamento_id'),
@@ -37,8 +37,12 @@ export default async function DashboardPage() {
     getUnreadNotificheCount(supabase, user.id),
     isSuperAdmin
       ? admin.from('profiles').select('id', { count: 'exact', head: true }).in('role', ['formatore', 'tutor']).eq('privacy_accettata', false)
-      : Promise.resolve({ count: 0 }),
+      : Promise.resolve({ count: 0, error: null }),
   ])
+
+  const formatoriSenzaPrivacyCount = (privacyCountResult as { count: number | null; error?: unknown }).count ?? 0
+  console.log('[dashboard] isSuperAdmin:', isSuperAdmin, '| privacyCountResult:', JSON.stringify(privacyCountResult))
+  console.log('[dashboard] formatoriSenzaPrivacy passed to client:', formatoriSenzaPrivacyCount)
 
   const progetti = (progettiRaw || []) as ProgettoConStats[]
 
