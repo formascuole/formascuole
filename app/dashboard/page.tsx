@@ -40,9 +40,9 @@ export default async function DashboardPage() {
       : Promise.resolve({ count: 0, error: null }),
   ])
 
-  const formatoriSenzaPrivacyCount = (privacyCountResult as { count: number | null; error?: unknown }).count ?? 0
-  console.log('[dashboard] isSuperAdmin:', isSuperAdmin, '| privacyCountResult:', JSON.stringify(privacyCountResult))
-  console.log('[dashboard] formatoriSenzaPrivacy passed to client:', formatoriSenzaPrivacyCount)
+  const privacyResult = privacyCountResult as { count: number | null; error?: unknown }
+  if (privacyResult.error) console.error('[dashboard] privacy count error:', privacyResult.error)
+  const formatoriSenzaPrivacyCount = privacyResult.count ?? 0
 
   const progetti = (progettiRaw || []) as ProgettoConStats[]
 
