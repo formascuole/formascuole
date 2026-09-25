@@ -454,6 +454,8 @@ export function CorsoDetailClient({
     edizione: corso.edizione || '',
     note: corso.note || '',
     location: corso.location || '',
+    ore_presenza: corso.ore_presenza != null ? String(corso.ore_presenza) : '',
+    ore_online: corso.ore_online != null ? String(corso.ore_online) : '',
   })
   const [savingCorsoEdit, setSavingCorsoEdit] = useState(false)
 
@@ -1218,6 +1220,8 @@ export function CorsoDetailClient({
           edizione: corsoEditForm.edizione.trim() || null,
           note: corsoEditForm.note.trim() || null,
           location: isResidenziale ? (corsoEditForm.location.trim() || null) : null,
+          ore_presenza: corsoEditForm.tipo === 'PF' && corsoEditForm.modalita === 'ibrido' ? (Number(corsoEditForm.ore_presenza) || null) : null,
+          ore_online: corsoEditForm.tipo === 'PF' && corsoEditForm.modalita === 'ibrido' ? (Number(corsoEditForm.ore_online) || null) : null,
         }),
       })
       if (res.ok) {
@@ -1352,6 +1356,8 @@ export function CorsoDetailClient({
                     edizione: edizioneLocal,
                     note: noteCorsoLocal,
                     location: corso.location || '',
+                    ore_presenza: corso.ore_presenza != null ? String(corso.ore_presenza) : '',
+                    ore_online: corso.ore_online != null ? String(corso.ore_online) : '',
                   })
                   setCorsoEditOpen(true)
                 }}
@@ -1396,6 +1402,9 @@ export function CorsoDetailClient({
               <ModalitaIcon modalita={corso.modalita} tipo={corso.tipo} size={18} />
               {corso.location && (
                 <span className="text-xs text-gray-500">📍 {corso.location}</span>
+              )}
+              {corso.modalita === 'ibrido' && (corso.ore_presenza || corso.ore_online) && (
+                <span className="text-xs text-gray-600">🏫 {corso.ore_presenza}h in presenza · 💻 {corso.ore_online}h online</span>
               )}
             </div>
             {corso.tutor_previsto && (
@@ -2872,7 +2881,8 @@ export function CorsoDetailClient({
                 !corsoEditForm.title.trim() ||
                 !corsoEditForm.ore_totali ||
                 (corsoEditForm.tipo === 'PF' && !corsoEditForm.modalita) ||
-                (['residenziale', 'semi_residenziale'].includes(corsoEditForm.modalita) && !corsoEditForm.location.trim())
+                (['residenziale', 'semi_residenziale'].includes(corsoEditForm.modalita) && !corsoEditForm.location.trim()) ||
+                (corsoEditForm.tipo === 'PF' && corsoEditForm.modalita === 'ibrido' && (!corsoEditForm.ore_presenza || !corsoEditForm.ore_online))
               }
             >
               Salva modifiche
@@ -2910,7 +2920,7 @@ export function CorsoDetailClient({
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Modalità *</label>
             <select
               value={corsoEditForm.modalita}
-              onChange={e => setCorsoEditForm(f => ({ ...f, modalita: e.target.value as ModalitaCorso, location: ['residenziale', 'semi_residenziale'].includes(e.target.value) ? f.location : '' }))}
+              onChange={e => setCorsoEditForm(f => ({ ...f, modalita: e.target.value as ModalitaCorso, location: ['residenziale', 'semi_residenziale'].includes(e.target.value) ? f.location : '', ore_presenza: e.target.value === 'ibrido' ? f.ore_presenza : '', ore_online: e.target.value === 'ibrido' ? f.ore_online : '' }))}
               className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 focus:outline-none focus:border-[#d64b55] transition-colors bg-white"
             >
               <option value="presenza">In presenza</option>
@@ -2927,6 +2937,18 @@ export function CorsoDetailClient({
               onChange={e => setCorsoEditForm(f => ({ ...f, location: e.target.value }))}
               placeholder="Nome struttura, indirizzo..."
             />
+          )}
+          {corsoEditForm.tipo === 'PF' && corsoEditForm.modalita === 'ibrido' && (
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Ore in presenza *</label>
+                <Input type="number" min={1} value={corsoEditForm.ore_presenza} onChange={e => setCorsoEditForm(f => ({ ...f, ore_presenza: e.target.value }))} placeholder="Es. 12" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Ore online *</label>
+                <Input type="number" min={1} value={corsoEditForm.ore_online} onChange={e => setCorsoEditForm(f => ({ ...f, ore_online: e.target.value }))} placeholder="Es. 8" />
+              </div>
+            </div>
           )}
           <Input
             label="Edizione"

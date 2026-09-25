@@ -16,6 +16,8 @@ export interface LetteraIncaricoFormatore {
   location?: string | null
   school_name: string
   ore_totali: number
+  ore_presenza?: number | null
+  ore_online?: number | null
   tariffa: number | null
   compenso_stimato: number | null
   finanziamento_nome?: string | null
@@ -42,6 +44,8 @@ export interface LetteraIncaricoTutor {
   location?: string | null
   school_name: string
   ore_tutoraggio: number
+  ore_presenza?: number | null
+  ore_online?: number | null
   tariffa_tutor: number | null
   compenso_stimato: number | null
   finanziamento_nome?: string | null
@@ -277,6 +281,7 @@ function LetteraFormatorePDF({ data }: { data: LetteraIncaricoFormatore }) {
             <View style={s.infoBox}>
               {data.corso_tipo ? <Text style={s.infoBoxText}>{`Tipologia: ${tipoLabel(data.corso_tipo)}`}</Text> : null}
               {data.modalita ? <Text style={s.infoBoxText}>{`Modalità: ${modalitaLabel(data.modalita, data.location)}`}</Text> : null}
+              {data.modalita === 'ibrido' && (data.ore_presenza || data.ore_online) ? <Text style={s.infoBoxText}>{`Ore in presenza: ${data.ore_presenza ?? '—'}h · Ore online: ${data.ore_online ?? '—'}h`}</Text> : null}
             </View>
           )}
 
@@ -353,7 +358,9 @@ function LetteraFormatorePDF({ data }: { data: LetteraIncaricoFormatore }) {
           <Text style={s.bodyText}>
             {'La fattura dovrà riportare la seguente dicitura:\n'}
             <Text style={{ fontFamily: 'Helvetica-Oblique' }}>
-              {`"Docenza per attività di formazione ${data.corso_title} – ${data.ore_totali} ore – per/presso ${data.school_name}."`}
+              {data.modalita === 'ibrido' && data.ore_presenza && data.ore_online
+                ? `"Docenza per attività di formazione ${data.corso_title} – ${data.ore_presenza} ore in presenza + ${data.ore_online} ore online (tot. ${data.ore_totali} ore) – per/presso ${data.school_name}."`
+                : `"Docenza per attività di formazione ${data.corso_title} – ${data.ore_totali} ore – per/presso ${data.school_name}."`}
             </Text>
           </Text>
           <Text style={s.bodyText}>
@@ -500,6 +507,7 @@ function LetteraTutorPDF({ data }: { data: LetteraIncaricoTutor }) {
             <View style={s.infoBox}>
               {data.corso_tipo ? <Text style={s.infoBoxText}>{`Tipologia: ${tipoLabel(data.corso_tipo)}`}</Text> : null}
               {data.modalita ? <Text style={s.infoBoxText}>{`Modalità: ${modalitaLabel(data.modalita, data.location)}`}</Text> : null}
+              {data.modalita === 'ibrido' && (data.ore_presenza || data.ore_online) ? <Text style={s.infoBoxText}>{`Ore in presenza: ${data.ore_presenza ?? '—'}h · Ore online: ${data.ore_online ?? '—'}h`}</Text> : null}
             </View>
           )}
 

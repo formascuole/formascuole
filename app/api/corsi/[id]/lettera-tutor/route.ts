@@ -23,7 +23,7 @@ export async function POST(
 
   const { data: corso } = await admin
     .from('corsi')
-    .select('id, title, edizione, project_id, tutor_id, tipo, modalita, location, ore_tutoraggio, tariffa_oraria_tutor, lettera_tutor_url, finanziamento_id')
+    .select('id, title, edizione, project_id, tutor_id, tipo, modalita, location, ore_tutoraggio, ore_presenza, ore_online, tariffa_oraria_tutor, lettera_tutor_url, finanziamento_id')
     .eq('id', id)
     .single()
   if (!corso || !corso.tutor_id)
@@ -68,6 +68,8 @@ export async function POST(
     location: corso.location as string | null,
     school_name: progetto.school_name as string,
     ore_tutoraggio: oreTutoraggio,
+    ore_presenza: (corso.ore_presenza as number | null) ?? null,
+    ore_online: (corso.ore_online as number | null) ?? null,
     tariffa_tutor: tariffaTutor,
     compenso_stimato: compensoStimato,
     finanziamento_nome,

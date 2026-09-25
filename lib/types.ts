@@ -186,6 +186,8 @@ export interface Corso {
   edizione?: string | null
   note?: string | null
   location?: string | null
+  ore_presenza?: number | null
+  ore_online?: number | null
   // Notification system
   notificato?: boolean
   token_assegnazione?: string | null
