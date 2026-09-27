@@ -233,6 +233,8 @@ export function CorsoDetailClient({
   const [newData, setNewData] = useState('')
   const [newOre, setNewOre] = useState('')
   const [newModalitaSessione, setNewModalitaSessione] = useState<'presenza' | 'online'>('presenza')
+  const [newTipoSessione, setNewTipoSessione] = useState<string>('')
+  const [editTipoSessione, setEditTipoSessione] = useState<string>('')
   const [saving, setSaving] = useState(false)
   const [sessionError, setSessionError] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -519,6 +521,7 @@ export function CorsoDetailClient({
   }
 
   const isIbrido = corso.tipo === 'PF' && corso.modalita === 'ibrido'
+  const hasOreSubdivision = !!(corso.ore_presenza || corso.ore_online)
 
   const today = new Date().toISOString().slice(0, 10)
   const orePianificate = Number(corso.ore_pianificate)
@@ -528,8 +531,15 @@ export function CorsoDetailClient({
   const effectiveNewOre = newOraInizio && newOraFine ? String(oreFromTimes) : newOre
   const newOreNum = Number(effectiveNewOre)
   const oreError = effectiveNewOre && newOreNum > oreResidue ? `Max ${oreResidue}h residue` : (effectiveNewOre && newOreNum <= 0 ? 'Orario non valido' : '')
+  const oreUsatePresenza = sessioni
+    .filter(s => s.tipo_sessione === 'presenza' || s.tipo_sessione === 'residenziale')
+    .reduce((acc, s) => acc + Number(s.ore), 0)
+  const oreUsateOnline = sessioni
+    .filter(s => s.tipo_sessione === 'online' || s.tipo_sessione === 'scuola')
+    .reduce((acc, s) => acc + Number(s.ore), 0)
   const canSubmitSession = newData && newOreNum > 0 && !oreError && oreResidue > 0 &&
-    (!isIbrido || !!newModalitaSessione) &&
+    (!isIbrido || hasOreSubdivision || !!newModalitaSessione) &&
+    (!hasOreSubdivision || !!newTipoSessione) &&
     (isAdmin || newData >= today)
 
   const handleAddSession = async () => {
@@ -573,7 +583,8 @@ export function CorsoDetailClient({
           ore: newOreNum,
           ...(newOraInizio && { ora_inizio: newOraInizio }),
           ...(newOraFine && { ora_fine: newOraFine }),
-          ...(isIbrido && { modalita_sessione: newModalitaSessione }),
+          ...(isIbrido && !hasOreSubdivision && { modalita_sessione: newModalitaSessione }),
+          ...(hasOreSubdivision && newTipoSessione && { tipo_sessione: newTipoSessione }),
         }),
       })
       if (res.ok) {
@@ -585,11 +596,12 @@ export function CorsoDetailClient({
         setNewOraInizio('')
         setNewOraFine('')
         setNewModalitaSessione('presenza')
+        setNewTipoSessione('')
         setSessionError(null)
         router.refresh()
       } else {
         const json = await res.json().catch(() => ({}))
-        setSessionError(json.error || 'Errore durante il salvataggio della sessione.')
+        setSessionError(json.message || json.error || 'Errore durante il salvataggio della sessione.')
       }
     } finally {
       setSaving(false)
@@ -817,6 +829,7 @@ export function CorsoDetailClient({
     setEditOre(String(s.ore))
     setEditOraInizio(s.ora_inizio ? s.ora_inizio.substring(0, 5) : '')
     setEditOraFine(s.ora_fine ? s.ora_fine.substring(0, 5) : '')
+    setEditTipoSessione(s.tipo_sessione ?? '')
     setEditMotivazioneCategoria('')
     setEditMotivazioneDettaglio('')
     setEditError(null)
@@ -841,11 +854,12 @@ export function CorsoDetailClient({
           ...(editOraFine ? { ora_fine: editOraFine } : {}),
           motivazione_categoria: editMotivazioneCategoria,
           motivazione_dettaglio: editMotivazioneDettaglio.trim() || undefined,
+          ...(editTipoSessione ? { tipo_sessione: editTipoSessione } : {}),
         }),
       })
       if (res.ok) {
         const updated = await res.json()
-        setSessioni(prev => prev.map(s => s.id === editingSession.id ? { ...s, data: updated.data, ore: updated.ore } : s).sort((a, b) => a.data.localeCompare(b.data)))
+        setSessioni(prev => prev.map(s => s.id === editingSession.id ? { ...s, data: updated.data, ore: updated.ore, tipo_sessione: updated.tipo_sessione ?? s.tipo_sessione } : s).sort((a, b) => a.data.localeCompare(b.data)))
         setEditModalOpen(false)
         setEditingSession(null)
         if (logLoaded) fetchLog()
@@ -1426,6 +1440,28 @@ export function CorsoDetailClient({
           sessioniCompletate={sessioniCompletate}
           sessioniTotali={sessioni.length}
         />
+        {hasOreSubdivision && (
+          <div className="mt-3 space-y-2">
+            <div>
+              <div className="flex justify-between text-xs text-gray-500 mb-1">
+                <span>{corso.modalita === 'residenziale' ? '🏨 In residenziale' : '🏫 In presenza'}</span>
+                <span>{oreUsatePresenza}h / {corso.ore_presenza ?? 0}h</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-1.5">
+                <div className="bg-blue-500 h-1.5 rounded-full" style={{ width: `${Math.min(100, (oreUsatePresenza / (corso.ore_presenza || 1)) * 100)}%` }} />
+              </div>
+            </div>
+            <div>
+              <div className="flex justify-between text-xs text-gray-500 mb-1">
+                <span>{corso.modalita === 'residenziale' ? '🏫 A scuola' : '💻 Online'}</span>
+                <span>{oreUsateOnline}h / {corso.ore_online ?? 0}h</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-1.5">
+                <div className="bg-purple-500 h-1.5 rounded-full" style={{ width: `${Math.min(100, (oreUsateOnline / (corso.ore_online || 1)) * 100)}%` }} />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Tags */}
@@ -2168,7 +2204,19 @@ export function CorsoDetailClient({
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <span className="text-sm font-semibold text-gray-700">{s.ore}h</span>
-                      {isIbrido && s.modalita_sessione && (
+                      {s.tipo_sessione && (
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-md ${
+                          s.tipo_sessione === 'presenza' || s.tipo_sessione === 'scuola' ? 'bg-blue-100 text-blue-700' :
+                          s.tipo_sessione === 'online' ? 'bg-violet-100 text-violet-700' :
+                          'bg-amber-100 text-amber-700'
+                        }`}>
+                          {s.tipo_sessione === 'presenza' && '🏫 In presenza'}
+                          {s.tipo_sessione === 'online' && '💻 Online'}
+                          {s.tipo_sessione === 'residenziale' && '🏨 Residenziale'}
+                          {s.tipo_sessione === 'scuola' && '🏫 A scuola'}
+                        </span>
+                      )}
+                      {isIbrido && !s.tipo_sessione && s.modalita_sessione && (
                         <span className={`text-xs font-medium px-2 py-0.5 rounded-md ${s.modalita_sessione === 'presenza' ? 'bg-blue-100 text-blue-700' : 'bg-violet-100 text-violet-700'}`}>
                           {s.modalita_sessione === 'presenza' ? '🏫 Presenza' : '💻 Online'}
                         </span>
@@ -3049,7 +3097,8 @@ export function CorsoDetailClient({
         const needsDettaglio = editMotivazioneCategoria === 'altro'
         const canSubmitEdit = !!editMotivazioneCategoria &&
           (!needsDettaglio || editMotivazioneDettaglio.trim() !== '') &&
-          !!editData && editOreNum > 0 && !editOreError
+          !!editData && editOreNum > 0 && !editOreError &&
+          (!hasOreSubdivision || !!editTipoSessione)
 
         const MOTIV_OPTIONS = [
           { value: 'richiesta_scuola', label: 'Richiesta della scuola' },
@@ -3120,6 +3169,22 @@ export function CorsoDetailClient({
                   error={editOreError || undefined}
                 />
               )}
+              {hasOreSubdivision && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    Tipo sessione <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={editTipoSessione}
+                    onChange={e => setEditTipoSessione(e.target.value)}
+                    className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 focus:outline-none focus:border-[#d64b55] transition-colors bg-white"
+                  >
+                    <option value="">— Seleziona tipo —</option>
+                    {corso.modalita === 'ibrido' && (<><option value="presenza">🏫 In presenza</option><option value="online">💻 Online</option></>)}
+                    {corso.modalita === 'residenziale' && (<><option value="residenziale">🏨 In residenziale</option><option value="scuola">🏫 A scuola</option></>)}
+                  </select>
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   Motivazione <span className="text-red-500">*</span>
@@ -3157,11 +3222,11 @@ export function CorsoDetailClient({
       {/* Calendar Modal */}
       <Modal
         open={calendarOpen}
-        onClose={() => { setCalendarOpen(false); setNewData(''); setNewOre(''); setNewOraInizio(''); setNewOraFine(''); setNewModalitaSessione('presenza'); setSessionError(null) }}
+        onClose={() => { setCalendarOpen(false); setNewData(''); setNewOre(''); setNewOraInizio(''); setNewOraFine(''); setNewModalitaSessione('presenza'); setNewTipoSessione(''); setSessionError(null) }}
         title="Aggiungi Sessione"
         footer={
           <>
-            <Button variant="secondary" onClick={() => { setCalendarOpen(false); setNewData(''); setNewOre(''); setNewOraInizio(''); setNewOraFine(''); setNewModalitaSessione('presenza'); setSessionError(null) }}>Annulla</Button>
+            <Button variant="secondary" onClick={() => { setCalendarOpen(false); setNewData(''); setNewOre(''); setNewOraInizio(''); setNewOraFine(''); setNewModalitaSessione('presenza'); setNewTipoSessione(''); setSessionError(null) }}>Annulla</Button>
             <Button onClick={handleAddSession} loading={saving} disabled={!canSubmitSession}>
               Aggiungi Sessione
             </Button>
@@ -3221,7 +3286,7 @@ export function CorsoDetailClient({
               placeholder={`Es. ${Math.min(oreResidue, 4)}`}
             />
           )}
-          {isIbrido && (
+          {isIbrido && !hasOreSubdivision && (
             <div>
               <div className="text-sm font-medium text-gray-700 mb-2">Modalità sessione *</div>
               <div className="flex gap-3">
@@ -3241,6 +3306,38 @@ export function CorsoDetailClient({
                   </button>
                 ))}
               </div>
+            </div>
+          )}
+          {hasOreSubdivision && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Tipo sessione <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={newTipoSessione}
+                onChange={e => setNewTipoSessione(e.target.value)}
+                className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 focus:outline-none focus:border-[#d64b55] transition-colors bg-white"
+              >
+                <option value="">— Seleziona tipo —</option>
+                {corso.modalita === 'ibrido' && (
+                  <>
+                    <option value="presenza">🏫 In presenza</option>
+                    <option value="online">💻 Online</option>
+                  </>
+                )}
+                {corso.modalita === 'residenziale' && (
+                  <>
+                    <option value="residenziale">🏨 In residenziale</option>
+                    <option value="scuola">🏫 A scuola</option>
+                  </>
+                )}
+              </select>
+              {(newTipoSessione === 'presenza' || newTipoSessione === 'residenziale') && (
+                <p className="text-xs text-gray-500 mt-1">Disponibili: {Math.max(0, (corso.ore_presenza ?? 0) - oreUsatePresenza)}h</p>
+              )}
+              {(newTipoSessione === 'online' || newTipoSessione === 'scuola') && (
+                <p className="text-xs text-gray-500 mt-1">Disponibili: {Math.max(0, (corso.ore_online ?? 0) - oreUsateOnline)}h</p>
+              )}
             </div>
           )}
           {oreResidue === 0 && (

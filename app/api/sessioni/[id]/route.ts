@@ -99,7 +99,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const { data: sessione } = await supabase
     .from('sessioni')
-    .select('corso_id, data, ore, completata')
+    .select('corso_id, data, ore, completata, tipo_sessione')
     .eq('id', id)
     .single()
   if (!sessione) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -113,7 +113,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 
   const body = await req.json()
-  const { data: newData, ore: newOreBody, ora_inizio: newOraInizio, ora_fine: newOraFine, motivazione_categoria, motivazione_dettaglio, modalita_sessione } = body
+  const { data: newData, ore: newOreBody, ora_inizio: newOraInizio, ora_fine: newOraFine, motivazione_categoria, motivazione_dettaglio, modalita_sessione, tipo_sessione } = body
 
   // Derive ore from times if provided
   let newOre = newOreBody
@@ -133,8 +133,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const oreChanged = newOre !== undefined && Number(newOre) !== Number(sessione.ore)
   const oraInizioChanged = newOraInizio !== undefined
   const oraFineChanged = newOraFine !== undefined
+  const tipoSessioneChanged = tipo_sessione !== undefined && tipo_sessione !== sessione.tipo_sessione
 
-  if (!dateChanged && !oreChanged && !modalita_sessione && !oraInizioChanged && !oraFineChanged) {
+  if (!dateChanged && !oreChanged && !modalita_sessione && !oraInizioChanged && !oraFineChanged && !tipoSessioneChanged) {
     return NextResponse.json({ error: 'Nessuna modifica da salvare' }, { status: 400 })
   }
 
@@ -145,10 +146,40 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (Number(newOre) > maxOre) return NextResponse.json({ error: `Le ore (${newOre}) superano il massimo disponibile (${maxOre}h)` }, { status: 400 })
   }
 
+  // Budget validation for tipo_sessione change
+  if (tipoSessioneChanged && tipo_sessione) {
+    const { data: corsoInfo } = await supabase
+      .from('corsi')
+      .select('ore_presenza, ore_online')
+      .eq('id', sessione.corso_id)
+      .single()
+    if (corsoInfo && ((corsoInfo as any).ore_presenza || (corsoInfo as any).ore_online)) {
+      const budget = tipo_sessione === 'presenza' || tipo_sessione === 'residenziale'
+        ? (corsoInfo as any).ore_presenza as number
+        : (corsoInfo as any).ore_online as number
+      const adminQ2 = createAdminClient()
+      const { data: sessioniEsistenti } = await adminQ2
+        .from('sessioni')
+        .select('ore')
+        .eq('corso_id', sessione.corso_id)
+        .eq('tipo_sessione', tipo_sessione)
+        .neq('id', id)
+      const oreUsate = sessioniEsistenti?.reduce((acc: number, s: { ore: number }) => acc + Number(s.ore), 0) ?? 0
+      const oreCorrente = oreChanged ? Number(newOre) : Number(sessione.ore)
+      if (oreUsate + oreCorrente > (budget ?? 0)) {
+        return NextResponse.json({
+          error: 'BUDGET_SUPERATO',
+          message: `Stai superando il budget di ore ${tipo_sessione}. Disponibili: ${(budget ?? 0) - oreUsate}h`,
+        }, { status: 422 })
+      }
+    }
+  }
+
   const updates: Record<string, unknown> = {}
   if (dateChanged) updates.data = newData
   if (oreChanged) updates.ore = Number(newOre)
   if (modalita_sessione) updates.modalita_sessione = modalita_sessione
+  if (tipoSessioneChanged) updates.tipo_sessione = tipo_sessione || null
   if (oraInizioChanged) updates.ora_inizio = newOraInizio || null
   if (oraFineChanged) updates.ora_fine = newOraFine || null
 

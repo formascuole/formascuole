@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
-  const { corso_id, data: sessioneData, ore: oreBody, ora_inizio, ora_fine, modalita_sessione } = body
+  const { corso_id, data: sessioneData, ore: oreBody, ora_inizio, ora_fine, modalita_sessione, tipo_sessione } = body
 
   if (!corso_id || !sessioneData) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
   const admin = createAdminClient()
   const { data: corso } = await admin
     .from('corsi_con_ore')
-    .select('ore_residue, formatore_id, tipo, modalita, project_id, finanziamento_id')
+    .select('ore_residue, formatore_id, tipo, modalita, project_id, finanziamento_id, ore_presenza, ore_online')
     .eq('id', corso_id)
     .single()
 
@@ -174,8 +174,28 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // Budget validation for tipo_sessione
+  if (tipo_sessione && ((corso as any).ore_presenza || (corso as any).ore_online)) {
+    const budget = tipo_sessione === 'presenza' || tipo_sessione === 'residenziale'
+      ? (corso as any).ore_presenza as number
+      : (corso as any).ore_online as number
+    const { data: sessioniEsistenti } = await admin
+      .from('sessioni')
+      .select('ore')
+      .eq('corso_id', corso_id)
+      .eq('tipo_sessione', tipo_sessione)
+    const oreUsate = sessioniEsistenti?.reduce((acc: number, s: { ore: number }) => acc + Number(s.ore), 0) ?? 0
+    if (oreUsate + Number(ore) > (budget ?? 0)) {
+      return NextResponse.json({
+        error: 'BUDGET_SUPERATO',
+        message: `Stai superando il budget di ore ${tipo_sessione}. Disponibili: ${(budget ?? 0) - oreUsate}h`,
+      }, { status: 422 })
+    }
+  }
+
   const insertData: Record<string, unknown> = { corso_id, data: sessioneData, ore: Number(ore) }
   if (modalita_sessione) insertData.modalita_sessione = modalita_sessione
+  if (tipo_sessione) insertData.tipo_sessione = tipo_sessione
   if (ora_inizio) insertData.ora_inizio = ora_inizio
   if (ora_fine) insertData.ora_fine = ora_fine
 
