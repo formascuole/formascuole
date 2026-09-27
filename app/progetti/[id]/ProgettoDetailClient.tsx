@@ -449,8 +449,8 @@ export function ProgettoDetailClient({
           ...(corsoForm.edizione && { edizione: corsoForm.edizione }),
           ...(corsoForm.note && { note: corsoForm.note }),
           ...(corsoForm.location && { location: corsoForm.location }),
-          ore_presenza: corsoForm.tipo === 'PF' && corsoForm.modalita === 'ibrido' ? (Number(corsoForm.ore_presenza) || null) : null,
-          ore_online: corsoForm.tipo === 'PF' && corsoForm.modalita === 'ibrido' ? (Number(corsoForm.ore_online) || null) : null,
+          ore_presenza: (corsoForm.tipo === 'PF' && corsoForm.modalita === 'ibrido') || (corsoForm.tipo === 'Lab' && corsoForm.modalita === 'residenziale') ? (Number(corsoForm.ore_presenza) || null) : null,
+          ore_online: (corsoForm.tipo === 'PF' && corsoForm.modalita === 'ibrido') || (corsoForm.tipo === 'Lab' && corsoForm.modalita === 'residenziale') ? (Number(corsoForm.ore_online) || null) : null,
         }),
       })
       if (res.ok) {
@@ -714,8 +714,8 @@ export function ProgettoDetailClient({
             ...(row.link_scheda ? { link_scheda: row.link_scheda } : {}),
             ...(ed.edizione ? { edizione: ed.edizione } : {}),
             ...(ed.location ? { location: ed.location } : {}),
-            ore_presenza: row.tipo === 'PF' && ed.modalita === 'ibrido' ? (Number(ed.ore_presenza) || null) : null,
-            ore_online: row.tipo === 'PF' && ed.modalita === 'ibrido' ? (Number(ed.ore_online) || null) : null,
+            ore_presenza: (row.tipo === 'PF' && ed.modalita === 'ibrido') || (row.tipo === 'Lab' && ed.modalita === 'residenziale') ? (Number(ed.ore_presenza) || null) : null,
+            ore_online: (row.tipo === 'PF' && ed.modalita === 'ibrido') || (row.tipo === 'Lab' && ed.modalita === 'residenziale') ? (Number(ed.ore_online) || null) : null,
           }),
         })
         if (res.ok) successi.push(label)
@@ -2069,7 +2069,7 @@ export function ProgettoDetailClient({
               <Button
                 onClick={handleAddCorso}
                 loading={savingCorso}
-                disabled={!corsoForm.title || !corsoForm.ore_totali || (corsoForm.tipo === 'PF' && !corsoForm.modalita) || (['residenziale', 'semi_residenziale'].includes(corsoForm.modalita) && !corsoForm.location.trim()) || (corsoForm.tipo === 'PF' && corsoForm.modalita === 'ibrido' && (!corsoForm.ore_presenza || !corsoForm.ore_online))}
+                disabled={!corsoForm.title || !corsoForm.ore_totali || (corsoForm.tipo === 'PF' && !corsoForm.modalita) || (['residenziale', 'semi_residenziale'].includes(corsoForm.modalita) && !corsoForm.location.trim()) || (((corsoForm.tipo === 'PF' && corsoForm.modalita === 'ibrido') || (corsoForm.tipo === 'Lab' && corsoForm.modalita === 'residenziale')) && (!corsoForm.ore_presenza || !corsoForm.ore_online))}
               >
                 Aggiungi corso
               </Button>
@@ -2181,7 +2181,7 @@ export function ProgettoDetailClient({
             <Select
               label={`Modalità erogazione${corsoForm.tipo === 'PF' ? ' *' : ''}`}
               value={corsoForm.modalita}
-              onChange={e => setCorsoForm(f => ({ ...f, modalita: e.target.value, location: ['residenziale', 'semi_residenziale'].includes(e.target.value) ? f.location : '', ore_presenza: e.target.value === 'ibrido' ? f.ore_presenza : '', ore_online: e.target.value === 'ibrido' ? f.ore_online : '' }))}
+              onChange={e => setCorsoForm(f => ({ ...f, modalita: e.target.value, location: ['residenziale', 'semi_residenziale'].includes(e.target.value) ? f.location : '', ore_presenza: (e.target.value === 'ibrido' || e.target.value === 'residenziale') ? f.ore_presenza : '', ore_online: (e.target.value === 'ibrido' || e.target.value === 'residenziale') ? f.ore_online : '' }))}
               options={corsoForm.tipo === 'Lab' ? [
                 { value: 'presenza', label: 'In presenza' },
                 { value: 'residenziale', label: 'Residenziale' },
@@ -2202,14 +2202,14 @@ export function ProgettoDetailClient({
                 placeholder="Nome struttura, indirizzo..."
               />
             )}
-            {corsoForm.tipo === 'PF' && corsoForm.modalita === 'ibrido' && (
+            {((corsoForm.tipo === 'PF' && corsoForm.modalita === 'ibrido') || (corsoForm.tipo === 'Lab' && corsoForm.modalita === 'residenziale')) && (
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Ore in presenza *</label>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">{corsoForm.modalita === 'residenziale' ? 'Ore in residenziale *' : 'Ore in presenza *'}</label>
                   <Input type="number" min={1} value={corsoForm.ore_presenza} onChange={e => setCorsoForm(f => ({ ...f, ore_presenza: e.target.value }))} placeholder="Es. 12" />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Ore online *</label>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">{corsoForm.modalita === 'residenziale' ? 'Ore a scuola *' : 'Ore online *'}</label>
                   <Input type="number" min={1} value={corsoForm.ore_online} onChange={e => setCorsoForm(f => ({ ...f, ore_online: e.target.value }))} placeholder="Es. 8" />
                 </div>
               </div>
@@ -2887,8 +2887,8 @@ export function ProgettoDetailClient({
                                       onChange={e => updateEdition(idx, {
                                         modalita: e.target.value,
                                         location: ['residenziale', 'semi_residenziale'].includes(e.target.value) ? ed.location : '',
-                                        ore_presenza: e.target.value === 'ibrido' ? ed.ore_presenza : '',
-                                        ore_online: e.target.value === 'ibrido' ? ed.ore_online : '',
+                                        ore_presenza: (e.target.value === 'ibrido' || e.target.value === 'residenziale') ? ed.ore_presenza : '',
+                                        ore_online: (e.target.value === 'ibrido' || e.target.value === 'residenziale') ? ed.ore_online : '',
                                       })}
                                       className="w-full text-sm border border-gray-200 rounded-[7px] px-2 py-1.5 bg-white focus:outline-none focus:border-[#d64b55]"
                                     >
@@ -2907,14 +2907,14 @@ export function ProgettoDetailClient({
                                         className="mt-1.5 w-full text-sm border border-gray-200 rounded-[7px] px-2 py-1.5 focus:outline-none focus:border-[#d64b55]"
                                       />
                                     )}
-                                    {row.tipo === 'PF' && ed.modalita === 'ibrido' && (
+                                    {((row.tipo === 'PF' && ed.modalita === 'ibrido') || (row.tipo === 'Lab' && ed.modalita === 'residenziale')) && (
                                       <div className="mt-1.5 grid grid-cols-2 gap-1">
                                         <input
                                           type="number"
                                           min={1}
                                           value={ed.ore_presenza}
                                           onChange={e => updateEdition(idx, { ore_presenza: e.target.value })}
-                                          placeholder="h pres. *"
+                                          placeholder={ed.modalita === 'residenziale' ? 'h resid. *' : 'h pres. *'}
                                           className={`w-full text-sm border rounded-[7px] px-2 py-1.5 focus:outline-none focus:border-[#d64b55] ${!ed.ore_presenza ? 'border-red-300' : 'border-gray-200'}`}
                                         />
                                         <input
@@ -2922,7 +2922,7 @@ export function ProgettoDetailClient({
                                           min={1}
                                           value={ed.ore_online}
                                           onChange={e => updateEdition(idx, { ore_online: e.target.value })}
-                                          placeholder="h online *"
+                                          placeholder={ed.modalita === 'residenziale' ? 'h scuola *' : 'h online *'}
                                           className={`w-full text-sm border rounded-[7px] px-2 py-1.5 focus:outline-none focus:border-[#d64b55] ${!ed.ore_online ? 'border-red-300' : 'border-gray-200'}`}
                                         />
                                       </div>

@@ -281,7 +281,7 @@ function LetteraFormatorePDF({ data }: { data: LetteraIncaricoFormatore }) {
             <View style={s.infoBox}>
               {data.corso_tipo ? <Text style={s.infoBoxText}>{`Tipologia: ${tipoLabel(data.corso_tipo)}`}</Text> : null}
               {data.modalita ? <Text style={s.infoBoxText}>{`Modalità: ${modalitaLabel(data.modalita, data.location)}`}</Text> : null}
-              {data.modalita === 'ibrido' && (data.ore_presenza || data.ore_online) ? <Text style={s.infoBoxText}>{`Ore in presenza: ${data.ore_presenza ?? '—'}h · Ore online: ${data.ore_online ?? '—'}h`}</Text> : null}
+              {(data.modalita === 'ibrido' || data.modalita === 'residenziale') && (data.ore_presenza || data.ore_online) ? <Text style={s.infoBoxText}>{data.modalita === 'residenziale' ? `Ripartizione ore: ${data.ore_presenza ?? 0}h in residenziale + ${data.ore_online ?? 0}h a scuola` : `Ripartizione ore: ${data.ore_presenza ?? 0}h in presenza + ${data.ore_online ?? 0}h online`}</Text> : null}
             </View>
           )}
 
@@ -358,8 +358,10 @@ function LetteraFormatorePDF({ data }: { data: LetteraIncaricoFormatore }) {
           <Text style={s.bodyText}>
             {'La fattura dovrà riportare la seguente dicitura:\n'}
             <Text style={{ fontFamily: 'Helvetica-Oblique' }}>
-              {data.modalita === 'ibrido' && data.ore_presenza && data.ore_online
-                ? `"Docenza per attività di formazione ${data.corso_title} – ${data.ore_presenza} ore in presenza + ${data.ore_online} ore online (tot. ${data.ore_totali} ore) – per/presso ${data.school_name}."`
+              {(data.modalita === 'ibrido' || data.modalita === 'residenziale') && data.ore_presenza && data.ore_online
+                ? data.modalita === 'residenziale'
+                  ? `"Docenza per attività di formazione ${data.corso_title} – ${data.ore_presenza} ore in residenziale e ${data.ore_online} ore a scuola (tot. ${data.ore_totali} ore) – per/presso ${data.school_name}."`
+                  : `"Docenza per attività di formazione ${data.corso_title} – ${data.ore_presenza} ore in presenza + ${data.ore_online} ore online (tot. ${data.ore_totali} ore) – per/presso ${data.school_name}."`
                 : `"Docenza per attività di formazione ${data.corso_title} – ${data.ore_totali} ore – per/presso ${data.school_name}."`}
             </Text>
           </Text>
@@ -507,7 +509,7 @@ function LetteraTutorPDF({ data }: { data: LetteraIncaricoTutor }) {
             <View style={s.infoBox}>
               {data.corso_tipo ? <Text style={s.infoBoxText}>{`Tipologia: ${tipoLabel(data.corso_tipo)}`}</Text> : null}
               {data.modalita ? <Text style={s.infoBoxText}>{`Modalità: ${modalitaLabel(data.modalita, data.location)}`}</Text> : null}
-              {data.modalita === 'ibrido' && (data.ore_presenza || data.ore_online) ? <Text style={s.infoBoxText}>{`Ore in presenza: ${data.ore_presenza ?? '—'}h · Ore online: ${data.ore_online ?? '—'}h`}</Text> : null}
+              {(data.modalita === 'ibrido' || data.modalita === 'residenziale') && (data.ore_presenza || data.ore_online) ? <Text style={s.infoBoxText}>{data.modalita === 'residenziale' ? `Ripartizione ore: ${data.ore_presenza ?? 0}h in residenziale + ${data.ore_online ?? 0}h a scuola` : `Ripartizione ore: ${data.ore_presenza ?? 0}h in presenza + ${data.ore_online ?? 0}h online`}</Text> : null}
             </View>
           )}
 
@@ -572,7 +574,9 @@ function LetteraTutorPDF({ data }: { data: LetteraIncaricoTutor }) {
           <Text style={s.bodyText}>
             {'La fattura dovrà riportare la seguente dicitura:\n'}
             <Text style={{ fontFamily: 'Helvetica-Oblique' }}>
-              {`"Attività di tutoraggio per il percorso di formazione ${data.corso_title} – ${data.ore_tutoraggio} ore – per/presso ${data.school_name}."`}
+              {data.modalita === 'residenziale' && data.ore_presenza && data.ore_online
+                ? `"Attività di tutoraggio per il percorso di formazione ${data.corso_title} – ${data.ore_presenza} ore in residenziale e ${data.ore_online} ore a scuola (tot. ${data.ore_tutoraggio} ore) – per/presso ${data.school_name}."`
+                : `"Attività di tutoraggio per il percorso di formazione ${data.corso_title} – ${data.ore_tutoraggio} ore – per/presso ${data.school_name}."`}
             </Text>
           </Text>
           <Text style={s.bodyText}>
