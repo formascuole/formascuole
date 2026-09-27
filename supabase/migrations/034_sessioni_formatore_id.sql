@@ -1,0 +1,1 @@
+ALTER TABLE sessioni ADD COLUMN IF NOT EXISTS formatore_id uuid REFERENCES profiles(id) ON DELETE SET NULL;

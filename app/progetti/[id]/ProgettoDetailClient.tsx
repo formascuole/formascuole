@@ -375,6 +375,70 @@ export function ProgettoDetailClient({
   const [bulkAddProgress, setBulkAddProgress] = useState<{ done: number; total: number } | null>(null)
   const [bulkAddResults, setBulkAddResults] = useState<{ successi: string[]; errori: string[] } | null>(null)
 
+  // ── Pianifica sessioni residenziali ──────────────────────────
+  type ResidSessionRow = { data: string; ore: string; tipo_sessione: string; formatore_id: string }
+  const [residOpen, setResidOpen] = useState(false)
+  const [residRows, setResidRows] = useState<Record<string, ResidSessionRow[]>>({})
+  const [residSaving, setResidSaving] = useState(false)
+  const [residProgress, setResidProgress] = useState<{ done: number; total: number } | null>(null)
+  const [residResults, setResidResults] = useState<{ successi: string[]; errori: string[] } | null>(null)
+
+  const labResidCorsi = corsi.filter(c => c.tipo === 'Lab' && c.modalita === 'residenziale')
+
+  const openResidModal = () => {
+    const initial: Record<string, ResidSessionRow[]> = {}
+    labResidCorsi.forEach(c => {
+      initial[c.id] = [{ data: '', ore: '', tipo_sessione: 'residenziale', formatore_id: '' }]
+    })
+    setResidRows(initial)
+    setResidProgress(null)
+    setResidResults(null)
+    setResidOpen(true)
+  }
+
+  const handleResidSave = async () => {
+    const allRows: Array<{ corsoId: string; row: ResidSessionRow; corsoTitle: string }> = []
+    labResidCorsi.forEach(c => {
+      (residRows[c.id] ?? []).forEach(row => {
+        if (row.data && row.ore && Number(row.ore) > 0) {
+          allRows.push({ corsoId: c.id, row, corsoTitle: c.title })
+        }
+      })
+    })
+    setResidSaving(true)
+    setResidProgress({ done: 0, total: allRows.length })
+    const successi: string[] = []
+    const errori: string[] = []
+    for (let i = 0; i < allRows.length; i++) {
+      const { corsoId, row, corsoTitle } = allRows[i]
+      try {
+        const res = await fetch('/api/sessioni', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            corso_id: corsoId,
+            data: row.data,
+            ore: Number(row.ore),
+            tipo_sessione: row.tipo_sessione || undefined,
+            formatore_id: row.formatore_id || null,
+          }),
+        })
+        if (res.ok) {
+          successi.push(`${corsoTitle} — ${row.data}`)
+        } else {
+          const j = await res.json()
+          errori.push(`${corsoTitle} — ${row.data}: ${j.error ?? 'Errore'}`)
+        }
+      } catch {
+        errori.push(`${corsoTitle} — ${row.data}: errore di rete`)
+      }
+      setResidProgress({ done: i + 1, total: allRows.length })
+    }
+    setResidSaving(false)
+    setResidResults({ successi, errori })
+    if (successi.length > 0) router.refresh()
+  }
+
   // ── Chat ────────────────────────────────────────────────────
   const [messaggi, setMessaggi] = useState<ChatMessaggio[]>(initialMessaggi)
   const [newMsg, setNewMsg] = useState('')
@@ -1412,6 +1476,16 @@ export function ProgettoDetailClient({
               </svg>
               Aggiungi più corsi
             </Button>
+            {labResidCorsi.length > 0 && (
+              <Button size="sm" variant="secondary" onClick={openResidModal}>
+                <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
+                  <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  <path d="M16 2v4M8 2v4M3 10h18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  <path d="M8 14h8M8 18h5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+                Pianifica sessioni residenziali
+              </Button>
+            )}
             <Button size="sm" onClick={() => setAddCorsoOpen(true)}>
               <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
                 <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
@@ -3045,6 +3119,144 @@ export function ProgettoDetailClient({
                     )}
                   >
                     Aggiungi tutti i corsi
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Pianifica sessioni residenziali ────────────────── */}
+      {residOpen && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h2 className="text-base font-semibold text-gray-900">Pianifica sessioni residenziali</h2>
+              {!residSaving && (
+                <button onClick={() => setResidOpen(false)} className="text-gray-400 hover:text-gray-600">
+                  <svg width="18" height="18" fill="none" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+                </button>
+              )}
+            </div>
+            <div className="flex-1 overflow-y-auto px-6 py-4">
+              {residResults ? (
+                <div className="space-y-3">
+                  {residResults.successi.length > 0 && (
+                    <div className="p-3 bg-green-50 rounded-lg">
+                      <div className="text-sm font-medium text-green-800 mb-1">{residResults.successi.length} sessioni create:</div>
+                      {residResults.successi.map((s, i) => <div key={i} className="text-xs text-green-700">✓ {s}</div>)}
+                    </div>
+                  )}
+                  {residResults.errori.length > 0 && (
+                    <div className="p-3 bg-red-50 rounded-lg">
+                      <div className="text-sm font-medium text-red-800 mb-1">{residResults.errori.length} errori:</div>
+                      {residResults.errori.map((e, i) => <div key={i} className="text-xs text-red-700">✗ {e}</div>)}
+                    </div>
+                  )}
+                </div>
+              ) : residSaving ? (
+                <div className="text-center py-8 text-sm text-gray-600">
+                  Salvataggio in corso... ({residProgress?.done}/{residProgress?.total})
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {labResidCorsi.map(corso => {
+                    const rows = residRows[corso.id] ?? []
+                    return (
+                      <div key={corso.id} className="border border-gray-200 rounded-xl p-4">
+                        <div className="text-sm font-semibold text-gray-800 mb-3">{corso.title}</div>
+                        <div className="space-y-2">
+                          {rows.map((row, idx) => (
+                            <div key={idx} className="grid grid-cols-[1fr_80px_140px_1fr_32px] gap-2 items-center">
+                              <input
+                                type="date"
+                                value={row.data}
+                                onChange={e => setResidRows(prev => {
+                                  const updated = [...(prev[corso.id] ?? [])]
+                                  updated[idx] = { ...updated[idx], data: e.target.value }
+                                  return { ...prev, [corso.id]: updated }
+                                })}
+                                className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-300"
+                              />
+                              <input
+                                type="number"
+                                placeholder="Ore"
+                                min="1"
+                                value={row.ore}
+                                onChange={e => setResidRows(prev => {
+                                  const updated = [...(prev[corso.id] ?? [])]
+                                  updated[idx] = { ...updated[idx], ore: e.target.value }
+                                  return { ...prev, [corso.id]: updated }
+                                })}
+                                className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-300"
+                              />
+                              <select
+                                value={row.tipo_sessione}
+                                onChange={e => setResidRows(prev => {
+                                  const updated = [...(prev[corso.id] ?? [])]
+                                  updated[idx] = { ...updated[idx], tipo_sessione: e.target.value }
+                                  return { ...prev, [corso.id]: updated }
+                                })}
+                                className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-300"
+                              >
+                                <option value="residenziale">🏨 Residenziale</option>
+                                <option value="scuola">🏫 A scuola</option>
+                              </select>
+                              <select
+                                value={row.formatore_id}
+                                onChange={e => setResidRows(prev => {
+                                  const updated = [...(prev[corso.id] ?? [])]
+                                  updated[idx] = { ...updated[idx], formatore_id: e.target.value }
+                                  return { ...prev, [corso.id]: updated }
+                                })}
+                                className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-300"
+                              >
+                                <option value="">— Nessun formatore —</option>
+                                {formatori.map(f => (
+                                  <option key={f.id} value={f.id}>{f.nome}</option>
+                                ))}
+                              </select>
+                              {rows.length > 1 ? (
+                                <button
+                                  onClick={() => setResidRows(prev => {
+                                    const updated = (prev[corso.id] ?? []).filter((_, i) => i !== idx)
+                                    return { ...prev, [corso.id]: updated }
+                                  })}
+                                  className="text-red-400 hover:text-red-600"
+                                >
+                                  <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+                                </button>
+                              ) : <div />}
+                            </div>
+                          ))}
+                        </div>
+                        <button
+                          onClick={() => setResidRows(prev => ({
+                            ...prev,
+                            [corso.id]: [...(prev[corso.id] ?? []), { data: '', ore: '', tipo_sessione: 'residenziale', formatore_id: '' }],
+                          }))}
+                          className="mt-2 text-xs text-blue-600 hover:text-blue-800 font-medium"
+                        >
+                          + Aggiungi altra sessione
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+            <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
+              {residResults ? (
+                <Button onClick={() => setResidOpen(false)}>Chiudi</Button>
+              ) : residSaving ? null : (
+                <>
+                  <Button variant="secondary" onClick={() => setResidOpen(false)}>Annulla</Button>
+                  <Button
+                    onClick={handleResidSave}
+                    disabled={!Object.values(residRows).some(rows => rows.some(r => r.data && r.ore && Number(r.ore) > 0))}
+                  >
+                    Salva tutte
                   </Button>
                 </>
               )}

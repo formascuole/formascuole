@@ -248,6 +248,7 @@ export interface Sessione {
   ora_fine?: string | null
   modalita_sessione?: ModalitaSessione
   tipo_sessione?: string | null
+  formatore_id?: string | null
   completata: boolean
   completata_at?: string | null
   created_at: string

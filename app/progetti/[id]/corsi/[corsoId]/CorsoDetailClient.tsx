@@ -1253,6 +1253,10 @@ export function CorsoDetailClient({
   const sessioniCompletate = sessioni.filter(s => s.completata).length
   const sessioniScadute = sessioni.filter(s => !s.completata && s.data <= today).length
   const oreErogate = sessioni.filter(s => s.completata).reduce((sum, s) => sum + Number(s.ore), 0)
+  const isLabResidenziale = corso.tipo === 'Lab' && corso.modalita === 'residenziale'
+  const oreResidencialeAdmin = isLabResidenziale
+    ? sessioni.filter(s => s.formatore_id === null && (s.tipo_sessione === 'residenziale' || s.tipo_sessione === 'scuola')).reduce((sum, s) => sum + Number(s.ore), 0)
+    : undefined
 
   // Ore tutor (proporzionale al completamento delle sessioni)
   const oreTutoraggio = Number(corso.ore_tutoraggio || 0)
@@ -1439,6 +1443,7 @@ export function CorsoDetailClient({
           oreErogate={oreErogate}
           sessioniCompletate={sessioniCompletate}
           sessioniTotali={sessioni.length}
+          oreResidencialeAdmin={oreResidencialeAdmin}
         />
         {hasOreSubdivision && (
           <div className="mt-3 space-y-2">
@@ -2219,6 +2224,11 @@ export function CorsoDetailClient({
                       {isIbrido && !s.tipo_sessione && s.modalita_sessione && (
                         <span className={`text-xs font-medium px-2 py-0.5 rounded-md ${s.modalita_sessione === 'presenza' ? 'bg-blue-100 text-blue-700' : 'bg-violet-100 text-violet-700'}`}>
                           {s.modalita_sessione === 'presenza' ? '🏫 Presenza' : '💻 Online'}
+                        </span>
+                      )}
+                      {isLabResidenziale && s.formatore_id === null && (
+                        <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-orange-100 text-orange-700">
+                          Da assegnare
                         </span>
                       )}
                     </div>

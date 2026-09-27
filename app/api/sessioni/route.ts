@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
-  const { corso_id, data: sessioneData, ore: oreBody, ora_inizio, ora_fine, modalita_sessione, tipo_sessione } = body
+  const { corso_id, data: sessioneData, ore: oreBody, ora_inizio, ora_fine, modalita_sessione, tipo_sessione, formatore_id } = body
 
   if (!corso_id || !sessioneData) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -198,6 +198,7 @@ export async function POST(request: NextRequest) {
   if (tipo_sessione) insertData.tipo_sessione = tipo_sessione
   if (ora_inizio) insertData.ora_inizio = ora_inizio
   if (ora_fine) insertData.ora_fine = ora_fine
+  if (formatore_id !== undefined) insertData.formatore_id = formatore_id || null
 
   const { data, error } = await supabase
     .from('sessioni')

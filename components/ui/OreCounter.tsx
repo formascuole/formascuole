@@ -4,19 +4,22 @@ interface OreCounterProps {
   oreErogate?: number
   sessioniCompletate?: number
   sessioniTotali?: number
+  oreResidencialeAdmin?: number
 }
 
-export function OreCounter({ oreTotali, orePianificate, oreErogate, sessioniCompletate, sessioniTotali }: OreCounterProps) {
+export function OreCounter({ oreTotali, orePianificate, oreErogate, sessioniCompletate, sessioniTotali, oreResidencialeAdmin }: OreCounterProps) {
   const oreResidue = Math.max(oreTotali - orePianificate, 0)
   const pct = oreTotali > 0 ? Math.min(Math.round((orePianificate / oreTotali) * 100), 100) : 0
   const showSessioni = sessioniTotali !== undefined && sessioniTotali > 0
   const showErogate = oreErogate !== undefined
+  const showResidenciale = oreResidencialeAdmin !== undefined && oreResidencialeAdmin > 0
 
   const hasSessioniScadute = showSessioni &&
     sessioniCompletate !== undefined &&
     sessioniCompletate < sessioniTotali!
 
-  const colClass = showErogate && showSessioni ? 'grid-cols-5' : (showErogate || showSessioni) ? 'grid-cols-4' : 'grid-cols-3'
+  const colCount = [true, showErogate, showSessioni, showResidenciale].filter(Boolean).length + 2
+  const colClass = colCount >= 5 ? 'grid-cols-5' : colCount === 4 ? 'grid-cols-4' : 'grid-cols-3'
 
   return (
     <div className="bg-[#fbeced] rounded-lg p-4 space-y-3">
@@ -51,6 +54,12 @@ export function OreCounter({ oreTotali, orePianificate, oreErogate, sessioniComp
             <div className="text-xs text-gray-500 mt-0.5">Sessioni ✓</div>
           </div>
         )}
+        {showResidenciale && (
+          <div>
+            <div className="text-2xl font-bold text-orange-500">{oreResidencialeAdmin}h</div>
+            <div className="text-xs text-gray-500 mt-0.5">Residenziale</div>
+          </div>
+        )}
       </div>
       {showErogate ? (
         <div className="space-y-2">
@@ -79,6 +88,17 @@ export function OreCounter({ oreTotali, orePianificate, oreErogate, sessioniComp
               )
             })()}
           </div>
+          {showResidenciale && (
+            <div>
+              <div className="flex justify-between text-xs mb-0.5">
+                <span className="text-gray-600">Pianificate (residenziale)</span>
+                <span className="font-medium text-orange-500">{oreTotali > 0 ? Math.min(Math.round((oreResidencialeAdmin! / oreTotali) * 100), 100) : 0}%</span>
+              </div>
+              <div className="h-2 bg-white/60 rounded-full overflow-hidden">
+                <div className="h-full rounded-full transition-all duration-500" style={{ width: `${oreTotali > 0 ? Math.min(Math.round((oreResidencialeAdmin! / oreTotali) * 100), 100) : 0}%`, backgroundColor: '#f97316' }} />
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <>
