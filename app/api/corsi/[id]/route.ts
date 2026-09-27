@@ -19,6 +19,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   if ('tipo' in body) updates.tipo = body.tipo
   if ('modalita' in body) updates.modalita = body.modalita || null
   if ('ore_totali' in body) { const n = Number(body.ore_totali); if (n > 0) updates.ore_totali = n }
+  if ('ore_presenza' in body) updates.ore_presenza = body.ore_presenza != null && body.ore_presenza !== '' ? Number(body.ore_presenza) : null
+  if ('ore_online' in body) updates.ore_online = body.ore_online != null && body.ore_online !== '' ? Number(body.ore_online) : null
   if ('location' in body) updates.location = body.location?.trim() || null
   if ('link_scheda' in body) updates.link_scheda = body.link_scheda?.trim() || null
   if ('descrizione' in body) updates.descrizione = body.descrizione?.trim() || null

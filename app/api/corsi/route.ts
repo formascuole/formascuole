@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
   if (!['admin','super_admin'].includes(profile?.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const body = await request.json()
-  const { project_id, title, tipo, ore_totali, modalita, tutor_previsto, tutor_nome, ore_tutoraggio, descrizione, link_scheda, edizione, note, location } = body
+  const { project_id, title, tipo, ore_totali, modalita, tutor_previsto, tutor_nome, ore_tutoraggio, descrizione, link_scheda, edizione, note, location, ore_presenza, ore_online } = body
 
   if (!project_id || !title || !tipo || !ore_totali) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -51,6 +51,8 @@ export async function POST(request: NextRequest) {
   if (edizione) insertData.edizione = edizione.trim() || null
   if (note) insertData.note = note.trim() || null
   if (location) insertData.location = location.trim() || null
+  if (ore_presenza != null && ore_presenza !== '') insertData.ore_presenza = Number(ore_presenza)
+  if (ore_online != null && ore_online !== '') insertData.ore_online = Number(ore_online)
 
   // Pre-populate referente corso from the project's main referente, inherit finanziamento_id
   const { data: progetto } = await supabase
