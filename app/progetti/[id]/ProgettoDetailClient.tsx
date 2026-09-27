@@ -3161,11 +3161,30 @@ export function ProgettoDetailClient({
                 </div>
               ) : (
                 <div className="space-y-6">
-                  {labResidCorsi.map(corso => {
+                  {labResidCorsi.map((corso, corsoIdx) => {
                     const rows = residRows[corso.id] ?? []
+                    const sourceId = labResidCorsi[0].id
+                    const sourceRows = residRows[sourceId] ?? []
+                    const sourceHasRows = sourceRows.some(r => r.data && r.ore && Number(r.ore) > 0)
+                    const isCopyable = corsoIdx > 0
                     return (
                       <div key={corso.id} className="border border-gray-200 rounded-xl p-4">
-                        <div className="text-sm font-semibold text-gray-800 mb-3">{corso.title}</div>
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="text-sm font-semibold text-gray-800">{corso.title}</div>
+                          {isCopyable && (
+                            <button
+                              title={sourceHasRows ? undefined : 'Inserisci prima le sessioni nel primo corso'}
+                              disabled={!sourceHasRows}
+                              onClick={() => {
+                                const copied = sourceRows.map(r => ({ ...r, formatore_id: '' }))
+                                setResidRows(prev => ({ ...prev, [corso.id]: copied }))
+                              }}
+                              className="text-xs font-medium px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                            >
+                              📋 Copia sessioni da {labResidCorsi[0].title}
+                            </button>
+                          )}
+                        </div>
                         <div className="space-y-2">
                           {rows.map((row, idx) => (
                             <div key={idx} className="grid grid-cols-[1fr_80px_140px_1fr_32px] gap-2 items-center">
