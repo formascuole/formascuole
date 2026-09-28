@@ -113,6 +113,7 @@ export function QuestionariStatClient({ questionari, attestati }: Props) {
   const [mese, setMese] = useState('')
   const [linea, setLinea] = useState('')
   const [formatoreQ, setFormatoreQ] = useState('')
+  const [corsoQ, setCorsoQ] = useState('')
   const [pageA, setPageA] = useState(0)
   const [expandedAI, setExpandedAI] = useState<Set<string>>(new Set())
   const [expandedScuola, setExpandedScuola] = useState<Set<string>>(new Set())
@@ -129,6 +130,12 @@ export function QuestionariStatClient({ questionari, attestati }: Props) {
     return [...s].sort()
   }, [questionari])
 
+  const corsiDistinti = useMemo(() => {
+    const s = new Set<string>()
+    for (const q of questionari) if (q.titolo_corso) s.add(q.titolo_corso)
+    return [...s].sort()
+  }, [questionari])
+
   const filtered = useMemo(() => {
     return questionari.filter(q => {
       const d = getDateKey(q)
@@ -136,9 +143,10 @@ export function QuestionariStatClient({ questionari, attestati }: Props) {
       if (mese && d.substring(5, 7) !== mese) return false
       if (linea && q.linea_finanziamento !== linea) return false
       if (formatoreQ && !(q.formatore?.toLowerCase().includes(formatoreQ.toLowerCase()))) return false
+      if (corsoQ && q.titolo_corso !== corsoQ) return false
       return true
     })
-  }, [questionari, anno, mese, linea, formatoreQ])
+  }, [questionari, anno, mese, linea, formatoreQ, corsoQ])
 
   const PAGE_SIZE = 20
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
@@ -211,7 +219,7 @@ export function QuestionariStatClient({ questionari, attestati }: Props) {
   }
 
   const agg = useMemo(() => computeAggregates(filtered), [filtered])
-  const hasFilters = anno || mese || linea || formatoreQ
+  const hasFilters = anno || mese || linea || formatoreQ || corsoQ
 
   return (
     <div className="p-8 max-w-6xl mx-auto">
@@ -379,9 +387,22 @@ export function QuestionariStatClient({ questionari, attestati }: Props) {
             className="text-sm border border-gray-200 rounded-[7px] px-3 py-1.5 focus:outline-none focus:border-[#d64b55] w-40"
           />
         </div>
+        {corsiDistinti.length > 0 && (
+          <div>
+            <div className="text-xs text-gray-400 mb-1">Corso</div>
+            <select
+              value={corsoQ}
+              onChange={e => { setCorsoQ(e.target.value); setPageA(0) }}
+              className="text-sm border border-gray-200 rounded-[7px] px-3 py-1.5 focus:outline-none focus:border-[#d64b55] bg-white max-w-[220px]"
+            >
+              <option value="">Tutti i corsi</option>
+              {corsiDistinti.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+        )}
         {hasFilters && (
           <button
-            onClick={() => { setAnno(''); setMese(''); setLinea(''); setFormatoreQ(''); setPageA(0) }}
+            onClick={() => { setAnno(''); setMese(''); setLinea(''); setFormatoreQ(''); setCorsoQ(''); setPageA(0) }}
             className="text-xs text-gray-400 hover:text-gray-700 px-2 py-1.5"
           >
             Azzera filtri
