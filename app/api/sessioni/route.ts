@@ -59,7 +59,8 @@ export async function POST(request: NextRequest) {
   if (!corso) return NextResponse.json({ error: 'Corso not found' }, { status: 404 })
 
   // Permission check: admin OR assigned formatore
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+  // Use admin client for profile lookup to avoid RLS issues in bulk/sequential requests
+  const { data: profile } = await admin.from('profiles').select('role').eq('id', user.id).single()
   const isAdmin = profile?.role === 'admin' || profile?.role === 'super_admin'
   const isAssignedFormatore = corso.formatore_id === user.id
 
