@@ -25,6 +25,7 @@ SELECT
   COUNT(DISTINCT c.id)                                              AS n_corsi,
   COALESCE(SUM(c.ore_totali), 0)                                   AS ore_totali,
   COALESCE(SUM(sess_sum.ore_pianificate), 0)                       AS ore_pianificate,
+  COALESCE(SUM(co.ore_erogate), 0)                                 AS ore_erogate,
   CASE
     WHEN COALESCE(SUM(c.ore_totali), 0) = 0 THEN 0
     ELSE ROUND(
