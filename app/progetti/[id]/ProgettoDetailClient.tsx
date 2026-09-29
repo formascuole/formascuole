@@ -3350,7 +3350,16 @@ function CourseRow({ corso, progettoId, oreErogate = 0, finanziamentoNome, selec
               <span className="text-xs font-medium text-green-700 bg-green-100 px-2 py-0.5 rounded-md">Completato</span>
             )}
           </div>
-          <div className="text-xs text-gray-400">{oreTot}h totali</div>
+          <div className="flex flex-col gap-0.5">
+            <div className="text-xs text-gray-400">{oreTot}h totali</div>
+            {(corso.modalita === 'ibrido' || corso.modalita === 'residenziale') && (corso.ore_presenza || corso.ore_online) && (
+              <div className="text-xs text-gray-400">
+                {corso.modalita === 'residenziale'
+                  ? `🏨 ${corso.ore_presenza}h residenziale · 🏫 ${corso.ore_online}h scuola`
+                  : `🏫 ${corso.ore_presenza}h presenza · 💻 ${corso.ore_online}h online`}
+              </div>
+            )}
+          </div>
         </div>
         <div className="w-52">
           <DualProgressBar oreTotali={oreTot} orePianificate={orePian} oreErogate={oreErogate} />

@@ -522,8 +522,17 @@ export function FormatoreClient({ corsi, profile, finanziamenti, questionari = [
                                 {statoCalendario.label}
                               </span>
                             </div>
-                            <div className="flex items-center gap-3 text-xs text-gray-400">
-                              <span>{oreTot}h totali</span>
+                            <div className="flex flex-col gap-0.5">
+                              <div className="flex items-center gap-3 text-xs text-gray-400">
+                                <span>{oreTot}h totali</span>
+                              </div>
+                              {(corso.modalita === 'ibrido' || corso.modalita === 'residenziale') && (corso.ore_presenza || corso.ore_online) && (
+                                <div className="text-xs text-gray-400">
+                                  {corso.modalita === 'residenziale'
+                                    ? `🏨 ${corso.ore_presenza}h residenziale · 🏫 ${corso.ore_online}h scuola`
+                                    : `🏫 ${corso.ore_presenza}h presenza · 💻 ${corso.ore_online}h online`}
+                                </div>
+                              )}
                             </div>
                           </div>
                           {!inAttesa && (

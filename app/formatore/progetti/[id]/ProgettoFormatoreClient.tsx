@@ -331,13 +331,22 @@ export function ProgettoFormatoreClient({ progetto, corsi, finanziamenti, format
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-4 text-xs text-gray-400">
-                    <span>{oreTot}h totali</span>
-                    <span>{orePian}h pianificate</span>
-                    <span className={oreRes > 0 ? 'font-medium text-gray-600' : 'text-gray-400'}>
-                      {oreRes}h residue
-                    </span>
-                    <span className="font-medium text-gray-600">{pct}%</span>
+                  <div className="flex flex-col gap-0.5">
+                    <div className="flex items-center gap-4 text-xs text-gray-400">
+                      <span>{oreTot}h totali</span>
+                      <span>{orePian}h pianificate</span>
+                      <span className={oreRes > 0 ? 'font-medium text-gray-600' : 'text-gray-400'}>
+                        {oreRes}h residue
+                      </span>
+                      <span className="font-medium text-gray-600">{pct}%</span>
+                    </div>
+                    {(corso.modalita === 'ibrido' || corso.modalita === 'residenziale') && ((corso as any).ore_presenza || (corso as any).ore_online) && (
+                      <div className="text-xs text-gray-400">
+                        {corso.modalita === 'residenziale'
+                          ? `🏨 ${(corso as any).ore_presenza}h residenziale · 🏫 ${(corso as any).ore_online}h scuola`
+                          : `🏫 ${(corso as any).ore_presenza}h presenza · 💻 ${(corso as any).ore_online}h online`}
+                      </div>
+                    )}
                   </div>
                 </div>
                 {!inAttesa && (
