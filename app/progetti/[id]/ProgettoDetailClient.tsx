@@ -359,7 +359,7 @@ export function ProgettoDetailClient({
   const [tariffaInput, setTariffaInput] = useState('')
   const [tariffaSaving, setTariffaSaving] = useState(false)
   const [tariffaError, setTariffaError] = useState('')
-  const [pendingToSave, setPendingToSave] = useState<Array<{ corsoId: string; title: string; formatoreId: string; tariffa: string }>>([])
+  const [pendingToSave, setPendingToSave] = useState<Array<{ corsoId: string; title: string; formatoreId: string; tariffa: string; oreFormatore: string; coFormatoreId: string; oreCoFormatore: string; tariffaCoFormatore: string }>>([])
   const [localTariffeOverrides, setLocalTariffeOverrides] = useState<Record<string, number>>({})
   const [oreWarningOpen, setOreWarningOpen] = useState(false)
   const [oreWarningList, setOreWarningList] = useState<Array<{ nome: string; oreGia: number; oreNuove: number; oreTotal: number }>>([])
