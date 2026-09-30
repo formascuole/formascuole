@@ -885,7 +885,18 @@ export function ProgettoDetailClient({
     const tariffa = formatoreId !== existingCourse?.formatore_id
       ? (f?.tariffa_oraria_formatore != null ? String(f.tariffa_oraria_formatore) : (existingCourse?.tariffa_oraria != null ? String(existingCourse.tariffa_oraria) : ''))
       : (existingFormMap[corsoId]?.tariffa ?? '')
-    setExistingFormMap(m => ({ ...m, [corsoId]: { formatoreId, tariffa } }))
+    setExistingFormMap(m => ({
+      ...m,
+      [corsoId]: {
+        ...m[corsoId],
+        formatoreId,
+        tariffa,
+        oreFormatore: String(existingCourse?.ore_totali ?? ''),
+        coFormatoreId: '',
+        oreCoFormatore: '',
+        tariffaCoFormatore: '',
+      }
+    }))
   }
 
   const handleBulkTariffaChange = (corsoId: string, tariffa: string, isExisting: boolean) => {
