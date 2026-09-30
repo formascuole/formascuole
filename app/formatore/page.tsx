@@ -23,13 +23,26 @@ export default async function FormatorePage() {
   // Usa il service role client per bypassare RLS sulla view corsi_con_ore
   const admin = createAdminClient()
 
-  // Corsi del formatore — select diretto senza join sulla view (le view non
-  // espongono sempre le FK relationship a PostgREST)
-  const { data: corsi } = await admin
+  // Corsi del formatore — sia come formatore principale sia come co-formatore
+  const { data: corsiFormatore } = await admin
     .from('corsi_con_ore')
     .select('*')
     .eq('formatore_id', user.id)
     .order('created_at')
+
+  const { data: corsiCoFormatore } = await admin
+    .from('corsi_con_ore')
+    .select('*')
+    .eq('co_formatore_id', user.id)
+    .order('created_at')
+
+  // Merge deduplicando per id (non dovrebbe mai esserci un corso con stesso formatore_id e co_formatore_id)
+  const corsiMap = new Map<string, typeof corsiFormatore extends (infer T)[] | null ? T : never>()
+  for (const c of (corsiFormatore || [])) corsiMap.set(c.id, c)
+  for (const c of (corsiCoFormatore || [])) if (!corsiMap.has(c.id)) corsiMap.set(c.id, c)
+  const corsi = Array.from(corsiMap.values()).sort((a, b) =>
+    (a.created_at as string) < (b.created_at as string) ? -1 : 1
+  )
 
   // Fetch dati progetto separatamente
   const projectIds = [...new Set((corsi || []).map(c => c.project_id))]

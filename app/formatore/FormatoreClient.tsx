@@ -479,6 +479,10 @@ export function FormatoreClient({ corsi, profile, finanziamenti, questionari = [
                       ? { label: 'Da pianificare', bg: '#f3f4f6', text: '#6b7280' }
                       : { label: 'In corso', bg: '#dbeafe', text: '#1e40af' }
                     const inAttesa = corso.stato_assegnazione === 'in_attesa'
+                    const isCoFormatore = (corso as any).co_formatore_id === profile.id
+                    const mieOre = isCoFormatore
+                      ? ((corso as any).ore_co_formatore ?? oreTot)
+                      : ((corso as any).ore_formatore ?? oreTot)
 
                     return (
                       <div key={corso.id}
@@ -521,10 +525,18 @@ export function FormatoreClient({ corsi, profile, finanziamenti, questionari = [
                                 style={{ backgroundColor: statoCalendario.bg, color: statoCalendario.text }}>
                                 {statoCalendario.label}
                               </span>
+                              {isCoFormatore && (
+                                <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-purple-100 text-purple-700">
+                                  Co-formatore
+                                </span>
+                              )}
                             </div>
                             <div className="flex flex-col gap-0.5">
                               <div className="flex items-center gap-3 text-xs text-gray-400">
                                 <span>{oreTot}h totali</span>
+                                {mieOre !== oreTot && (
+                                  <span className="font-medium text-gray-600">({mieOre}h mie)</span>
+                                )}
                               </div>
                               {(corso.modalita === 'ibrido' || corso.modalita === 'residenziale') && (corso.ore_presenza || corso.ore_online) && (
                                 <div className="text-xs text-gray-400">

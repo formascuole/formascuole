@@ -28,13 +28,17 @@ export default async function ProgettoFormatorePage({ params }: { params: Promis
 
   if (!progetto) redirect('/formatore/progetti')
 
-  // Verify formatore has at least one course in this project
-  const { data: corsi } = await admin
-    .from('corsi_con_ore')
-    .select('*')
-    .eq('formatore_id', user.id)
-    .eq('project_id', progettoId)
-    .order('created_at')
+  // Verify formatore has at least one course in this project (as formatore or co-formatore)
+  const [{ data: corsiF }, { data: corsiCoF }] = await Promise.all([
+    admin.from('corsi_con_ore').select('*').eq('formatore_id', user.id).eq('project_id', progettoId).order('created_at'),
+    admin.from('corsi_con_ore').select('*').eq('co_formatore_id', user.id).eq('project_id', progettoId).order('created_at'),
+  ])
+  const corsiMap2 = new Map<string, (typeof corsiF extends (infer T)[] | null ? T : never)>()
+  for (const c of (corsiF || [])) corsiMap2.set(c.id, c)
+  for (const c of (corsiCoF || [])) if (!corsiMap2.has(c.id)) corsiMap2.set(c.id, c)
+  const corsi = Array.from(corsiMap2.values()).sort((a, b) =>
+    (a.created_at as string) < (b.created_at as string) ? -1 : 1
+  )
 
   if (!corsi || corsi.length === 0) redirect('/formatore/progetti')
 

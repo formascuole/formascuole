@@ -58,7 +58,14 @@ type EditScuolaForm = {
 type ReferenteForm = { nome: string; email: string; tel: string; ruolo: string }
 const emptyReferenteForm: ReferenteForm = { nome: '', email: '', tel: '', ruolo: '' }
 
-type BulkRowState = { formatoreId: string; tariffa: string }
+type BulkRowState = {
+  formatoreId: string
+  tariffa: string
+  oreFormatore: string       // ore assegnate al formatore principale (default = ore_totali)
+  coFormatoreId: string      // co-formatore (opzionale)
+  oreCoFormatore: string     // ore assegnate al co-formatore
+  tariffaCoFormatore: string
+}
 
 type BulkAddEdizione = {
   ore_totali: string
@@ -801,13 +808,24 @@ export function ProgettoDetailClient({
   const openBulkModal = () => {
     const newMap: Record<string, BulkRowState> = {}
     for (const c of corsi.filter(c => !c.formatore_id)) {
-      newMap[c.id] = { formatoreId: '', tariffa: '' }
+      newMap[c.id] = {
+        formatoreId: '',
+        tariffa: '',
+        oreFormatore: String(c.ore_totali),
+        coFormatoreId: '',
+        oreCoFormatore: '',
+        tariffaCoFormatore: '',
+      }
     }
     const existMap: Record<string, BulkRowState> = {}
     for (const c of corsi.filter(c => c.formatore_id)) {
       existMap[c.id] = {
         formatoreId: c.formatore_id as string,
         tariffa: c.tariffa_oraria != null ? String(c.tariffa_oraria) : '',
+        oreFormatore: (c as any).ore_formatore != null ? String((c as any).ore_formatore) : String(c.ore_totali),
+        coFormatoreId: (c as any).co_formatore_id ?? '',
+        oreCoFormatore: (c as any).ore_co_formatore != null ? String((c as any).ore_co_formatore) : '',
+        tariffaCoFormatore: (c as any).tariffa_oraria_co_formatore != null ? String((c as any).tariffa_oraria_co_formatore) : '',
       }
     }
     setBulkFormMap(newMap)
@@ -822,8 +840,43 @@ export function ProgettoDetailClient({
   const handleBulkFormatoreChange = (corsoId: string, formatoreId: string) => {
     const f = formatori.find(f => f.id === formatoreId)
     const tariffa = f?.tariffa_oraria_formatore != null ? String(f.tariffa_oraria_formatore) : ''
-    setBulkFormMap(m => ({ ...m, [corsoId]: { formatoreId, tariffa } }))
+    const corso = corsi.find(c => c.id === corsoId)
+    setBulkFormMap(m => ({
+      ...m,
+      [corsoId]: {
+        ...m[corsoId],
+        formatoreId,
+        tariffa,
+        // Reset ore to full when formatore changes
+        oreFormatore: String(corso?.ore_totali ?? ''),
+        coFormatoreId: '',
+        oreCoFormatore: '',
+        tariffaCoFormatore: '',
+      }
+    }))
     setBulkValidationErrors(e => { const n = new Set(e); n.delete(corsoId); return n })
+  }
+
+  const handleBulkOreFormatoreChange = (corsoId: string, oreFormatore: string, isExisting: boolean) => {
+    const corso = corsi.find(c => c.id === corsoId)
+    const oreTot = corso?.ore_totali ?? 0
+    const oreF = Number(oreFormatore)
+    const oreCoF = oreF > 0 && oreF < oreTot ? String(oreTot - oreF) : ''
+    if (isExisting) {
+      setExistingFormMap(m => ({ ...m, [corsoId]: { ...m[corsoId], oreFormatore, oreCoFormatore: oreCoF } }))
+    } else {
+      setBulkFormMap(m => ({ ...m, [corsoId]: { ...m[corsoId], oreFormatore, oreCoFormatore: oreCoF } }))
+    }
+  }
+
+  const handleBulkCoFormatoreChange = (corsoId: string, coFormatoreId: string, isExisting: boolean) => {
+    const f = formatori.find(f => f.id === coFormatoreId)
+    const tariffaCoFormatore = f?.tariffa_oraria_formatore != null ? String(f.tariffa_oraria_formatore) : ''
+    if (isExisting) {
+      setExistingFormMap(m => ({ ...m, [corsoId]: { ...m[corsoId], coFormatoreId, tariffaCoFormatore } }))
+    } else {
+      setBulkFormMap(m => ({ ...m, [corsoId]: { ...m[corsoId], coFormatoreId, tariffaCoFormatore } }))
+    }
   }
 
   const handleExistingFormatoreChange = (corsoId: string, formatoreId: string) => {
@@ -844,7 +897,16 @@ export function ProgettoDetailClient({
     }
   }
 
-  type BulkSaveItem = { corsoId: string; title: string; formatoreId: string; tariffa: string }
+  type BulkSaveItem = {
+    corsoId: string
+    title: string
+    formatoreId: string
+    tariffa: string
+    oreFormatore: string
+    coFormatoreId: string
+    oreCoFormatore: string
+    tariffaCoFormatore: string
+  }
 
   const executeBulkSave = async (toSave: BulkSaveItem[], tariffeOverrides: Record<string, number>) => {
     setBulkSaving(true)
@@ -853,20 +915,53 @@ export function ProgettoDetailClient({
     const errori: { corso: string; err: string }[] = []
 
     for (let i = 0; i < toSave.length; i++) {
-      const { corsoId, title, formatoreId, tariffa } = toSave[i]
+      const { corsoId, title, formatoreId, tariffa, oreFormatore, coFormatoreId, oreCoFormatore, tariffaCoFormatore } = toSave[i]
       const resolvedTariffa = (tariffa && Number(tariffa) > 0)
         ? Number(tariffa)
         : (tariffeOverrides[formatoreId] ?? null)
+      const hasCoFormatore = !!coFormatoreId && !!oreCoFormatore && Number(oreCoFormatore) > 0
+
+      // 1. Assign main formatore (with ore_formatore if co-formatore exists)
       const body: Record<string, unknown> = { formatore_id: formatoreId }
       if (resolvedTariffa) body.tariffa_oraria = resolvedTariffa
+      if (hasCoFormatore && oreFormatore) body.ore_formatore = Number(oreFormatore)
+
       const res = await fetch(`/api/corsi/${corsoId}/formatore`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
       const json = await res.json()
-      if (res.ok) successi.push(title)
-      else errori.push({ corso: title, err: json.message || json.error || 'Errore sconosciuto' })
+      if (!res.ok) {
+        errori.push({ corso: title, err: json.message || json.error || 'Errore sconosciuto' })
+        setBulkProgress({ done: i + 1, total: toSave.length })
+        continue
+      }
+
+      // 2. Assign co-formatore if present
+      if (hasCoFormatore) {
+        const coBody: Record<string, unknown> = {
+          co_formatore_id: coFormatoreId,
+          ore_formatore: Number(oreFormatore),
+          ore_co_formatore: Number(oreCoFormatore),
+        }
+        if (tariffaCoFormatore && Number(tariffaCoFormatore) > 0) {
+          coBody.tariffa_oraria_co_formatore = Number(tariffaCoFormatore)
+        }
+        const coRes = await fetch(`/api/corsi/${corsoId}/co-formatore`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(coBody),
+        })
+        if (!coRes.ok) {
+          const coJson = await coRes.json()
+          errori.push({ corso: title, err: `Co-formatore: ${coJson.message || coJson.error || 'Errore sconosciuto'}` })
+          setBulkProgress({ done: i + 1, total: toSave.length })
+          continue
+        }
+      }
+
+      successi.push(title)
       setBulkProgress({ done: i + 1, total: toSave.length })
     }
 
@@ -939,12 +1034,30 @@ export function ProgettoDetailClient({
     const toSave: BulkSaveItem[] = []
     for (const corso of corsi.filter(c => !c.formatore_id)) {
       const row = bulkFormMap[corso.id]
-      if (row?.formatoreId) toSave.push({ corsoId: corso.id, title: corso.title, formatoreId: row.formatoreId, tariffa: row.tariffa })
+      if (row?.formatoreId) toSave.push({
+        corsoId: corso.id,
+        title: corso.title,
+        formatoreId: row.formatoreId,
+        tariffa: row.tariffa,
+        oreFormatore: row.oreFormatore || String(corso.ore_totali),
+        coFormatoreId: row.coFormatoreId || '',
+        oreCoFormatore: row.oreCoFormatore || '',
+        tariffaCoFormatore: row.tariffaCoFormatore || '',
+      })
     }
     for (const corso of corsi.filter(c => c.formatore_id)) {
       const row = existingFormMap[corso.id]
       if (row && row.formatoreId && row.formatoreId !== corso.formatore_id) {
-        toSave.push({ corsoId: corso.id, title: corso.title, formatoreId: row.formatoreId, tariffa: row.tariffa })
+        toSave.push({
+          corsoId: corso.id,
+          title: corso.title,
+          formatoreId: row.formatoreId,
+          tariffa: row.tariffa,
+          oreFormatore: row.oreFormatore || String(corso.ore_totali),
+          coFormatoreId: row.coFormatoreId || '',
+          oreCoFormatore: row.oreCoFormatore || '',
+          tariffaCoFormatore: row.tariffaCoFormatore || '',
+        })
       }
     }
     if (toSave.length === 0) return
@@ -2401,17 +2514,24 @@ export function ProgettoDetailClient({
                             <th className="text-left pb-2 pr-4 font-medium text-gray-500 text-xs uppercase tracking-wide">Corso</th>
                             <th className="text-left pb-2 pr-4 font-medium text-gray-500 text-xs uppercase tracking-wide w-14">Ore</th>
                             <th className="text-left pb-2 pr-4 font-medium text-gray-500 text-xs uppercase tracking-wide w-10">Mod.</th>
-                            <th className="text-left pb-2 pr-4 font-medium text-gray-500 text-xs uppercase tracking-wide min-w-48">Formatore</th>
-                            <th className="text-left pb-2 pr-4 font-medium text-gray-500 text-xs uppercase tracking-wide w-32">Tariffa (€/h)</th>
+                            <th className="text-left pb-2 pr-4 font-medium text-gray-500 text-xs uppercase tracking-wide min-w-48">Formatore A</th>
+                            <th className="text-left pb-2 pr-4 font-medium text-gray-500 text-xs uppercase tracking-wide w-20">Ore A</th>
+                            <th className="text-left pb-2 pr-4 font-medium text-gray-500 text-xs uppercase tracking-wide w-28">Tariffa A (€/h)</th>
+                            <th className="text-left pb-2 pr-4 font-medium text-gray-500 text-xs uppercase tracking-wide min-w-40">Co-formatore</th>
+                            <th className="text-left pb-2 pr-4 font-medium text-gray-500 text-xs uppercase tracking-wide w-20">Ore B</th>
                             <th className="text-left pb-2 font-medium text-gray-500 text-xs uppercase tracking-wide w-28">Stato</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
                           {corsi.filter(c => !c.formatore_id).map(corso => {
-                            const row = bulkFormMap[corso.id] || { formatoreId: '', tariffa: '' }
+                            const row = bulkFormMap[corso.id] || { formatoreId: '', tariffa: '', oreFormatore: String(corso.ore_totali), coFormatoreId: '', oreCoFormatore: '', tariffaCoFormatore: '' }
                             const selF = row.formatoreId ? formatori.find(f => f.id === row.formatoreId) : null
                             const oreAssegnate = row.formatoreId ? (oreAssegnateMap[row.formatoreId] ?? 0) : 0
                             const hasValErr = bulkValidationErrors.has(corso.id)
+                            const oreF = Number(row.oreFormatore || corso.ore_totali)
+                            const showCoFormatore = row.formatoreId && oreF > 0 && oreF < corso.ore_totali
+                            const oreCoF = corso.ore_totali - oreF
+                            const coFormatoriDisp = formatori.filter(f => f.id !== row.formatoreId)
                             return (
                               <tr key={corso.id} className={hasValErr ? 'bg-red-50' : ''}>
                                 <td className="py-3 pr-4 align-top">
@@ -2446,6 +2566,23 @@ export function ProgettoDetailClient({
                                     <span className="text-xs text-orange-600 mt-0.5 block">⚠️ {oreAssegnate}h già assegnate</span>
                                   )}
                                 </td>
+                                {/* Ore formatore A */}
+                                <td className="py-3 pr-4 align-top">
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    max={corso.ore_totali}
+                                    step="1"
+                                    value={row.oreFormatore}
+                                    onChange={e => handleBulkOreFormatoreChange(corso.id, e.target.value, false)}
+                                    disabled={!row.formatoreId}
+                                    className="w-full text-sm border border-gray-200 rounded-[7px] px-2 py-1.5 focus:outline-none focus:border-[#d64b55] transition-colors disabled:bg-gray-50 disabled:text-gray-400"
+                                  />
+                                  {showCoFormatore && (
+                                    <span className="text-xs text-blue-600 mt-0.5 block">+{oreCoF}h a B</span>
+                                  )}
+                                </td>
+                                {/* Tariffa A */}
                                 <td className="py-3 pr-4 align-top">
                                   <input
                                     type="number"
@@ -2460,6 +2597,43 @@ export function ProgettoDetailClient({
                                   {hasValErr && row.formatoreId && (
                                     <span className="text-xs text-red-600">Tariffa obbligatoria</span>
                                   )}
+                                </td>
+                                {/* Co-formatore */}
+                                <td className="py-3 pr-4 align-top">
+                                  {showCoFormatore ? (
+                                    <div className="flex flex-col gap-1">
+                                      <select
+                                        value={row.coFormatoreId}
+                                        onChange={e => handleBulkCoFormatoreChange(corso.id, e.target.value, false)}
+                                        className="w-full text-sm border border-gray-200 rounded-[7px] px-2 py-1.5 bg-white focus:outline-none focus:border-[#d64b55] transition-colors"
+                                      >
+                                        <option value="">— Co-formatore —</option>
+                                        {coFormatoriDisp.map(f => (
+                                          <option key={f.id} value={f.id}>
+                                            {f.nome}
+                                            {!f.tariffa_oraria_formatore ? ' ⚠️' : ''}
+                                          </option>
+                                        ))}
+                                      </select>
+                                      {row.coFormatoreId && (
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          step="0.5"
+                                          value={row.tariffaCoFormatore}
+                                          onChange={e => setBulkFormMap(m => ({ ...m, [corso.id]: { ...m[corso.id], tariffaCoFormatore: e.target.value } }))}
+                                          placeholder="Tariffa B (€/h)"
+                                          className="w-full text-sm border border-gray-200 rounded-[7px] px-2 py-1.5 focus:outline-none focus:border-[#d64b55] transition-colors"
+                                        />
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <span className="text-xs text-gray-300">—</span>
+                                  )}
+                                </td>
+                                {/* Ore B */}
+                                <td className="py-3 pr-4 align-top text-gray-500 text-sm">
+                                  {showCoFormatore && oreCoF > 0 ? `${oreCoF}h` : '—'}
                                 </td>
                                 <td className="py-3 align-top">
                                   <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-md whitespace-nowrap">Non assegnato</span>
@@ -3309,6 +3483,7 @@ function CourseRow({ corso, progettoId, oreErogate = 0, finanziamentoNome, selec
 }) {
   const router = useRouter()
   const formatore = corso.formatore as Profile | undefined
+  const coFormatore = (corso as any).co_formatore as Profile | undefined
   const badgeInfo = corso.stato_assegnazione ? ASSEGNAZIONE_BADGES[corso.stato_assegnazione] : undefined
   const oreTot = Number(corso.ore_totali)
   const orePian = Number(corso.ore_pianificate)
@@ -3369,8 +3544,24 @@ function CourseRow({ corso, progettoId, oreErogate = 0, finanziamentoNome, selec
             <>
               <div className="flex items-center gap-2">
                 <Avatar nome={formatore.nome} id={formatore.id} initials={formatore.avatar_initials} size="sm" />
-                <span className="text-xs text-gray-700 truncate">{formatore.nome}</span>
+                <div className="flex flex-col min-w-0">
+                  <span className="text-xs text-gray-700 truncate">{formatore.nome}</span>
+                  {(corso as any).ore_formatore != null && coFormatore && (
+                    <span className="text-xs text-gray-400">{(corso as any).ore_formatore}h</span>
+                  )}
+                </div>
               </div>
+              {coFormatore && (
+                <div className="flex items-center gap-2">
+                  <Avatar nome={coFormatore.nome} id={coFormatore.id} initials={coFormatore.avatar_initials} size="sm" />
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-xs text-gray-600 truncate">{coFormatore.nome}</span>
+                    {(corso as any).ore_co_formatore != null && (
+                      <span className="text-xs text-gray-400">{(corso as any).ore_co_formatore}h</span>
+                    )}
+                  </div>
+                </div>
+              )}
               {badgeInfo && (
                 <span className={`text-xs font-medium px-2 py-0.5 rounded-full w-fit ${badgeInfo.cls}`}>
                   {badgeInfo.label}

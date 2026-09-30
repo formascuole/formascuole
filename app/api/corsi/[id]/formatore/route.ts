@@ -11,7 +11,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
   if (!['admin','super_admin'].includes(profile?.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-  const { formatore_id, tariffa_oraria: tariffaOverride } = await request.json()
+  const { formatore_id, tariffa_oraria: tariffaOverride, ore_formatore } = await request.json()
 
   // Fetch formatore's default tariffa AND current corso's tariffa to avoid overwriting
   const adminClient = createAdminClient()
@@ -74,6 +74,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         ...(tariffaOverride != null
           ? { tariffa_oraria: tariffaFormatore }
           : (!tariffaCorsoGiaImpostata && tariffaFormatore != null ? { tariffa_oraria: tariffaFormatore } : {})),
+        // ore_formatore: only set if provided (used when corso has co-formatore)
+        ...(ore_formatore != null ? { ore_formatore: Number(ore_formatore) } : {}),
       }
     : {
         formatore_id: null,
