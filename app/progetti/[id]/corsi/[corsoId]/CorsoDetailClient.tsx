@@ -2116,7 +2116,7 @@ export function CorsoDetailClient({
             </div>
 
             {/* Conferma */}
-            {calendarioInviatoAt && (
+               {(calendarioInviatoAt || isSuperAdmin) && (
               <div className="flex items-center justify-between pt-4 border-t border-gray-100">
                 <div>
                   <div className="text-sm font-medium text-gray-700">Conferma calendario</div>
