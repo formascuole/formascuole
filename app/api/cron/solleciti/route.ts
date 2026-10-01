@@ -906,6 +906,164 @@ Il team Formascuole`
       }
     }
 
+    // ── FASE 9: Promemoria e solleciti calendario ─────────────────────────────
+    // 9A: Formatore ha sessioni pianificate ma non ha inviato il calendario alla scuola
+    //     → promemoria al formatore (una sola volta, poi ogni 48h se ancora non inviato)
+    // 9B: Calendario inviato alla scuola, non ancora confermato, passati 5 gg lavorativi
+    //     → sollecito alla scuola (referente) per conferma
+
+    const calendarioResults: { corso_id: string; action: string }[] = []
+
+    // ── 9A: Promemoria invio calendario ──────────────────────────────────────
+    const { data: corsiDaInviare } = await supabase
+      .from('corsi_con_ore')
+      .select(`
+        id, title, formatore_id, project_id, calendario_inviato_at,
+        formatore:profiles!formatore_id(nome, email),
+        project:progetti(school_name, ref_name, ref_email)
+      `)
+      .is('calendario_inviato_at', null)
+      .eq('stato_assegnazione', 'accettato')
+      .not('formatore_id', 'is', null)
+
+    for (const corso of corsiDaInviare || []) {
+      const formatore = corso.formatore as unknown as { nome: string; email: string } | null
+      const project = corso.project as unknown as { school_name: string; ref_name: string; ref_email: string } | null
+      if (!formatore || !project) continue
+
+      // Controlla se ci sono sessioni pianificate per questo corso
+      const { count: nSessioni } = await supabase
+        .from('sessioni')
+        .select('*', { count: 'exact', head: true })
+        .eq('corso_id', corso.id)
+      if (!nSessioni || nSessioni === 0) continue
+
+      // Deduplication: non inviare se già inviato nelle ultime 48h
+      const cutoff48h = new Date(now.getTime() - 48 * 60 * 60 * 1000)
+      const { data: lastPromemoria } = await supabase
+        .from('solleciti_log')
+        .select('sent_at')
+        .eq('corso_id', corso.id)
+        .eq('tipo', 'promemoria_invio_calendario')
+        .order('sent_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (lastPromemoria && new Date(lastPromemoria.sent_at) > cutoff48h) {
+        calendarioResults.push({ corso_id: corso.id, action: 'promemoria_invio_skip_too_recent' })
+        continue
+      }
+
+      const corsoUrl = `${APP_URL}/progetti/${corso.project_id}/corsi/${corso.id}`
+      const body = `Gentile ${formatore.nome},
+
+ha inserito le sessioni pianificate per il corso "${corso.title}" presso ${project.school_name}, ma il calendario non è ancora stato inviato alla scuola.
+
+Ti ricordiamo che la piattaforma Formascuole è l'unico strumento ufficiale da utilizzare per inviare e confermare i calendari formativi. Non inviare il calendario tramite email o altri canali.
+
+Accedi alla piattaforma e invia il calendario dalla scheda del corso:
+${corsoUrl}
+
+Cordiali saluti,
+Il team Formascuole`
+
+      try {
+        await sendEmail({
+          to: formatore.email,
+          subject: `Promemoria — Invia il calendario alla scuola: ${corso.title}`,
+          body,
+          actions: [{ label: 'Vai al corso', url: corsoUrl, primary: true }],
+        })
+
+        await supabase.from('solleciti_log').insert({
+          corso_id: corso.id,
+          formatore_id: corso.formatore_id,
+          tipo: 'promemoria_invio_calendario',
+        })
+
+        calendarioResults.push({ corso_id: corso.id, action: 'sent_promemoria_invio_calendario' })
+      } catch {
+        calendarioResults.push({ corso_id: corso.id, action: 'promemoria_invio_email_error' })
+      }
+    }
+
+    // ── 9B: Sollecito conferma calendario alla scuola ─────────────────────────
+    const { data: corsiInAttesaConferma } = await supabase
+      .from('corsi_con_ore')
+      .select(`
+        id, title, formatore_id, project_id, calendario_inviato_at,
+        formatore:profiles!formatore_id(nome, email),
+        project:progetti(school_name, ref_name, ref_email)
+      `)
+      .not('calendario_inviato_at', 'is', null)
+      .eq('calendario_confermato', false)
+      .eq('stato_assegnazione', 'accettato')
+
+    for (const corso of corsiInAttesaConferma || []) {
+      const project = corso.project as unknown as { school_name: string; ref_name: string; ref_email: string } | null
+      const formatore = corso.formatore as unknown as { nome: string; email: string } | null
+      if (!project || !project.ref_email) continue
+
+      const inviato_at = new Date(corso.calendario_inviato_at as string)
+      // Invia solo dopo 5 giorni lavorativi dall'invio
+      if (now < addWorkingDays(inviato_at, 5)) {
+        calendarioResults.push({ corso_id: corso.id, action: 'sollecito_conferma_not_yet_5gg' })
+        continue
+      }
+
+      // Deduplication: non inviare se già inviato nelle ultime 48h
+      const cutoff48h = new Date(now.getTime() - 48 * 60 * 60 * 1000)
+      const { data: lastSollecito } = await supabase
+        .from('solleciti_log')
+        .select('sent_at')
+        .eq('corso_id', corso.id)
+        .eq('tipo', 'sollecito_conferma_calendario')
+        .order('sent_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (lastSollecito && new Date(lastSollecito.sent_at) > cutoff48h) {
+        calendarioResults.push({ corso_id: corso.id, action: 'sollecito_conferma_skip_too_recent' })
+        continue
+      }
+
+      const giornoInvio = inviato_at.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' })
+      const body = `Gentile ${project.ref_name || 'Referente'},
+
+il calendario del corso "${corso.title}" presso ${project.school_name} è stato inviato il ${giornoInvio} dal formatore ${formatore?.nome ?? ''} e risulta ancora in attesa di conferma.
+
+Ti chiediamo di accedere alla piattaforma Formascuole e confermare il calendario per procedere con l'attività formativa:
+${APP_URL}
+
+La conferma avviene esclusivamente tramite la piattaforma, che è l'unico strumento ufficiale riconosciuto per la gestione dei calendari formativi.
+
+Cordiali saluti,
+Il team Formascuole`
+
+      try {
+        await sendEmail({
+          to: project.ref_email,
+          subject: `Sollecito — Conferma il calendario del corso: ${corso.title}`,
+          body,
+          actions: [{ label: 'Accedi alla piattaforma', url: APP_URL, primary: true }],
+        })
+
+        // Trova un admin come formatore_id sentinella per il log
+        const { data: firstAdmin } = await supabase
+          .from('profiles').select('id').in('role', ['admin', 'super_admin']).limit(1).single()
+
+        await supabase.from('solleciti_log').insert({
+          corso_id: corso.id,
+          formatore_id: firstAdmin?.id ?? corso.formatore_id,
+          tipo: 'sollecito_conferma_calendario',
+        })
+
+        calendarioResults.push({ corso_id: corso.id, action: 'sent_sollecito_conferma_calendario' })
+      } catch {
+        calendarioResults.push({ corso_id: corso.id, action: 'sollecito_conferma_email_error' })
+      }
+    }
+
     return NextResponse.json({
       success: true,
       run_type: now.getUTCHours() >= 12 ? 'sera' : 'mattina',
@@ -926,6 +1084,9 @@ Il team Formascuole`
       solleciti_firma_results: sollecitiFirmaResults,
       riepilogo_accettazioni_processed: riepilogoResults.length,
       riepilogo_accettazioni_results: riepilogoResults,
+      calendario_promemoria_processed: (corsiDaInviare || []).length,
+      calendario_solleciti_processed: (corsiInAttesaConferma || []).length,
+      calendario_results: calendarioResults,
       timestamp: now.toISOString(),
     })
   } catch (error) {
