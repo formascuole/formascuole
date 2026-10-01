@@ -22,16 +22,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   let tariffaCorsoGiaImpostata = false
   let tariffaCoFormatore: number | null = null
   if (formatore_id) {
-    const queries: Promise<unknown>[] = [
+    const [{ data: fp }, { data: currentCorso }] = await Promise.all([
       adminClient.from('profiles').select('nome, tariffa_oraria_formatore').eq('id', formatore_id).single(),
       adminClient.from('corsi').select('tariffa_oraria, ore_totali').eq('id', id).single(),
-    ]
-    if (co_formatore_id) {
-      queries.push(adminClient.from('profiles').select('nome, tariffa_oraria_formatore, email').eq('id', co_formatore_id).single())
-    }
-    const results = await Promise.all(queries)
-    const { data: fp } = results[0] as { data: { nome: string; tariffa_oraria_formatore: number | null } | null }
-    const { data: currentCorso } = results[1] as { data: { tariffa_oraria: number | null; ore_totali: number } | null }
+    ])
     const profileTariffa = fp?.tariffa_oraria_formatore != null ? Number(fp.tariffa_oraria_formatore) : null
     tariffaCorsoGiaImpostata = currentCorso?.tariffa_oraria != null
     // Prefer explicit override (bulk assignment), fall back to profile tariffa
@@ -49,7 +43,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     // Validate and resolve co-formatore when provided
     if (co_formatore_id) {
-      const { data: coFp } = results[2] as { data: { nome: string; tariffa_oraria_formatore: number | null; email: string } | null }
+      const { data: coFp } = await adminClient.from('profiles').select('nome, tariffa_oraria_formatore, email').eq('id', co_formatore_id).single()
       tariffaCoFormatore = coFp?.tariffa_oraria_formatore != null ? Number(coFp.tariffa_oraria_formatore) : null
       if (!tariffaCoFormatore || tariffaCoFormatore <= 0) {
         return NextResponse.json({
