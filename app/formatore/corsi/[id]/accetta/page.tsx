@@ -14,18 +14,28 @@ export default async function AccettaCorsoPage({ params }: { params: Promise<{ i
 
   const { data: corso } = await admin
     .from('corsi')
-    .select('id, title, formatore_id, project_id, stato_assegnazione, ore_totali, tipo')
+    .select('id, title, formatore_id, co_formatore_id, project_id, stato_assegnazione, stato_assegnazione_co_formatore, ore_totali, ore_co_formatore, tipo')
     .eq('id', corsoId)
     .single()
 
-  if (!corso || corso.formatore_id !== user.id) redirect('/formatore')
-  if (corso.stato_assegnazione !== 'in_attesa') redirect('/formatore')
+  if (!corso) redirect('/formatore')
+
+  const isFormatore = corso.formatore_id === user.id
+  const isCoFormatore = corso.co_formatore_id === user.id
+
+  if (!isFormatore && !isCoFormatore) redirect('/formatore')
+
+  // Controlla che ci sia qualcosa da accettare
+  if (isFormatore && corso.stato_assegnazione !== 'in_attesa') redirect('/formatore')
+  if (isCoFormatore && corso.stato_assegnazione_co_formatore !== 'in_attesa') redirect('/formatore')
 
   const { data: progetto } = await admin
     .from('progetti')
     .select('school_name')
     .eq('id', corso.project_id)
     .single()
+
+  const oreVisualizzate = isCoFormatore ? (corso.ore_co_formatore ?? corso.ore_totali) : corso.ore_totali
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
@@ -39,6 +49,7 @@ export default async function AccettaCorsoPage({ params }: { params: Promise<{ i
         <h1 className="text-xl font-bold text-gray-900 text-center mb-2">Accetta incarico</h1>
         <p className="text-sm text-gray-500 text-center mb-6">
           Conferma la tua disponibilità per il corso seguente
+          {isCoFormatore && <span className="block mt-1 text-xs text-indigo-600 font-medium">Ruolo: co-formatore</span>}
         </p>
 
         <div className="bg-gray-50 rounded-[10px] p-4 mb-6 space-y-2">
@@ -53,12 +64,12 @@ export default async function AccettaCorsoPage({ params }: { params: Promise<{ i
             </div>
           )}
           <div>
-            <div className="text-xs text-gray-400 mb-0.5">Ore totali</div>
-            <div className="text-sm text-gray-700">{corso.ore_totali}h</div>
+            <div className="text-xs text-gray-400 mb-0.5">{isCoFormatore ? 'Le tue ore' : 'Ore totali'}</div>
+            <div className="text-sm text-gray-700">{oreVisualizzate}h</div>
           </div>
         </div>
 
-        <AccettaForm corsoId={corsoId} />
+        <AccettaForm corsoId={corsoId} isCoFormatore={isCoFormatore} />
 
         <div className="mt-4 text-center">
           <Link href="/formatore" className="text-xs text-gray-400 hover:text-gray-600">

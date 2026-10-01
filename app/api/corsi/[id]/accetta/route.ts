@@ -11,14 +11,39 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
   const admin = createAdminClient()
 
+  const ruolo = new URL(_req.url).searchParams.get('ruolo') // 'co_formatore' oppure null
+
   const { data: corso } = await admin
     .from('corsi')
-    .select('id, title, formatore_id, project_id, stato_assegnazione, ore_totali, tipo, tariffa_oraria')
+    .select('id, title, formatore_id, co_formatore_id, project_id, stato_assegnazione, stato_assegnazione_co_formatore, ore_totali, ore_co_formatore, tipo, tariffa_oraria')
     .eq('id', corsoId)
     .single()
 
   if (!corso) return NextResponse.json({ error: 'Corso non trovato' }, { status: 404 })
-  if (corso.formatore_id !== user.id) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+  const isCoFormatore = ruolo === 'co_formatore' && corso.co_formatore_id === user.id
+  const isFormatore = corso.formatore_id === user.id
+
+  if (!isFormatore && !isCoFormatore) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+  // ── Caso co-formatore ────────────────────────────────────────────────────────
+  if (isCoFormatore) {
+    if (corso.stato_assegnazione_co_formatore !== 'in_attesa') {
+      return NextResponse.json({ error: 'Il co-incarico non è in attesa di accettazione' }, { status: 400 })
+    }
+    const { error: coErr } = await admin
+      .from('corsi')
+      .update({
+        stato_assegnazione_co_formatore: 'accettato',
+        co_formatore_accettazione_at: new Date().toISOString(),
+      })
+      .eq('id', corsoId)
+
+    if (coErr) return NextResponse.json({ error: coErr.message }, { status: 500 })
+    return NextResponse.json({ success: true, ruolo: 'co_formatore' })
+  }
+
+  // ── Caso formatore principale ────────────────────────────────────────────────
   if (corso.stato_assegnazione !== 'in_attesa') {
     return NextResponse.json({ error: 'Il corso non è in attesa di accettazione' }, { status: 400 })
   }

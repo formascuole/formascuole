@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 
-export default function RifiutaForm({ corsoId }: { corsoId: string }) {
+export default function RifiutaForm({ corsoId, isCoFormatore = false }: { corsoId: string; isCoFormatore?: boolean }) {
   const router = useRouter()
   const [motivazione, setMotivazione] = useState('')
   const [loading, setLoading] = useState(false)
@@ -14,7 +14,10 @@ export default function RifiutaForm({ corsoId }: { corsoId: string }) {
     setLoading(true)
     setError('')
     try {
-      const res = await fetch(`/api/corsi/${corsoId}/rifiuta`, {
+      const url = isCoFormatore
+        ? `/api/corsi/${corsoId}/rifiuta?ruolo=co_formatore`
+        : `/api/corsi/${corsoId}/rifiuta`
+      const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ motivazione: motivazione.trim() }),

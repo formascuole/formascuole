@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 
-export default function AccettaForm({ corsoId }: { corsoId: string }) {
+export default function AccettaForm({ corsoId, isCoFormatore = false }: { corsoId: string; isCoFormatore?: boolean }) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -12,7 +12,10 @@ export default function AccettaForm({ corsoId }: { corsoId: string }) {
     setLoading(true)
     setError('')
     try {
-      const res = await fetch(`/api/corsi/${corsoId}/accetta`, { method: 'POST' })
+      const url = isCoFormatore
+        ? `/api/corsi/${corsoId}/accetta?ruolo=co_formatore`
+        : `/api/corsi/${corsoId}/accetta`
+      const res = await fetch(url, { method: 'POST' })
       if (res.ok) {
         router.push('/formatore?accettato=1')
       } else {

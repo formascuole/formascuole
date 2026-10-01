@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { generateAssegnazioneEmail, sendEmail } from '@/lib/email'
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://formascuole.vercel.app'
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -107,5 +110,57 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Se stiamo assegnando un co-formatore (non rimuovendo), invia email di notifica
+  if (co_formatore_id && data) {
+    try {
+      const coFormatore = (data as any).co_formatore as { id: string; nome: string; email: string } | null
+      const corsoTitolo = (data as any).title as string
+      const corsoTipo = (data as any).tipo as string | null
+      const oreCoFmt = (data as any).ore_co_formatore as number
+
+      const [{ data: progetto }, { data: formatoreRef }] = await Promise.all([
+        adminClient.from('progetti').select('school_name, ref_name, ref_email').eq('id', (data as any).project_id).single(),
+        adminClient.from('profiles').select('nome, email').eq('id', corso.formatore_id).single(),
+      ])
+
+      if (coFormatore?.email && progetto) {
+        const accetta_url = `${APP_URL}/formatore/corsi/${id}/accetta`
+        const rifiuta_url = `${APP_URL}/formatore/corsi/${id}/rifiuta`
+
+        const emailBody = await generateAssegnazioneEmail({
+          formatore_nome: coFormatore.nome,
+          formatore_email: coFormatore.email,
+          corso_title: corsoTitolo,
+          school_name: progetto.school_name,
+          ref_name: progetto.ref_name,
+          ref_email: progetto.ref_email,
+          ore_totali: oreCoFmt,
+          tipo: corsoTipo ?? undefined,
+          accetta_url,
+          rifiuta_url,
+        })
+
+        await sendEmail({
+          to: coFormatore.email,
+          subject: `Formascuole — Sei stato assegnato come co-formatore: ${corsoTitolo} — ${progetto.school_name}`,
+          body: emailBody,
+          actions: [
+            { label: '✓ Accetta incarico', url: accetta_url, primary: true },
+            { label: '✗ Rifiuta incarico', url: rifiuta_url },
+          ],
+        })
+
+        await adminClient.from('solleciti_log').insert({
+          corso_id: id,
+          formatore_id: co_formatore_id,
+          tipo: 'assegnazione_co_formatore',
+        })
+      }
+    } catch (emailErr) {
+      console.error('[co-formatore] Email notifica fallita (non bloccante):', emailErr)
+    }
+  }
+
   return NextResponse.json(data)
 }
