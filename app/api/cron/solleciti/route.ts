@@ -925,6 +925,7 @@ Il team Formascuole`
       .is('calendario_inviato_at', null)
       .eq('stato_assegnazione', 'accettato')
       .not('formatore_id', 'is', null)
+      .neq('completato', true)
 
     for (const corso of corsiDaInviare || []) {
       const formatore = corso.formatore as unknown as { nome: string; email: string } | null
@@ -998,6 +999,7 @@ Il team Formascuole`
       .not('calendario_inviato_at', 'is', null)
       .eq('calendario_confermato', false)
       .eq('stato_assegnazione', 'accettato')
+      .neq('completato', true)
 
     for (const corso of corsiInAttesaConferma || []) {
       const project = corso.project as unknown as { school_name: string; ref_name: string; ref_email: string } | null
