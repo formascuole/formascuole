@@ -377,6 +377,42 @@ export function DashboardClient({
         </div>
       )}
 
+      {/* Stato calendari + export */}
+      <div className="bg-white rounded-xl mb-8" style={{ border: '0.5px solid #e5e5e5' }}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <h2 className="font-semibold text-gray-900">Stato calendari</h2>
+          <a
+            href="/api/export/calendari"
+            download
+            className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-[7px] text-white transition-colors"
+            style={{ backgroundColor: '#16a34a' }}
+          >
+            <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            Esporta Excel (tutti)
+          </a>
+        </div>
+        <div className="grid grid-cols-4 divide-x divide-gray-100">
+          <div className="px-6 py-4 text-center">
+            <div className="text-2xl font-bold text-gray-900">{corsiDaInviare}</div>
+            <div className="text-xs text-gray-500 mt-0.5">Pianificati non inviati</div>
+          </div>
+          <div className="px-6 py-4 text-center">
+            <div className="text-2xl font-bold text-amber-600">{corsiInAttesaConferma}</div>
+            <div className="text-xs text-gray-500 mt-0.5">Inviati in attesa conferma</div>
+          </div>
+          <div className="px-6 py-4 text-center">
+            <div className="text-2xl font-bold text-green-600">{corsiCalendarioConfermati}</div>
+            <div className="text-xs text-gray-500 mt-0.5">Confermati</div>
+          </div>
+          <div className="px-6 py-4 text-center">
+            <div className="text-2xl font-bold text-gray-400">{corsiDaPianificare}</div>
+            <div className="text-xs text-gray-500 mt-0.5">Da pianificare</div>
+          </div>
+        </div>
+      </div>
+
       {/* Tabella progetti */}
       <div className="bg-white rounded-xl" style={{ border: '0.5px solid #e5e5e5' }}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
@@ -395,12 +431,21 @@ export function DashboardClient({
                 <th className="text-left text-xs font-medium text-gray-400 px-6 py-3">ANNO</th>
                 <th className="text-center text-xs font-medium text-gray-400 px-6 py-3">CORSI</th>
                 <th className="text-left text-xs font-medium text-gray-400 px-6 py-3 min-w-[180px]">PIANIFICAZIONE</th>
+                <th className="text-left text-xs font-medium text-gray-400 px-6 py-3">CALENDARI</th>
                 <th className="text-left text-xs font-medium text-gray-400 px-6 py-3">STATO</th>
                 <th className="px-6 py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {filteredProjects.slice(0, 8).map((p) => (
+              {filteredProjects.slice(0, 8).map((p) => {
+                const corsiProgetto = filteredCorsi.filter(c => c.project_id === p.id)
+                const calConfermati = corsiProgetto.filter(c => c.calendario_confermato).length
+                const calAttesa = corsiProgetto.filter(c => c.calendario_inviato_at && !c.calendario_confermato).length
+                const calPianNonInviati = corsiProgetto.filter(c => {
+                  const orePian = orePianificatePerCorso[c.id] ?? 0
+                  return orePian >= c.ore_totali && !c.calendario_inviato_at
+                }).length
+                return (
                 <tr key={p.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-1.5">
@@ -431,6 +476,14 @@ export function DashboardClient({
                     />
                   </td>
                   <td className="px-6 py-4">
+                    <div className="flex flex-col gap-1">
+                      {calConfermati > 0 && <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-md bg-green-100 text-green-700">✓ {calConfermati} confermati</span>}
+                      {calAttesa > 0 && <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-md bg-amber-100 text-amber-700">⏳ {calAttesa} in attesa</span>}
+                      {calPianNonInviati > 0 && <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-md bg-blue-100 text-blue-700">📤 {calPianNonInviati} da inviare</span>}
+                      {calConfermati === 0 && calAttesa === 0 && calPianNonInviati === 0 && <span className="text-xs text-gray-400">—</span>}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
                     <StatusBadge variant={p.status} size="sm" />
                   </td>
                   <td className="px-6 py-4">
@@ -439,10 +492,11 @@ export function DashboardClient({
                     </Link>
                   </td>
                 </tr>
-              ))}
+                )
+              })}
               {filteredProjects.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-sm text-gray-400">
+                  <td colSpan={7} className="px-6 py-12 text-center text-sm text-gray-400">
                     Nessun progetto trovato.{' '}
                     <Link href="/progetti" className="underline" style={{ color: '#d64b55' }}>
                       Crea il primo progetto

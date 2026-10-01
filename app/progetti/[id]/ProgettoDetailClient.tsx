@@ -1174,6 +1174,16 @@ export function ProgettoDetailClient({
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <a
+              href={`/api/export/calendari?project_id=${progetto.id}`}
+              download
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-green-700 hover:text-green-800 bg-green-50 hover:bg-green-100 border border-green-200 px-3 py-1.5 rounded-[7px] transition-colors"
+            >
+              <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Esporta calendari
+            </a>
             <button
               onClick={handleExportScheda}
               className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3 py-1.5 rounded-[7px] transition-colors"

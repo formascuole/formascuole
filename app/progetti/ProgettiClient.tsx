@@ -210,6 +210,17 @@ export function ProgettiClient({ progetti, finanziamenti, partners, inAttesaProj
             </svg>
             Nuovo Progetto
           </Button>
+          <a
+            href="/api/export/calendari"
+            download
+            className="inline-flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-[7px] text-white transition-colors"
+            style={{ backgroundColor: '#16a34a' }}
+          >
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            Esporta calendari Excel
+          </a>
         </div>
       </div>
 
@@ -565,6 +576,18 @@ function ProjectCard({ progetto: p, finanziamenti, selected, onToggle }: { proge
           {Number(p.corsi_senza_calendario) > 0 && `${p.corsi_senza_calendario} senza calendario`}
         </div>
       )}
+      <div className="mt-3 pt-3 border-t border-gray-100 flex justify-end" onClick={e => e.stopPropagation()}>
+        <a
+          href={`/api/export/calendari?project_id=${p.id}`}
+          download
+          className="inline-flex items-center gap-1 text-xs font-medium text-green-700 hover:text-green-800 transition-colors"
+        >
+          <svg width="12" height="12" fill="none" viewBox="0 0 24 24">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          Esporta calendari Excel
+        </a>
+      </div>
     </div>
   )
 }
