@@ -228,6 +228,15 @@ export function CorsoDetailClient({
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
   const [calendarOpen, setCalendarOpen] = useState(false)
   const [formatorePickerOpen, setFormatorePickerOpen] = useState(false)
+  // Dual-formatore picker state
+  const [numFormatori, setNumFormatori] = useState<1 | 2>(1)
+  const [dualStep, setDualStep] = useState<1 | 2>(1) // step 1 = pick principale, step 2 = pick co
+  const [dualFormatore, setDualFormatore] = useState<Profile | null>(null) // selected principale
+  const [dualOreFormatore, setDualOreFormatore] = useState('')
+  const [dualCoFormatore, setDualCoFormatore] = useState<Profile | null>(null) // selected co
+  const [dualOreCoFormatore, setDualOreCoFormatore] = useState('')
+  const [dualAssigning, setDualAssigning] = useState(false)
+  const [dualError, setDualError] = useState<string | null>(null)
   const [tutorePickerOpen, setTutorePickerOpen] = useState(false)
   const [referentePickerOpen, setReferentePickerOpen] = useState(false)
   const [newData, setNewData] = useState('')
@@ -654,6 +663,80 @@ export function CorsoDetailClient({
       setFormatorePickerOpen(false)
     } else {
       doAssignFormatore(f.id)
+    }
+  }
+
+  const resetDualState = () => {
+    setNumFormatori(1)
+    setDualStep(1)
+    setDualFormatore(null)
+    setDualOreFormatore('')
+    setDualCoFormatore(null)
+    setDualOreCoFormatore('')
+    setDualError(null)
+  }
+
+  const handleDualSelectFormatore = (f: Profile) => {
+    setDualFormatore(f)
+    setDualOreFormatore('')
+    setDualError(null)
+  }
+
+  const handleDualContinua = () => {
+    const ore = parseFloat(dualOreFormatore)
+    if (!ore || ore <= 0 || ore >= corso.ore_totali) {
+      setDualError(`Le ore del formatore principale devono essere tra 1 e ${corso.ore_totali - 1}`)
+      return
+    }
+    setDualOreCoFormatore(String(corso.ore_totali - ore))
+    setDualStep(2)
+    setDualError(null)
+  }
+
+  const handleDualSelectCoFormatore = (f: Profile) => {
+    setDualCoFormatore(f)
+    setDualError(null)
+  }
+
+  const handleDualAssegna = async () => {
+    if (!dualFormatore || !dualCoFormatore) return
+    const oreF = parseFloat(dualOreFormatore)
+    const oreCo = parseFloat(dualOreCoFormatore)
+    if (Math.abs(oreF + oreCo - corso.ore_totali) > 0.01) {
+      setDualError(`La somma delle ore (${oreF + oreCo}) deve essere uguale al monte ore del corso (${corso.ore_totali})`)
+      return
+    }
+    setDualAssigning(true)
+    setDualError(null)
+    try {
+      const res = await fetch(`/api/corsi/${corso.id}/formatore`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          formatore_id: dualFormatore.id,
+          ore_formatore: oreF,
+          co_formatore_id: dualCoFormatore.id,
+          ore_co_formatore: oreCo,
+        }),
+      })
+      if (res.ok) {
+        setFormatorePickerOpen(false)
+        resetDualState()
+        router.refresh()
+      } else {
+        const j = await res.json().catch(() => ({}))
+        if (j.error === 'TARIFFA_MANCANTE') {
+          setFormatorePickerOpen(false)
+          resetDualState()
+          setTariffaMancante({ tipo: 'formatore', userId: j.formatore_id, userName: j.formatore_nome, pendingId: dualFormatore.id })
+          setTariffaMancanteInput('')
+          setTariffaMancanteError(null)
+        } else {
+          setDualError(j.error || 'Errore durante l\'assegnazione')
+        }
+      }
+    } finally {
+      setDualAssigning(false)
     }
   }
 
@@ -3399,88 +3482,277 @@ export function CorsoDetailClient({
       {/* Formatore Picker Modal */}
       <Modal
         open={formatorePickerOpen}
-        onClose={() => { setFormatorePickerOpen(false); setAssignError(null) }}
-        title="Seleziona Formatore"
+        onClose={() => { setFormatorePickerOpen(false); setAssignError(null); resetDualState() }}
+        title={numFormatori === 2 ? (dualStep === 1 ? 'Assegna formatori — Formatore principale' : 'Assegna formatori — Co-formatore') : 'Seleziona Formatore'}
         size="lg"
       >
-        {assignError && (
-          <div className="mb-3 bg-red-50 border border-red-200 rounded-[7px] px-3 py-2 text-sm text-red-700">
-            {assignError}
+        {/* ── Selezione numero formatori ── */}
+        <div className="flex items-center gap-3 mb-5 pb-4 border-b border-gray-100">
+          <span className="text-sm text-gray-600 font-medium">Numero formatori:</span>
+          <div className="flex gap-1">
+            {([1, 2] as const).map(n => (
+              <button
+                key={n}
+                onClick={() => { setNumFormatori(n); setDualStep(1); setDualFormatore(null); setDualCoFormatore(null); setDualOreFormatore(''); setDualOreCoFormatore(''); setDualError(null) }}
+                className={`w-8 h-8 rounded-[6px] text-sm font-semibold border transition-all ${numFormatori === n ? 'bg-[#d64b55] text-white border-[#d64b55]' : 'bg-white text-gray-500 border-gray-200 hover:border-[#d64b55]'}`}
+              >
+                {n}
+              </button>
+            ))}
           </div>
-        )}
-        {formatori.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-4">Nessun formatore disponibile.</p>
+        </div>
+
+        {numFormatori === 1 ? (
+          // ── Flusso singolo (invariato) ──
+          <>
+            {assignError && (
+              <div className="mb-3 bg-red-50 border border-red-200 rounded-[7px] px-3 py-2 text-sm text-red-700">
+                {assignError}
+              </div>
+            )}
+            {formatori.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-4">Nessun formatore disponibile.</p>
+            ) : (
+              <div className="space-y-5">
+                {suggestedScores.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <svg width="13" height="13" fill="none" viewBox="0 0 24 24" className="text-amber-500">
+                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="currentColor"/>
+                      </svg>
+                      <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Formatori suggeriti</span>
+                    </div>
+                    <div className="space-y-2">
+                      {suggestedScores.map(({ formatore: f, score, skillScore, availScore, regionScore, skillMatches, totalCorsoTags, isAvailable, sameRegion }) => (
+                        <FormatorePickerCard
+                          key={f.id}
+                          f={f}
+                          score={score}
+                          skillScore={skillScore}
+                          availScore={availScore}
+                          regionScore={regionScore}
+                          skillMatches={skillMatches}
+                          totalCorsoTags={totalCorsoTags}
+                          isAvailable={isAvailable}
+                          sameRegion={sameRegion}
+                          isCurrent={f.id === corso.formatore_id}
+                          isDualRole={dualRoleIds.includes(f.id)}
+                          isAssigning={assigningId === f.id}
+                          tasso={tassoAccettazioneMap[f.id] ?? null}
+                          oreAssegnate={oreAssegnateMap[f.id]}
+                          regioneRilevante={corso.modalita === 'presenza' || corso.modalita === 'residenziale' || corso.modalita === 'semi_residenziale' || corso.tipo === 'Lab'}
+                          showScore
+                          noTariffa={!f.tariffa_oraria_formatore}
+                          onClick={() => handleAssignFormatore(f)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {otherScores.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                        {suggestedScores.length > 0 ? 'Altri formatori' : 'Formatori'}
+                      </span>
+                    </div>
+                    <div className="space-y-2">
+                      {otherScores.map(({ formatore: f, score, skillScore, availScore, regionScore, skillMatches, totalCorsoTags, isAvailable, sameRegion }) => (
+                        <FormatorePickerCard
+                          key={f.id}
+                          f={f}
+                          score={score}
+                          skillScore={skillScore}
+                          availScore={availScore}
+                          regionScore={regionScore}
+                          skillMatches={skillMatches}
+                          totalCorsoTags={totalCorsoTags}
+                          isAvailable={isAvailable}
+                          sameRegion={sameRegion}
+                          isCurrent={f.id === corso.formatore_id}
+                          isDualRole={dualRoleIds.includes(f.id)}
+                          isAssigning={assigningId === f.id}
+                          tasso={tassoAccettazioneMap[f.id] ?? null}
+                          oreAssegnate={oreAssegnateMap[f.id]}
+                          regioneRilevante={corso.modalita === 'presenza' || corso.modalita === 'residenziale' || corso.modalita === 'semi_residenziale' || corso.tipo === 'Lab'}
+                          showScore={false}
+                          noTariffa={!f.tariffa_oraria_formatore}
+                          onClick={() => handleAssignFormatore(f)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
         ) : (
-          <div className="space-y-5">
-            {suggestedScores.length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <svg width="13" height="13" fill="none" viewBox="0 0 24 24" className="text-amber-500">
-                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="currentColor"/>
-                  </svg>
-                  <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Formatori suggeriti</span>
-                </div>
-                <div className="space-y-2">
-                  {suggestedScores.map(({ formatore: f, score, skillScore, availScore, regionScore, skillMatches, totalCorsoTags, isAvailable, sameRegion }) => (
-                    <FormatorePickerCard
-                      key={f.id}
-                      f={f}
-                      score={score}
-                      skillScore={skillScore}
-                      availScore={availScore}
-                      regionScore={regionScore}
-                      skillMatches={skillMatches}
-                      totalCorsoTags={totalCorsoTags}
-                      isAvailable={isAvailable}
-                      sameRegion={sameRegion}
-                      isCurrent={f.id === corso.formatore_id}
-                      isDualRole={dualRoleIds.includes(f.id)}
-                      isAssigning={assigningId === f.id}
-                      tasso={tassoAccettazioneMap[f.id] ?? null}
-                      oreAssegnate={oreAssegnateMap[f.id]}
-                      regioneRilevante={corso.modalita === 'presenza' || corso.modalita === 'residenziale' || corso.modalita === 'semi_residenziale' || corso.tipo === 'Lab'}
-                      showScore
-                      noTariffa={!f.tariffa_oraria_formatore}
-                      onClick={() => handleAssignFormatore(f)}
-                    />
-                  ))}
-                </div>
+          // ── Flusso doppio ──
+          <div className="space-y-4">
+            {dualError && (
+              <div className="bg-red-50 border border-red-200 rounded-[7px] px-3 py-2 text-sm text-red-700">
+                {dualError}
               </div>
             )}
 
-            {otherScores.length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                    {suggestedScores.length > 0 ? 'Altri formatori' : 'Formatori'}
-                  </span>
-                </div>
-                <div className="space-y-2">
-                  {otherScores.map(({ formatore: f, score, skillScore, availScore, regionScore, skillMatches, totalCorsoTags, isAvailable, sameRegion }) => (
-                    <FormatorePickerCard
-                      key={f.id}
-                      f={f}
-                      score={score}
-                      skillScore={skillScore}
-                      availScore={availScore}
-                      regionScore={regionScore}
-                      skillMatches={skillMatches}
-                      totalCorsoTags={totalCorsoTags}
-                      isAvailable={isAvailable}
-                      sameRegion={sameRegion}
-                      isCurrent={f.id === corso.formatore_id}
-                      isDualRole={dualRoleIds.includes(f.id)}
-                      isAssigning={assigningId === f.id}
-                      tasso={tassoAccettazioneMap[f.id] ?? null}
-                      oreAssegnate={oreAssegnateMap[f.id]}
-                      regioneRilevante={corso.modalita === 'presenza' || corso.modalita === 'residenziale' || corso.modalita === 'semi_residenziale' || corso.tipo === 'Lab'}
-                      showScore={false}
-                      noTariffa={!f.tariffa_oraria_formatore}
-                      onClick={() => handleAssignFormatore(f)}
+            {/* Step indicator */}
+            <div className="flex items-center gap-2 text-xs text-gray-400 mb-1">
+              <span className={dualStep === 1 ? 'text-[#d64b55] font-semibold' : 'line-through'}>1. Formatore principale</span>
+              <span>→</span>
+              <span className={dualStep === 2 ? 'text-[#d64b55] font-semibold' : ''}>2. Co-formatore</span>
+            </div>
+
+            {/* Step 1: select formatore principale + ore */}
+            {dualStep === 1 && (
+              <>
+                {dualFormatore ? (
+                  <div className="bg-green-50 border border-green-200 rounded-[9px] p-3 flex items-center gap-3">
+                    <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    <span className="text-sm font-medium text-green-900">{dualFormatore.nome}</span>
+                    <button onClick={() => { setDualFormatore(null); setDualOreFormatore('') }} className="ml-auto text-xs text-gray-400 hover:text-gray-600">Cambia</button>
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-72 overflow-y-auto">
+                    {[...suggestedScores, ...otherScores].map(({ formatore: f, score, skillScore, availScore, regionScore, skillMatches, totalCorsoTags, isAvailable, sameRegion }) => (
+                      <FormatorePickerCard
+                        key={f.id}
+                        f={f}
+                        score={score}
+                        skillScore={skillScore}
+                        availScore={availScore}
+                        regionScore={regionScore}
+                        skillMatches={skillMatches}
+                        totalCorsoTags={totalCorsoTags}
+                        isAvailable={isAvailable}
+                        sameRegion={sameRegion}
+                        isCurrent={false}
+                        isDualRole={false}
+                        isAssigning={false}
+                        tasso={tassoAccettazioneMap[f.id] ?? null}
+                        oreAssegnate={oreAssegnateMap[f.id]}
+                        regioneRilevante={corso.modalita === 'presenza' || corso.modalita === 'residenziale' || corso.modalita === 'semi_residenziale' || corso.tipo === 'Lab'}
+                        showScore={suggestedScores.some(s => s.formatore.id === f.id)}
+                        noTariffa={!f.tariffa_oraria_formatore}
+                        onClick={() => handleDualSelectFormatore(f)}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {dualFormatore && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                      Ore formatore principale <span className="text-red-500">*</span>
+                      <span className="font-normal text-gray-400 ml-1">(monte ore totale: {corso.ore_totali}h)</span>
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={corso.ore_totali - 1}
+                      step={0.5}
+                      value={dualOreFormatore}
+                      onChange={e => setDualOreFormatore(e.target.value)}
+                      placeholder={`es. ${Math.floor(corso.ore_totali / 2)}`}
+                      className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 focus:outline-none focus:border-[#d64b55] transition-colors"
                     />
-                  ))}
+                  </div>
+                )}
+
+                {dualFormatore && dualOreFormatore && (
+                  <button
+                    onClick={handleDualContinua}
+                    className="w-full py-2.5 text-sm font-semibold rounded-[8px] bg-[#d64b55] text-white hover:bg-[#b83d46] transition-colors"
+                  >
+                    Continua → Scegli co-formatore
+                  </button>
+                )}
+              </>
+            )}
+
+            {/* Step 2: select co-formatore + ore */}
+            {dualStep === 2 && (
+              <>
+                <div className="bg-gray-50 border border-gray-200 rounded-[9px] p-2.5 text-xs text-gray-600">
+                  Formatore principale: <span className="font-semibold text-gray-900">{dualFormatore?.nome}</span> — {dualOreFormatore}h
                 </div>
-              </div>
+
+                {dualCoFormatore ? (
+                  <div className="bg-green-50 border border-green-200 rounded-[9px] p-3 flex items-center gap-3">
+                    <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    <span className="text-sm font-medium text-green-900">{dualCoFormatore.nome}</span>
+                    <button onClick={() => setDualCoFormatore(null)} className="ml-auto text-xs text-gray-400 hover:text-gray-600">Cambia</button>
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {[...suggestedScores, ...otherScores]
+                      .filter(({ formatore: f }) => f.id !== dualFormatore?.id)
+                      .map(({ formatore: f, score, skillScore, availScore, regionScore, skillMatches, totalCorsoTags, isAvailable, sameRegion }) => (
+                        <FormatorePickerCard
+                          key={f.id}
+                          f={f}
+                          score={score}
+                          skillScore={skillScore}
+                          availScore={availScore}
+                          regionScore={regionScore}
+                          skillMatches={skillMatches}
+                          totalCorsoTags={totalCorsoTags}
+                          isAvailable={isAvailable}
+                          sameRegion={sameRegion}
+                          isCurrent={false}
+                          isDualRole={false}
+                          isAssigning={false}
+                          tasso={tassoAccettazioneMap[f.id] ?? null}
+                          oreAssegnate={oreAssegnateMap[f.id]}
+                          regioneRilevante={corso.modalita === 'presenza' || corso.modalita === 'residenziale' || corso.modalita === 'semi_residenziale' || corso.tipo === 'Lab'}
+                          showScore={false}
+                          noTariffa={!f.tariffa_oraria_formatore}
+                          onClick={() => handleDualSelectCoFormatore(f)}
+                        />
+                      ))}
+                  </div>
+                )}
+
+                {dualCoFormatore && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                      Ore co-formatore <span className="text-red-500">*</span>
+                      <span className="font-normal text-gray-400 ml-1">(rimanenti: {corso.ore_totali - parseFloat(dualOreFormatore || '0')}h)</span>
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={corso.ore_totali - 1}
+                      step={0.5}
+                      value={dualOreCoFormatore}
+                      onChange={e => setDualOreCoFormatore(e.target.value)}
+                      className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 focus:outline-none focus:border-[#d64b55] transition-colors"
+                    />
+                    {dualOreCoFormatore && parseFloat(dualOreFormatore) + parseFloat(dualOreCoFormatore) !== corso.ore_totali && (
+                      <p className="text-xs text-red-600 mt-1">
+                        Somma attuale: {parseFloat(dualOreFormatore) + parseFloat(dualOreCoFormatore)}h — deve essere {corso.ore_totali}h
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => { setDualStep(1); setDualCoFormatore(null); setDualError(null) }}
+                    className="flex-1 py-2.5 text-sm font-medium rounded-[8px] border border-gray-200 text-gray-600 hover:border-gray-300 transition-colors"
+                  >
+                    ← Indietro
+                  </button>
+                  {dualCoFormatore && dualOreCoFormatore && (
+                    <button
+                      onClick={handleDualAssegna}
+                      disabled={dualAssigning || Math.abs(parseFloat(dualOreFormatore) + parseFloat(dualOreCoFormatore) - corso.ore_totali) > 0.01}
+                      className="flex-[2] py-2.5 text-sm font-semibold rounded-[8px] bg-[#d64b55] text-white hover:bg-[#b83d46] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {dualAssigning ? 'Assegnazione...' : '✓ Assegna entrambi'}
+                    </button>
+                  )}
+                </div>
+              </>
             )}
           </div>
         )}
