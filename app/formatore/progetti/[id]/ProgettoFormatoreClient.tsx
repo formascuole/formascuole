@@ -59,8 +59,10 @@ interface Props {
 export function ProgettoFormatoreClient({ progetto, corsi, finanziamenti, formatoreNome }: Props) {
   const router = useRouter()
   const [selectedCorso, setSelectedCorso] = useState<CorsoConReferente | null>(null)
-  const [sessioni, setSessioni] = useState<{ id: string; data: string; ore: number; ora_inizio?: string | null; ora_fine?: string | null; created_at: string }[]>([])
+  const [sessioni, setSessioni] = useState<{ id: string; data: string; ore: number; ora_inizio?: string | null; ora_fine?: string | null; tipo_sessione?: string | null; link_videoconferenza?: string | null; created_at: string }[]>([])
   const [loadingSessioni, setLoadingSessioni] = useState(false)
+  const [savingVideoLink, setSavingVideoLink] = useState<string | null>(null)
+  const [editVideoLink, setEditVideoLink] = useState<Record<string, string>>({})
   const [newData, setNewData] = useState('')
   const [newOre, setNewOre] = useState('')
   const [newOraInizio, setNewOraInizio] = useState('')
@@ -130,8 +132,29 @@ export function ProgettoFormatoreClient({ progetto, corsi, finanziamenti, format
     setSelectedCorso(corso)
     setLoadingSessioni(true)
     const res = await fetch(`/api/sessioni?corso_id=${corso.id}`)
-    setSessioni((await res.json()) || [])
+    const data = (await res.json()) || []
+    setSessioni(data)
+    const videoMap: Record<string, string> = {}
+    for (const s of data) videoMap[s.id] = s.link_videoconferenza ?? ''
+    setEditVideoLink(videoMap)
     setLoadingSessioni(false)
+  }
+
+  const handleSaveVideoLink = async (sessioneId: string, corsoId: string) => {
+    setSavingVideoLink(sessioneId)
+    try {
+      await fetch(`/api/corsi/${corsoId}/sessioni/${sessioneId}/videoconferenza`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ link_videoconferenza: editVideoLink[sessioneId] || null }),
+      })
+      setSessioni(prev => prev.map((s) => s.id === sessioneId
+        ? { ...s, link_videoconferenza: editVideoLink[sessioneId] || null }
+        : s
+      ))
+    } finally {
+      setSavingVideoLink(null)
+    }
   }
 
   const oreResidue = selectedCorso
@@ -598,29 +621,90 @@ export function ProgettoFormatoreClient({ progetto, corsi, finanziamenti, format
             {loadingSessioni ? (
               <div className="text-center py-4 text-sm text-gray-400">Caricamento...</div>
             ) : (
-              <div>
-                <h4 className="text-sm font-medium text-gray-700 mb-2">
-                  Sessioni pianificate ({sessioni.length})
-                </h4>
-                {sessioni.length === 0 ? (
-                  <div className="text-sm text-gray-400">Nessuna sessione ancora.</div>
-                ) : (
-                  <div className="space-y-1.5">
-                    {sessioni.map(s => (
-                      <div key={s.id} className="flex items-center gap-3 bg-gray-50 rounded-[7px] px-3 py-2 text-sm">
-                        <span className="font-medium text-gray-800">{formatDate(s.data)}</span>
-                        {s.ora_inizio && s.ora_fine && (
-                          <span className="text-gray-500">{s.ora_inizio.substring(0, 5)}–{s.ora_fine.substring(0, 5)}</span>
-                        )}
-                        <span className="text-gray-500">{s.ore}h</span>
-                        {(s as any).tipo_sessione === 'residenziale' && (
-                          <span className="ml-auto text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">🏨 Residenziale</span>
-                        )}
-                        {(s as any).tipo_sessione === 'scuola' && (
-                          <span className="ml-auto text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">🏫 Scuola</span>
-                        )}
+              <div className="space-y-4">
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">
+                    Sessioni pianificate ({sessioni.length})
+                  </h4>
+                  {sessioni.length === 0 ? (
+                    <div className="text-sm text-gray-400">Nessuna sessione ancora.</div>
+                  ) : (
+                    <div className="space-y-2">
+                      {sessioni.map(s => {
+                        const isOnline = s.tipo_sessione === 'online'
+                        return (
+                          <div key={s.id} className="bg-gray-50 rounded-[7px] px-3 py-2 space-y-1.5">
+                            <div className="flex items-center gap-3 text-sm flex-wrap">
+                              <span className="font-medium text-gray-800">{formatDate(s.data)}</span>
+                              {s.ora_inizio && s.ora_fine && (
+                                <span className="text-gray-500">{s.ora_inizio.substring(0, 5)}–{s.ora_fine.substring(0, 5)}</span>
+                              )}
+                              <span className="text-gray-500">{s.ore}h</span>
+                              {s.tipo_sessione === 'residenziale' && (
+                                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">🏨 Residenziale</span>
+                              )}
+                              {s.tipo_sessione === 'scuola' && (
+                                <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">🏫 Scuola</span>
+                              )}
+                              {s.tipo_sessione === 'online' && (
+                                <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">💻 Online</span>
+                              )}
+                            </div>
+                            {isOnline && (
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="url"
+                                  placeholder="Link videoconferenza (es. meet.google.com/...)"
+                                  value={editVideoLink[s.id] ?? ''}
+                                  onChange={e => setEditVideoLink(prev => ({ ...prev, [s.id]: e.target.value }))}
+                                  className="flex-1 text-xs border border-gray-200 rounded-[7px] px-2.5 py-1.5 focus:outline-none focus:border-[#d64b55] transition-colors"
+                                />
+                                <button
+                                  onClick={() => handleSaveVideoLink(s.id, selectedCorso!.id)}
+                                  disabled={savingVideoLink === s.id}
+                                  className="text-xs font-medium px-2.5 py-1.5 rounded-[7px] bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 shrink-0"
+                                >
+                                  {savingVideoLink === s.id ? '...' : 'Salva'}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Portale materiali */}
+                {(selectedCorso as { token_materiali?: string | null }).token_materiali && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-[7px] p-3 space-y-2">
+                    <div className="text-xs font-semibold text-blue-700">Portale materiali</div>
+                    <div className="flex items-start gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs text-blue-600 break-all">
+                          {typeof window !== 'undefined' ? window.location.origin : ''}/materiali/{(selectedCorso as { token_materiali?: string | null }).token_materiali}
+                        </div>
+                        <button
+                          onClick={() => {
+                            const url = `${window.location.origin}/materiali/${(selectedCorso as { token_materiali?: string | null }).token_materiali}`
+                            navigator.clipboard.writeText(url).catch(() => {})
+                          }}
+                          className="mt-1 text-xs text-blue-600 hover:text-blue-800 underline"
+                        >
+                          Copia link
+                        </button>
                       </div>
-                    ))}
+                      {/* QR code via external service */}
+                      {typeof window !== 'undefined' && (
+                        <img
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(window.location.origin + '/materiali/' + (selectedCorso as { token_materiali?: string | null }).token_materiali)}`}
+                          alt="QR portale materiali"
+                          width={80}
+                          height={80}
+                          className="rounded border border-blue-200 shrink-0"
+                        />
+                      )}
+                    </div>
                   </div>
                 )}
               </div>

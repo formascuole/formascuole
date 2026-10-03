@@ -221,6 +221,9 @@ export interface Corso {
   lettera_incarico_annullata_at?: string | null
   lettera_incarico_annullata_motivo?: string | null
   lettera_incarico_url_storico?: string | null
+  // Portale materiali
+  token_materiali?: string | null
+  materiali_scadenza?: string | null
 }
 
 export interface Candidatura {
@@ -253,6 +256,7 @@ export interface Sessione {
   modalita_sessione?: ModalitaSessione
   tipo_sessione?: string | null
   formatore_id?: string | null
+  link_videoconferenza?: string | null
   completata: boolean
   completata_at?: string | null
   created_at: string
@@ -325,6 +329,38 @@ export interface NotuleCorso {
   tariffa_oraria: number | null
   // joined
   corso?: Pick<Corso, 'id' | 'title' | 'project_id'> & { school_name?: string }
+}
+
+export interface MaterialeCorso {
+  id: string
+  corso_id: string
+  caricato_da?: string | null
+  nome: string
+  descrizione?: string | null
+  tipo: 'file' | 'link'
+  url: string
+  ordine: number
+  created_at: string
+}
+
+export interface ElaboratoPartecipante {
+  id: string
+  corso_id: string
+  partecipante_nome: string
+  partecipante_cognome: string
+  partecipante_email: string
+  nome_file: string
+  url: string
+  created_at: string
+}
+
+export interface AccessoMateriali {
+  id: string
+  corso_id: string
+  nome: string
+  cognome: string
+  email: string
+  created_at: string
 }
 
 export interface QuestionarioRisultato {
