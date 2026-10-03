@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
 
   let corsiQuery = admin
     .from('corsi_con_ore')
-    .select('id, project_id, title, tipo, ore_totali, calendario_inviato_at, calendario_confermato, calendario_confermato_at, confermato_manualmente, formatore:profiles!formatore_id(id,nome,email)')
+    .select('id, project_id, title, tipo, ore_totali, ore_pianificate, calendario_inviato_at, calendario_confermato, calendario_confermato_at, confermato_manualmente, formatore:profiles!formatore_id(id,nome,email)')
     .order('created_at')
 
   if (projectId) corsiQuery = corsiQuery.eq('project_id', projectId)
@@ -60,7 +60,10 @@ export async function GET(request: NextRequest) {
     if (c.calendario_confermato) return c.confermato_manualmente ? 'Confermato (manuale)' : 'Confermato dalla scuola'
     if (c.calendario_inviato_at) return 'Inviato — in attesa conferma'
     const nSess = sessioniByCorso.get(c.id)?.length ?? 0
-    if (nSess > 0) return 'Pianificato — non inviato'
+    if (nSess > 0) {
+      const completo = (c.ore_pianificate ?? 0) >= (c.ore_totali ?? 0)
+      return completo ? 'Pianificato — non inviato' : 'Pianificato — parziale'
+    }
     return 'Nessuna sessione'
   }
 
