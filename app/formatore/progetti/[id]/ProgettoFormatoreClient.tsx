@@ -449,6 +449,66 @@ export function ProgettoFormatoreClient({ progetto, corsi, finanziamenti, format
                 )}
               </div>
               <DualProgressBar oreTotali={oreTot} orePianificate={orePian} oreErogate={oreErog} size="sm" />
+
+              {/* Box portale materiali — sempre visibile nella card */}
+              {(() => {
+                const token = corsoTokenMap[corso.id] || (corso as any).token_materiali as string | null | undefined
+                const portalUrl = typeof window !== 'undefined' && token
+                  ? `${window.location.origin}/materiali/${token}`
+                  : null
+                return (
+                  <div className="mt-3 bg-blue-50 border border-blue-200 rounded-[7px] px-3 py-2.5">
+                    <div className="text-xs font-semibold text-blue-700 mb-1.5">📂 Portale materiali corso</div>
+                    {!token ? (
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <p className="text-xs text-blue-600">
+                          Genera un link per condividere materiali e sessioni con i partecipanti senza login.
+                        </p>
+                        <button
+                          onClick={() => handleGeneraToken(corso.id)}
+                          disabled={generatingToken}
+                          className="shrink-0 text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-[5px] disabled:opacity-50 transition-colors"
+                        >
+                          {generatingToken ? 'Generazione…' : '🔗 Genera link'}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs text-blue-700 font-medium truncate">{portalUrl}</div>
+                          <div className="flex gap-3 mt-1">
+                            <button
+                              onClick={() => portalUrl && navigator.clipboard.writeText(portalUrl).catch(() => {})}
+                              className="text-xs text-blue-600 hover:text-blue-800 underline"
+                            >
+                              Copia link
+                            </button>
+                            <a
+                              href={portalUrl ?? '#'}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-blue-600 hover:text-blue-800 underline"
+                            >
+                              Apri portale ↗
+                            </a>
+                          </div>
+                        </div>
+                        {portalUrl && (
+                          <img
+                            src={`https://api.qrserver.com/v1/create-qr-code/?size=64x64&data=${encodeURIComponent(portalUrl)}`}
+                            alt="QR portale materiali"
+                            width={64}
+                            height={64}
+                            className="rounded border border-blue-200 shrink-0"
+                          />
+                        )}
+                      </div>
+                    )}
+                    {tokenError && <p className="text-xs text-red-600 mt-1">{tokenError}</p>}
+                  </div>
+                )
+              })()}
+
               {corso.link_scheda && (
                 <div className="mt-2">
                   <a
@@ -675,38 +735,24 @@ export function ProgettoFormatoreClient({ progetto, corsi, finanziamenti, format
                   )}
                 </div>
 
-                {/* Portale materiali */}
-                {(selectedCorso as { token_materiali?: string | null }).token_materiali && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-[7px] p-3 space-y-2">
-                    <div className="text-xs font-semibold text-blue-700">Portale materiali</div>
-                    <div className="flex items-start gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs text-blue-600 break-all">
-                          {typeof window !== 'undefined' ? window.location.origin : ''}/materiali/{(selectedCorso as { token_materiali?: string | null }).token_materiali}
-                        </div>
-                        <button
-                          onClick={() => {
-                            const url = `${window.location.origin}/materiali/${(selectedCorso as { token_materiali?: string | null }).token_materiali}`
-                            navigator.clipboard.writeText(url).catch(() => {})
-                          }}
-                          className="mt-1 text-xs text-blue-600 hover:text-blue-800 underline"
-                        >
-                          Copia link
-                        </button>
-                      </div>
-                      {/* QR code via external service */}
-                      {typeof window !== 'undefined' && (
-                        <img
-                          src={`https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(window.location.origin + '/materiali/' + (selectedCorso as { token_materiali?: string | null }).token_materiali)}`}
-                          alt="QR portale materiali"
-                          width={80}
-                          height={80}
-                          className="rounded border border-blue-200 shrink-0"
-                        />
-                      )}
+                {/* Portale materiali — link rapido nel modal per chi ha già il token */}
+                {(() => {
+                  const token = selectedCorso ? (corsoTokenMap[selectedCorso.id] || (selectedCorso as any).token_materiali) : null
+                  if (!token) return null
+                  const portalUrl = typeof window !== 'undefined' ? `${window.location.origin}/materiali/${token}` : ''
+                  return (
+                    <div className="bg-blue-50 border border-blue-200 rounded-[7px] p-2.5 flex items-center gap-2">
+                      <span className="text-xs text-blue-700 font-semibold shrink-0">📂 Portale:</span>
+                      <span className="text-xs text-blue-600 truncate flex-1">{portalUrl}</span>
+                      <button
+                        onClick={() => navigator.clipboard.writeText(portalUrl).catch(() => {})}
+                        className="text-xs text-blue-600 hover:text-blue-800 underline shrink-0"
+                      >
+                        Copia
+                      </button>
                     </div>
-                  </div>
-                )}
+                  )
+                })()}
               </div>
             )}
           </div>
