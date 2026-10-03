@@ -63,6 +63,7 @@ export function ProgettoFormatoreClient({ progetto, corsi, finanziamenti, format
   const [newOre, setNewOre] = useState('')
   const [newOraInizio, setNewOraInizio] = useState('')
   const [newOraFine, setNewOraFine] = useState('')
+  const [newTipoSessione, setNewTipoSessione] = useState<'residenziale' | 'scuola' | ''>('')
   const [saving, setSaving] = useState(false)
 
   const [questionarioCorsoId, setQuestionarioCorsoId] = useState<string | null>(null)
@@ -167,6 +168,7 @@ export function ProgettoFormatoreClient({ progetto, corsi, finanziamenti, format
           ore: newOreNum,
           ...(newOraInizio && { ora_inizio: newOraInizio }),
           ...(newOraFine && { ora_fine: newOraFine }),
+          ...(newTipoSessione && { tipo_sessione: newTipoSessione }),
         }),
       })
       if (res.ok) {
@@ -446,7 +448,7 @@ export function ProgettoFormatoreClient({ progetto, corsi, finanziamenti, format
       {/* Calendario modal */}
       <Modal
         open={!!selectedCorso}
-        onClose={() => { setSelectedCorso(null); setNewData(''); setNewOre(''); setNewOraInizio(''); setNewOraFine('') }}
+        onClose={() => { setSelectedCorso(null); setNewData(''); setNewOre(''); setNewOraInizio(''); setNewOraFine(''); setNewTipoSessione('') }}
         title={selectedCorso ? `Calendario — ${selectedCorso.title}` : ''}
         size="lg"
       >
@@ -506,7 +508,45 @@ export function ProgettoFormatoreClient({ progetto, corsi, finanziamenti, format
                     placeholder={`Es. ${Math.min(oreResidue, 4)}`}
                   />
                 )}
-                <Button onClick={handleAddSession} loading={saving} disabled={!canSubmit} size="sm">
+                {/* tipo_sessione selector — solo per corsi residenziale/aula mix */}
+                {selectedCorso.modalita === 'residenziale' && (selectedCorso as any).ore_presenza && (selectedCorso as any).ore_online && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Tipo sessione *</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setNewTipoSessione('residenziale')}
+                        className={`text-sm px-3 py-2 rounded-[7px] border transition-colors text-left ${
+                          newTipoSessione === 'residenziale'
+                            ? 'bg-[#d64b55] text-white border-[#d64b55]'
+                            : 'bg-white text-gray-700 border-gray-200 hover:border-[#d64b55]'
+                        }`}
+                      >
+                        🏨 In residenziale
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNewTipoSessione('scuola')}
+                        className={`text-sm px-3 py-2 rounded-[7px] border transition-colors text-left ${
+                          newTipoSessione === 'scuola'
+                            ? 'bg-[#d64b55] text-white border-[#d64b55]'
+                            : 'bg-white text-gray-700 border-gray-200 hover:border-[#d64b55]'
+                        }`}
+                      >
+                        🏫 A scuola
+                      </button>
+                    </div>
+                  </div>
+                )}
+                <Button
+                  onClick={handleAddSession}
+                  loading={saving}
+                  disabled={
+                    !canSubmit ||
+                    (selectedCorso.modalita === 'residenziale' && (selectedCorso as any).ore_presenza && (selectedCorso as any).ore_online && !newTipoSessione)
+                  }
+                  size="sm"
+                >
                   Aggiungi sessione
                 </Button>
               </div>
@@ -530,6 +570,12 @@ export function ProgettoFormatoreClient({ progetto, corsi, finanziamenti, format
                           <span className="text-gray-500">{s.ora_inizio.substring(0, 5)}–{s.ora_fine.substring(0, 5)}</span>
                         )}
                         <span className="text-gray-500">{s.ore}h</span>
+                        {(s as any).tipo_sessione === 'residenziale' && (
+                          <span className="ml-auto text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">🏨 Residenziale</span>
+                        )}
+                        {(s as any).tipo_sessione === 'scuola' && (
+                          <span className="ml-auto text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">🏫 Scuola</span>
+                        )}
                       </div>
                     ))}
                   </div>
