@@ -1317,8 +1317,8 @@ export function CorsoDetailClient({
           edizione: corsoEditForm.edizione.trim() || null,
           note: corsoEditForm.note.trim() || null,
           location: isResidenziale ? (corsoEditForm.location.trim() || null) : null,
-          ore_presenza: (corsoEditForm.tipo === 'PF' && corsoEditForm.modalita === 'ibrido') || (corsoEditForm.tipo === 'Lab' && corsoEditForm.modalita === 'residenziale') ? (Number(corsoEditForm.ore_presenza) || null) : null,
-          ore_online: (corsoEditForm.tipo === 'PF' && corsoEditForm.modalita === 'ibrido') || (corsoEditForm.tipo === 'Lab' && corsoEditForm.modalita === 'residenziale') ? (Number(corsoEditForm.ore_online) || null) : null,
+          ore_presenza: (corsoEditForm.modalita === 'ibrido' || corsoEditForm.modalita === 'residenziale') ? (Number(corsoEditForm.ore_presenza) || null) : null,
+          ore_online: (corsoEditForm.modalita === 'ibrido' || corsoEditForm.modalita === 'residenziale') ? (Number(corsoEditForm.ore_online) || null) : null,
         }),
       })
       if (res.ok) {
@@ -3027,7 +3027,7 @@ export function CorsoDetailClient({
                 !corsoEditForm.ore_totali ||
                 (corsoEditForm.tipo === 'PF' && !corsoEditForm.modalita) ||
                 (['residenziale', 'semi_residenziale'].includes(corsoEditForm.modalita) && !corsoEditForm.location.trim()) ||
-                (((corsoEditForm.tipo === 'PF' && corsoEditForm.modalita === 'ibrido') || (corsoEditForm.tipo === 'Lab' && corsoEditForm.modalita === 'residenziale')) && (!corsoEditForm.ore_presenza || !corsoEditForm.ore_online))
+                ((corsoEditForm.modalita === 'ibrido' || corsoEditForm.modalita === 'residenziale') && (!corsoEditForm.ore_presenza || !corsoEditForm.ore_online))
               }
             >
               Salva modifiche
@@ -3083,7 +3083,7 @@ export function CorsoDetailClient({
               placeholder="Nome struttura, indirizzo..."
             />
           )}
-          {((corsoEditForm.tipo === 'PF' && corsoEditForm.modalita === 'ibrido') || (corsoEditForm.tipo === 'Lab' && corsoEditForm.modalita === 'residenziale')) && (
+          {(corsoEditForm.modalita === 'ibrido' || corsoEditForm.modalita === 'residenziale') && (
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">{corsoEditForm.modalita === 'residenziale' ? 'Ore in residenziale *' : 'Ore in presenza *'}</label>

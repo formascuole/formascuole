@@ -520,8 +520,8 @@ export function ProgettoDetailClient({
           ...(corsoForm.edizione && { edizione: corsoForm.edizione }),
           ...(corsoForm.note && { note: corsoForm.note }),
           ...(corsoForm.location && { location: corsoForm.location }),
-          ore_presenza: (corsoForm.tipo === 'PF' && corsoForm.modalita === 'ibrido') || (corsoForm.tipo === 'Lab' && corsoForm.modalita === 'residenziale') ? (Number(corsoForm.ore_presenza) || null) : null,
-          ore_online: (corsoForm.tipo === 'PF' && corsoForm.modalita === 'ibrido') || (corsoForm.tipo === 'Lab' && corsoForm.modalita === 'residenziale') ? (Number(corsoForm.ore_online) || null) : null,
+          ore_presenza: (corsoForm.modalita === 'ibrido' || corsoForm.modalita === 'residenziale') ? (Number(corsoForm.ore_presenza) || null) : null,
+          ore_online: (corsoForm.modalita === 'ibrido' || corsoForm.modalita === 'residenziale') ? (Number(corsoForm.ore_online) || null) : null,
         }),
       })
       if (res.ok) {
@@ -785,8 +785,8 @@ export function ProgettoDetailClient({
             ...(row.link_scheda ? { link_scheda: row.link_scheda } : {}),
             ...(ed.edizione ? { edizione: ed.edizione } : {}),
             ...(ed.location ? { location: ed.location } : {}),
-            ore_presenza: (row.tipo === 'PF' && ed.modalita === 'ibrido') || (row.tipo === 'Lab' && ed.modalita === 'residenziale') ? (Number(ed.ore_presenza) || null) : null,
-            ore_online: (row.tipo === 'PF' && ed.modalita === 'ibrido') || (row.tipo === 'Lab' && ed.modalita === 'residenziale') ? (Number(ed.ore_online) || null) : null,
+            ore_presenza: (ed.modalita === 'ibrido' || ed.modalita === 'residenziale') ? (Number(ed.ore_presenza) || null) : null,
+            ore_online: (ed.modalita === 'ibrido' || ed.modalita === 'residenziale') ? (Number(ed.ore_online) || null) : null,
           }),
         })
         if (res.ok) successi.push(label)
@@ -2277,7 +2277,7 @@ export function ProgettoDetailClient({
               <Button
                 onClick={handleAddCorso}
                 loading={savingCorso}
-                disabled={!corsoForm.title || !corsoForm.ore_totali || (corsoForm.tipo === 'PF' && !corsoForm.modalita) || (['residenziale', 'semi_residenziale'].includes(corsoForm.modalita) && !corsoForm.location.trim()) || (((corsoForm.tipo === 'PF' && corsoForm.modalita === 'ibrido') || (corsoForm.tipo === 'Lab' && corsoForm.modalita === 'residenziale')) && (!corsoForm.ore_presenza || !corsoForm.ore_online))}
+                disabled={!corsoForm.title || !corsoForm.ore_totali || (corsoForm.tipo === 'PF' && !corsoForm.modalita) || (['residenziale', 'semi_residenziale'].includes(corsoForm.modalita) && !corsoForm.location.trim()) || ((corsoForm.modalita === 'ibrido' || corsoForm.modalita === 'residenziale') && (!corsoForm.ore_presenza || !corsoForm.ore_online))}
               >
                 Aggiungi corso
               </Button>
@@ -2410,7 +2410,7 @@ export function ProgettoDetailClient({
                 placeholder="Nome struttura, indirizzo..."
               />
             )}
-            {((corsoForm.tipo === 'PF' && corsoForm.modalita === 'ibrido') || (corsoForm.tipo === 'Lab' && corsoForm.modalita === 'residenziale')) && (
+            {(corsoForm.modalita === 'ibrido' || corsoForm.modalita === 'residenziale') && (
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">{corsoForm.modalita === 'residenziale' ? 'Ore in residenziale *' : 'Ore in presenza *'}</label>
