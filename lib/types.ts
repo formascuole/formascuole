@@ -103,6 +103,8 @@ export interface Progetto {
   quota_progettazione_note?: string | null
   lat?: number | null
   lng?: number | null
+  allegato_url?: string | null
+  allegato_nome?: string | null
 }
 
 export interface ProgettoConStats extends Progetto {

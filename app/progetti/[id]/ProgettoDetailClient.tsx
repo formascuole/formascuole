@@ -144,6 +144,48 @@ export function ProgettoDetailClient({
     ore_presenza: '', ore_online: '',
   })
 
+  // ── Allegato progetto ────────────────────────────────────────
+  const [allegatoProgettoUrl, setAllegatoProgettoUrl] = useState<string | null>(progetto.allegato_url ?? null)
+  const [allegatoProgettoNome, setAllegatoProgettoNome] = useState<string | null>(progetto.allegato_nome ?? null)
+  const [uploadingAllegatoProgetto, setUploadingAllegatoProgetto] = useState(false)
+  const [allegatoProgettoError, setAllegatoProgettoError] = useState<string | null>(null)
+
+  const handleUploadAllegatoProgetto = async (file: File) => {
+    setUploadingAllegatoProgetto(true)
+    setAllegatoProgettoError(null)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await fetch(`/api/progetti/${progetto.id}/allegato`, { method: 'POST', body: fd })
+      const data = await res.json()
+      if (!res.ok) {
+        setAllegatoProgettoError(data.error ?? 'Errore upload')
+      } else {
+        setAllegatoProgettoUrl(data.url)
+        setAllegatoProgettoNome(data.nome)
+        router.refresh()
+      }
+    } finally {
+      setUploadingAllegatoProgetto(false)
+    }
+  }
+
+  const handleDeleteAllegatoProgetto = async () => {
+    if (!confirm('Rimuovere l\'allegato del progetto?')) return
+    setUploadingAllegatoProgetto(true)
+    setAllegatoProgettoError(null)
+    try {
+      const res = await fetch(`/api/progetti/${progetto.id}/allegato`, { method: 'DELETE' })
+      if (res.ok) {
+        setAllegatoProgettoUrl(null)
+        setAllegatoProgettoNome(null)
+        router.refresh()
+      }
+    } finally {
+      setUploadingAllegatoProgetto(false)
+    }
+  }
+
   // ── Edit scuola ─────────────────────────────────────────────
   const [editScuolaOpen, setEditScuolaOpen] = useState(false)
   const [editScuolaForm, setEditScuolaForm] = useState<EditScuolaForm>({
@@ -1265,6 +1307,69 @@ export function ProgettoDetailClient({
           />
         </div>
       </div>
+
+      {/* Allegato progetto */}
+      {(isAdmin || allegatoProgettoUrl) && (
+        <div className="bg-white rounded-xl p-5 mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-semibold text-gray-900 text-sm">Documento allegato al progetto</h2>
+            {isAdmin && !allegatoProgettoUrl && (
+              <label className={`cursor-pointer ${uploadingAllegatoProgetto ? 'opacity-50 pointer-events-none' : ''}`}>
+                <input
+                  type="file"
+                  className="sr-only"
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.webp"
+                  onChange={e => { const f = e.target.files?.[0]; if (f) handleUploadAllegatoProgetto(f) }}
+                />
+                <span className="text-xs text-gray-400 hover:text-gray-600 border border-dashed border-gray-200 hover:border-gray-400 px-3 py-1.5 rounded-[7px] transition-colors cursor-pointer">
+                  {uploadingAllegatoProgetto ? 'Caricamento…' : '+ Carica documento'}
+                </span>
+              </label>
+            )}
+          </div>
+          {allegatoProgettoUrl ? (
+            <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-[7px] px-3 py-2.5">
+              <span className="text-base shrink-0">📎</span>
+              <a
+                href={allegatoProgettoUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-amber-800 font-medium hover:underline flex-1 truncate"
+              >
+                {allegatoProgettoNome ?? 'Documento'}
+              </a>
+              {isAdmin && (
+                <div className="flex items-center gap-2 shrink-0">
+                  <label className={`cursor-pointer ${uploadingAllegatoProgetto ? 'opacity-50 pointer-events-none' : ''}`}>
+                    <input
+                      type="file"
+                      className="sr-only"
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.webp"
+                      onChange={e => { const f = e.target.files?.[0]; if (f) handleUploadAllegatoProgetto(f) }}
+                    />
+                    <span className="text-xs text-gray-500 hover:text-gray-700 border border-gray-200 hover:border-gray-400 px-2 py-1 rounded-[7px] transition-colors cursor-pointer">
+                      Sostituisci
+                    </span>
+                  </label>
+                  <button
+                    onClick={handleDeleteAllegatoProgetto}
+                    disabled={uploadingAllegatoProgetto}
+                    className="text-xs text-red-400 hover:text-red-600 transition-colors"
+                    title="Rimuovi documento"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-400">Nessun documento allegato. I formatori del progetto vedranno un banner con il link al download.</p>
+          )}
+          {allegatoProgettoError && (
+            <p className="text-xs text-red-500 mt-2">{allegatoProgettoError}</p>
+          )}
+        </div>
+      )}
 
       {/* Alert */}
       {(Number(progetto.corsi_senza_formatore) > 0 || Number(progetto.corsi_senza_calendario) > 0) && (
