@@ -22,6 +22,7 @@ export async function GET(request: NextRequest) {
   let corsiQuery = admin
     .from('corsi_con_ore')
     .select('id, project_id, title, tipo, ore_totali, ore_pianificate, calendario_inviato_at, calendario_confermato, calendario_confermato_at, confermato_manualmente, formatore:profiles!formatore_id(id,nome,email)')
+    .neq('corso_completato', true)
     .order('created_at')
 
   if (projectId) corsiQuery = corsiQuery.eq('project_id', projectId)
