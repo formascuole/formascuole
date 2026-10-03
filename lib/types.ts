@@ -185,6 +185,8 @@ export interface Corso {
   // Edizione, note, location
   edizione?: string | null
   note?: string | null
+  note_allegato_url?: string | null
+  note_allegato_nome?: string | null
   location?: string | null
   ore_presenza?: number | null
   ore_online?: number | null

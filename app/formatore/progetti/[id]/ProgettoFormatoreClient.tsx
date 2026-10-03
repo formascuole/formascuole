@@ -350,6 +350,26 @@ export function ProgettoFormatoreClient({ progetto, corsi, finanziamenti, format
                       </div>
                     )}
                   </div>
+                  {/* Banner allegato note — visibile al formatore se presente */}
+                  {(corso as any).note_allegato_url && (
+                    <a
+                      href={(corso as any).note_allegato_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-3 flex items-center gap-2.5 bg-amber-50 border border-amber-300 rounded-[7px] px-3 py-2 text-sm text-amber-800 hover:bg-amber-100 transition-colors"
+                    >
+                      <span className="text-base shrink-0">📎</span>
+                      <span className="flex-1 min-w-0">
+                        <span className="font-semibold">Allegato da leggere: </span>
+                        <span className="underline truncate">{(corso as any).note_allegato_nome ?? 'Apri allegato'}</span>
+                      </span>
+                      <svg className="shrink-0 text-amber-500" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                        <polyline points="15 3 21 3 21 9"/>
+                        <line x1="10" y1="14" x2="21" y2="3"/>
+                      </svg>
+                    </a>
+                  )}
                 </div>
                 {!inAttesa && (
                   <div className="flex items-center gap-2 flex-wrap sm:shrink-0">

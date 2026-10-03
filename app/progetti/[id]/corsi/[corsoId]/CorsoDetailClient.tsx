@@ -454,6 +454,11 @@ export function CorsoDetailClient({
   const [corsoInfoEditOpen, setCorsoInfoEditOpen] = useState(false)
   const [corsoInfoForm, setCorsoInfoForm] = useState({ edizione: corso.edizione || '', note: corso.note || '' })
   const [savingCorsoInfo, setSavingCorsoInfo] = useState(false)
+  // Allegato note corso
+  const [allegatoUrl, setAllegatoUrl] = useState<string | null>(corso.note_allegato_url ?? null)
+  const [allegatoNome, setAllegatoNome] = useState<string | null>(corso.note_allegato_nome ?? null)
+  const [uploadingAllegato, setUploadingAllegato] = useState(false)
+  const [allegatoError, setAllegatoError] = useState<string | null>(null)
 
   // Modifica corso (admin — titolo, tipo, modalità, ore, edizione, note, location)
   const [corsoEditOpen, setCorsoEditOpen] = useState(false)
@@ -1299,6 +1304,42 @@ export function CorsoDetailClient({
       }
     } finally {
       setSavingCorsoInfo(false)
+    }
+  }
+
+  const handleUploadAllegato = async (file: File) => {
+    setUploadingAllegato(true)
+    setAllegatoError(null)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await fetch(`/api/corsi/${corso.id}/allegato`, { method: 'POST', body: fd })
+      const data = await res.json()
+      if (!res.ok) {
+        setAllegatoError(data.error ?? 'Errore upload')
+      } else {
+        setAllegatoUrl(data.url)
+        setAllegatoNome(data.nome)
+        router.refresh()
+      }
+    } finally {
+      setUploadingAllegato(false)
+    }
+  }
+
+  const handleDeleteAllegato = async () => {
+    if (!confirm('Rimuovere l\'allegato?')) return
+    setUploadingAllegato(true)
+    setAllegatoError(null)
+    try {
+      const res = await fetch(`/api/corsi/${corso.id}/allegato`, { method: 'DELETE' })
+      if (res.ok) {
+        setAllegatoUrl(null)
+        setAllegatoNome(null)
+        router.refresh()
+      }
+    } finally {
+      setUploadingAllegato(false)
     }
   }
 
@@ -2432,7 +2473,7 @@ export function CorsoDetailClient({
       )}
 
       {/* Note corso */}
-      {(isAdmin || noteCorsoLocal) && (
+      {(isAdmin || noteCorsoLocal || allegatoUrl) && (
         <div className="bg-white rounded-xl p-6 mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-semibold text-gray-900">Note corso</h2>
@@ -2446,10 +2487,60 @@ export function CorsoDetailClient({
             )}
           </div>
           {noteCorsoLocal ? (
-            <p className="text-sm text-gray-600 whitespace-pre-wrap">{noteCorsoLocal}</p>
+            <p className="text-sm text-gray-600 whitespace-pre-wrap mb-4">{noteCorsoLocal}</p>
           ) : isAdmin ? (
-            <p className="text-sm text-gray-400">Nessuna nota aggiunta.</p>
+            <p className="text-sm text-gray-400 mb-4">Nessuna nota aggiunta.</p>
           ) : null}
+
+          {/* Allegato note — admin: upload/remove; tutti: download se presente */}
+          <div className="border-t border-gray-100 pt-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Allegato</span>
+            </div>
+            {allegatoUrl ? (
+              <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-[7px] px-3 py-2">
+                <span className="text-amber-500 text-base">📎</span>
+                <a
+                  href={allegatoUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-amber-800 font-medium hover:underline flex-1 truncate"
+                >
+                  {allegatoNome ?? 'Allegato'}
+                </a>
+                {isAdmin && (
+                  <button
+                    onClick={handleDeleteAllegato}
+                    disabled={uploadingAllegato}
+                    className="text-xs text-red-400 hover:text-red-600 transition-colors ml-2 shrink-0"
+                    title="Rimuovi allegato"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            ) : isAdmin ? (
+              <label className={`flex items-center gap-2 cursor-pointer w-fit ${uploadingAllegato ? 'opacity-50 pointer-events-none' : ''}`}>
+                <input
+                  type="file"
+                  className="sr-only"
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.webp"
+                  onChange={e => { const f = e.target.files?.[0]; if (f) handleUploadAllegato(f) }}
+                />
+                <span className="text-xs text-gray-400 hover:text-gray-600 border border-dashed border-gray-200 hover:border-gray-400 px-3 py-1.5 rounded-[7px] transition-colors">
+                  {uploadingAllegato ? 'Caricamento…' : '+ Carica allegato'}
+                </span>
+              </label>
+            ) : (
+              <p className="text-xs text-gray-400">Nessun allegato.</p>
+            )}
+            {allegatoError && (
+              <p className="text-xs text-red-500 mt-1">{allegatoError}</p>
+            )}
+            {isAdmin && (
+              <p className="text-xs text-gray-400 mt-2">PDF, Word, Excel o immagine — max 20 MB. I formatori vedranno un avviso per scaricare il file.</p>
+            )}
+          </div>
         </div>
       )}
 
