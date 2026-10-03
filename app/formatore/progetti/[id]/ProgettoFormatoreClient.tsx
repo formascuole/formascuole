@@ -69,6 +69,9 @@ export function ProgettoFormatoreClient({ progetto, corsi, finanziamenti, format
   const [newOraFine, setNewOraFine] = useState('')
   const [newTipoSessione, setNewTipoSessione] = useState<'residenziale' | 'scuola' | ''>('')
   const [saving, setSaving] = useState(false)
+  const [generatingToken, setGeneratingToken] = useState(false)
+  const [tokenError, setTokenError] = useState<string | null>(null)
+  const [corsoTokenMap, setCorsoTokenMap] = useState<Record<string, string>>({})
 
   const [questionarioCorsoId, setQuestionarioCorsoId] = useState<string | null>(null)
 
@@ -154,6 +157,23 @@ export function ProgettoFormatoreClient({ progetto, corsi, finanziamenti, format
       ))
     } finally {
       setSavingVideoLink(null)
+    }
+  }
+
+  const handleGeneraToken = async (corsoId: string) => {
+    setGeneratingToken(true)
+    setTokenError(null)
+    try {
+      const res = await fetch(`/api/corsi/${corsoId}/token-materiali`, { method: 'POST' })
+      const j = await res.json()
+      if (res.ok && j.token) {
+        setCorsoTokenMap(prev => ({ ...prev, [corsoId]: j.token }))
+        setSelectedCorso(prev => prev ? { ...prev, token_materiali: j.token } as typeof prev : prev)
+      } else {
+        setTokenError(j.error || 'Errore nella generazione del link')
+      }
+    } finally {
+      setGeneratingToken(false)
     }
   }
 
