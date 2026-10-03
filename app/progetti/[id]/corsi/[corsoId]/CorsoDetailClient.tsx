@@ -34,6 +34,7 @@ interface CorsoDetailClientProps {
   progettoId: string
   currentUserId: string
   isAdmin: boolean
+  isFormatore?: boolean
   canConfirmSessions: boolean
   isSuperAdmin?: boolean
   corsoTags: Tag[]
@@ -204,6 +205,7 @@ export function CorsoDetailClient({
   progettoId,
   currentUserId,
   isAdmin,
+  isFormatore = false,
   canConfirmSessions,
   isSuperAdmin,
   finanziamentoNome,
@@ -3188,8 +3190,8 @@ export function CorsoDetailClient({
       {/* Risultati questionari */}
       <QuestionariBlock questionari={questionari} showTexts={isAdmin} showStorico />
 
-      {/* Portale materiali corso (admin only) */}
-      {isAdmin && (
+      {/* Portale materiali corso (admin e formatore) */}
+      {(isAdmin || isFormatore) && (
         <div className="bg-white rounded-xl mt-4" style={{ border: '0.5px solid #e5e5e5' }}>
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
             <div>
@@ -3347,7 +3349,7 @@ export function CorsoDetailClient({
       )}
 
       {/* Modal aggiungi materiale */}
-      {isAdmin && (
+      {(isAdmin || isFormatore) && (
         <Modal
           open={addMaterialeOpen}
           onClose={() => { setAddMaterialeOpen(false); setAddMaterialeForm({ nome: '', tipo: 'link', url: '', descrizione: '' }) }}

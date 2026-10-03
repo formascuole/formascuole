@@ -233,6 +233,7 @@ export default async function CorsoDetailPage({
         progettoId={id}
         currentUserId={user.id}
         isAdmin={isAdmin}
+        isFormatore={isFormatore}
         canConfirmSessions={canConfirmSessions}
         isSuperAdmin={isSuperAdmin}
         finanziamentoNome={finanziamentoNome}
