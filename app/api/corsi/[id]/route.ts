@@ -94,8 +94,10 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
 
   // Cascade delete
   await admin.from('note_corso').delete().eq('corso_id', id)
+  await admin.from('sessioni_log').delete().eq('corso_id', id)
   await admin.from('sessioni').delete().eq('corso_id', id)
   await admin.from('solleciti_log').delete().eq('corso_id', id)
+  await admin.from('candidature_corsi').delete().eq('corso_id', id)
 
   const { error } = await admin.from('corsi').delete().eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
