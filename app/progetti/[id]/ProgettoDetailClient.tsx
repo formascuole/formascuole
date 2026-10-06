@@ -3666,7 +3666,17 @@ export function ProgettoDetailClient({
                 </button>
               )}
               {logProgettoLoaded && (
-                <span className="text-xs text-gray-400">{onlyVariations.length} variazion{onlyVariations.length === 1 ? 'e' : 'i'} · {Object.keys(byCourse).length} cors{Object.keys(byCourse).length === 1 ? 'o' : 'i'}</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-gray-400">{onlyVariations.length} variazion{onlyVariations.length === 1 ? 'e' : 'i'} · {Object.keys(byCourse).length} cors{Object.keys(byCourse).length === 1 ? 'o' : 'i'}</span>
+                  <a
+                    href={`/api/export/storico-variazioni?project_id=${progetto.id}`}
+                    download
+                    className="inline-flex items-center gap-1.5 text-xs font-medium text-green-700 hover:text-green-900 bg-green-50 hover:bg-green-100 border border-green-200 px-3 py-1.5 rounded-[7px] transition-colors"
+                  >
+                    <svg width="13" height="13" fill="none" viewBox="0 0 24 24"><path d="M12 3v13m0 0l-4-4m4 4l4-4M4 20h16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    Esporta Excel
+                  </a>
+                </div>
               )}
             </div>
             {!logProgettoLoaded ? (
