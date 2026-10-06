@@ -488,6 +488,25 @@ export function ProgettoDetailClient({
     if (successi.length > 0) router.refresh()
   }
 
+  // ── Storico variazioni calendario ───────────────────────────
+  const [logProgetto, setLogProgetto] = useState<any[]>([])
+  const [logProgettoLoaded, setLogProgettoLoaded] = useState(false)
+  const [logProgettoLoading, setLogProgettoLoading] = useState(false)
+
+  const fetchLogProgetto = async () => {
+    setLogProgettoLoading(true)
+    try {
+      const res = await fetch(`/api/sessioni-log?project_id=${progetto.id}`)
+      if (res.ok) {
+        const data = await res.json()
+        setLogProgetto(data)
+        setLogProgettoLoaded(true)
+      }
+    } finally {
+      setLogProgettoLoading(false)
+    }
+  }
+
   // ── Chat ────────────────────────────────────────────────────
   const [messaggi, setMessaggi] = useState<ChatMessaggio[]>(initialMessaggi)
   const [newMsg, setNewMsg] = useState('')
@@ -3583,6 +3602,136 @@ export function ProgettoDetailClient({
           </div>
         </div>
       )}
+
+      {/* Storico variazioni calendario — solo admin */}
+      {isAdmin && (() => {
+        const MOTIV_LABELS: Record<string, string> = {
+          richiesta_scuola: 'Richiesta della scuola',
+          impegno_formatore: 'Impegno del formatore',
+          causa_forza_maggiore: 'Causa di forza maggiore',
+          problemi_tecnici_logistici: 'Problemi tecnici/logistici',
+          accordo_reciproco: 'Accordo reciproco',
+          altro: 'Altro',
+        }
+        const MOTIV_COLORS: Record<string, string> = {
+          richiesta_scuola: 'bg-blue-100 text-blue-700',
+          impegno_formatore: 'bg-orange-100 text-orange-700',
+          causa_forza_maggiore: 'bg-gray-100 text-gray-600',
+          problemi_tecnici_logistici: 'bg-yellow-100 text-yellow-700',
+          accordo_reciproco: 'bg-green-100 text-green-700',
+          altro: 'bg-red-100 text-red-700',
+        }
+        const TIPO_ICONS: Record<string, React.ReactNode> = {
+          creazione: <svg width="13" height="13" fill="none" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>,
+          modifica_data: <svg width="13" height="13" fill="none" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.5"/><path d="M3 9h18M8 2v4M16 2v4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>,
+          modifica_ore: <svg width="13" height="13" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5"/><path d="M12 7v5l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>,
+          eliminazione: <svg width="13" height="13" fill="none" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+        }
+        const TIPO_LABELS: Record<string, string> = {
+          creazione: 'Creazione',
+          modifica_data: 'Modifica data',
+          modifica_ore: 'Modifica ore',
+          eliminazione: 'Eliminazione',
+        }
+        const formatD = (d: string) => {
+          const dt = new Date(d + 'T00:00:00')
+          return `${String(dt.getDate()).padStart(2, '0')}/${String(dt.getMonth() + 1).padStart(2, '0')}/${dt.getFullYear()}`
+        }
+        // Group by corso_id for display
+        const byCourse = logProgetto.reduce<Record<string, { title: string; logs: any[] }>>((acc, row) => {
+          if (!acc[row.corso_id]) acc[row.corso_id] = { title: row.corso_title ?? row.corso_id, logs: [] }
+          acc[row.corso_id].logs.push(row)
+          return acc
+        }, {})
+        const onlyVariations = logProgetto.filter(r => r.tipo_modifica !== 'creazione')
+        return (
+          <div className="bg-white rounded-xl mt-4" style={{ border: '0.5px solid #e5e5e5' }}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <div>
+                <h2 className="font-semibold text-gray-900">Storico variazioni calendario</h2>
+                <p className="text-xs text-gray-400 mt-0.5">Tutte le modifiche alle sessioni dei corsi di questo progetto</p>
+              </div>
+              {!logProgettoLoaded && (
+                <button
+                  onClick={fetchLogProgetto}
+                  disabled={logProgettoLoading}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-gray-900 bg-gray-50 hover:bg-gray-100 border border-gray-200 px-3 py-1.5 rounded-[7px] transition-colors disabled:opacity-50"
+                >
+                  {logProgettoLoading ? (
+                    <svg className="animate-spin" width="12" height="12" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="40 20"/></svg>
+                  ) : (
+                    <svg width="13" height="13" fill="none" viewBox="0 0 24 24"><path d="M3 12a9 9 0 109 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><path d="M3 12V6m0 6h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  )}
+                  Carica storico
+                </button>
+              )}
+              {logProgettoLoaded && (
+                <span className="text-xs text-gray-400">{onlyVariations.length} variazion{onlyVariations.length === 1 ? 'e' : 'i'} · {Object.keys(byCourse).length} cors{Object.keys(byCourse).length === 1 ? 'o' : 'i'}</span>
+              )}
+            </div>
+            {!logProgettoLoaded ? (
+              <div className="px-6 py-8 text-center text-sm text-gray-400">
+                Clicca &ldquo;Carica storico&rdquo; per visualizzare le variazioni di calendario.
+              </div>
+            ) : logProgetto.length === 0 ? (
+              <div className="px-6 py-8 text-center text-sm text-gray-400">Nessuna modifica registrata per questo progetto.</div>
+            ) : (
+              <div className="divide-y divide-gray-50">
+                {Object.entries(byCourse).map(([corsoId, { title, logs }]) => (
+                  <div key={corsoId}>
+                    <div className="px-6 py-2.5 bg-gray-50 flex items-center gap-2">
+                      <svg width="13" height="13" fill="none" viewBox="0 0 24 24" className="text-gray-400 shrink-0"><rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.5"/><path d="M3 9h18M8 2v4M16 2v4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                      <span className="text-xs font-semibold text-gray-600 truncate">{title}</span>
+                      <span className="text-xs text-gray-400 ml-auto shrink-0">{logs.filter(l => l.tipo_modifica !== 'creazione').length} variazion{logs.filter(l => l.tipo_modifica !== 'creazione').length === 1 ? 'e' : 'i'}</span>
+                    </div>
+                    {logs.map((log: any) => (
+                      <div key={log.id} className="px-6 py-3.5 hover:bg-gray-50/50 transition-colors">
+                        <div className="flex items-start gap-3">
+                          <div className="flex items-center gap-1.5 text-gray-500 mt-0.5 shrink-0">
+                            {TIPO_ICONS[log.tipo_modifica]}
+                            <span className="text-xs font-medium text-gray-600">{TIPO_LABELS[log.tipo_modifica] || log.tipo_modifica}</span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap mb-1">
+                              {log.data_precedente && log.data_nuova && (
+                                <span className="text-xs text-gray-700">
+                                  <span className="line-through text-gray-400">{formatD(log.data_precedente)}</span>
+                                  {' → '}
+                                  <span className="font-medium">{formatD(log.data_nuova)}</span>
+                                </span>
+                              )}
+                              {log.ore_precedenti != null && log.ore_nuove != null && (
+                                <span className="text-xs text-gray-700">
+                                  <span className="line-through text-gray-400">{log.ore_precedenti}h</span>
+                                  {' → '}
+                                  <span className="font-medium">{log.ore_nuove}h</span>
+                                </span>
+                              )}
+                              {log.motivazione_categoria && (
+                                <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md ${MOTIV_COLORS[log.motivazione_categoria] || 'bg-gray-100 text-gray-600'}`}>
+                                  {MOTIV_LABELS[log.motivazione_categoria] || log.motivazione_categoria}
+                                </span>
+                              )}
+                            </div>
+                            {log.motivazione_dettaglio && (
+                              <p className="text-xs text-gray-500 mb-1">{log.motivazione_dettaglio}</p>
+                            )}
+                            <div className="flex items-center gap-2 text-xs text-gray-400">
+                              {log.utente && <span>{log.utente.nome}</span>}
+                              <span>·</span>
+                              <span>{new Date(log.created_at).toLocaleString('it-IT', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )
+      })()}
 
       {/* Replica referente toast */}
       {replicaToast && (
