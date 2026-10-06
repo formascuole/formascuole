@@ -42,7 +42,7 @@ export default async function DashboardPage() {
       ? admin.from('profiles').select('id', { count: 'exact', head: true }).in('role', ['formatore', 'tutor']).eq('privacy_accettata', false)
       : Promise.resolve({ count: 0, error: null }),
     admin.from('sessioni')
-      .select('id, corso_id, corsi!corso_id(corso_completato)', { count: 'exact', head: false })
+      .select('id, corso_id, ore, corsi!corso_id(corso_completato)', { count: 'exact', head: false })
       .lt('data', today)
       .or('completata.is.null,completata.eq.false'),
   ])
@@ -52,9 +52,10 @@ export default async function DashboardPage() {
   const formatoriSenzaPrivacyCount = privacyResult.count ?? 0
 
   // Conta sessioni passate non firmate, escludendo corsi completati
-  const sessioniNonFirmate = ((sessioniNonFirmateResult.data as Array<{ corsi: { corso_completato?: boolean } | null }>) || [])
+  const sessioniNonFirmate = ((sessioniNonFirmateResult.data as Array<{ ore: number; corsi: { corso_completato?: boolean } | null }>) || [])
     .filter(s => !s.corsi?.corso_completato)
   const sessioniNonFirmateCount = sessioniNonFirmate.length
+  const sessioniNonFirmateOre = sessioniNonFirmate.reduce((s, r) => s + Number(r.ore), 0)
 
   const progetti = (progettiRaw || []) as ProgettoConStats[]
 
@@ -116,6 +117,7 @@ export default async function DashboardPage() {
         isSuperAdmin={isSuperAdmin}
         formatoriSenzaPrivacy={formatoriSenzaPrivacyCount ?? 0}
         sessioniNonFirmateCount={sessioniNonFirmateCount}
+        sessioniNonFirmateOre={sessioniNonFirmateOre}
       />
     </AppLayout>
   )

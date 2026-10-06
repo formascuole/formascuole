@@ -47,6 +47,7 @@ interface DashboardClientProps {
   isSuperAdmin?: boolean
   formatoriSenzaPrivacy?: number
   sessioniNonFirmateCount?: number
+  sessioniNonFirmateOre?: number
 }
 
 export function DashboardClient({
@@ -60,6 +61,7 @@ export function DashboardClient({
   isSuperAdmin = false,
   formatoriSenzaPrivacy = 0,
   sessioniNonFirmateCount = 0,
+  sessioniNonFirmateOre = 0,
 }: DashboardClientProps) {
   const [filterFinId, setFilterFinId] = useState('')
   const [privacyBannerDismissed, setPrivacyBannerDismissed] = useState(false)
@@ -204,7 +206,7 @@ export function DashboardClient({
               <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="currentColor" strokeWidth="1.5"/>
             </svg>
             <span>
-              <strong>{sessioniNonFirmateCount} session{sessioniNonFirmateCount === 1 ? 'e' : 'i'} passate</strong> non ancora firmate dai formatori.
+              <strong>{sessioniNonFirmateCount} session{sessioniNonFirmateCount === 1 ? 'e' : 'i'} passate ({sessioniNonFirmateOre}h)</strong> non ancora firmate dai formatori.
             </span>
           </div>
           <span className="text-xs font-medium text-orange-700 group-hover:text-orange-900 shrink-0 flex items-center gap-1">

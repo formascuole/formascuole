@@ -42,6 +42,7 @@ function formatOra(t: string | null) {
 export function SessioniNonFirmateClient({ scuole, totaleSessioni, dataRiferimento }: Props) {
   const totaleCorsi = scuole.reduce((s, sc) => s + sc.corsi.length, 0)
   const totaleScuole = scuole.length
+  const totaleOre = scuole.reduce((s, sc) => s + sc.corsi.reduce((s2, c) => s2 + c.sessioni.reduce((s3, se) => s3 + Number(se.ore), 0), 0), 0)
 
   return (
     <div className="p-8 max-w-5xl mx-auto">
@@ -72,10 +73,10 @@ export function SessioniNonFirmateClient({ scuole, totaleSessioni, dataRiferimen
 
       {/* Riepilogo badge */}
       {totaleSessioni > 0 && (
-        <div className="flex items-center gap-3 mb-6">
+        <div className="flex items-center gap-3 mb-6 flex-wrap">
           <div className="flex items-center gap-2 bg-orange-50 border border-orange-200 text-orange-800 text-sm font-medium px-3 py-1.5 rounded-lg">
             <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="currentColor" strokeWidth="1.5"/></svg>
-            {totaleSessioni} session{totaleSessioni === 1 ? 'e' : 'i'} non firmate
+            {totaleSessioni} session{totaleSessioni === 1 ? 'e' : 'i'} · <strong>{totaleOre}h</strong> non firmate
           </div>
           <span className="text-sm text-gray-400">{totaleCorsi} cors{totaleCorsi === 1 ? 'o' : 'i'} · {totaleScuole} scuol{totaleScuole === 1 ? 'a' : 'e'}</span>
         </div>
