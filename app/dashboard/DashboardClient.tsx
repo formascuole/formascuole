@@ -46,6 +46,7 @@ interface DashboardClientProps {
   thisMonthStart: string
   isSuperAdmin?: boolean
   formatoriSenzaPrivacy?: number
+  sessioniNonFirmateCount?: number
 }
 
 export function DashboardClient({
@@ -58,6 +59,7 @@ export function DashboardClient({
   thisMonthStart,
   isSuperAdmin = false,
   formatoriSenzaPrivacy = 0,
+  sessioniNonFirmateCount = 0,
 }: DashboardClientProps) {
   const [filterFinId, setFilterFinId] = useState('')
   const [privacyBannerDismissed, setPrivacyBannerDismissed] = useState(false)
@@ -191,6 +193,27 @@ export function DashboardClient({
           </div>
         </div>
       )}
+      {sessioniNonFirmateCount > 0 && (
+        <Link
+          href="/dashboard/sessioni-non-firmate"
+          className="flex items-center justify-between gap-4 bg-orange-50 border border-orange-200 rounded-xl px-5 py-3 mb-4 hover:bg-orange-100 transition-colors group"
+        >
+          <div className="flex items-center gap-3 text-sm text-orange-800">
+            <svg width="18" height="18" fill="none" viewBox="0 0 24 24" className="shrink-0">
+              <path d="M12 9v4M12 17h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="currentColor" strokeWidth="1.5"/>
+            </svg>
+            <span>
+              <strong>{sessioniNonFirmateCount} session{sessioniNonFirmateCount === 1 ? 'e' : 'i'} passate</strong> non ancora firmate dai formatori.
+            </span>
+          </div>
+          <span className="text-xs font-medium text-orange-700 group-hover:text-orange-900 shrink-0 flex items-center gap-1">
+            Visualizza dettaglio
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </span>
+        </Link>
+      )}
+
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>

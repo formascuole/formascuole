@@ -22,6 +22,8 @@ export default async function DashboardPage() {
 
   const isSuperAdmin = profile.role === 'super_admin'
 
+  const today = new Date().toISOString().slice(0, 10)
+
   const [
     { data: progettiRaw },
     { data: corsiRaw },
@@ -29,6 +31,7 @@ export default async function DashboardPage() {
     { data: finanziamentiRaw },
     notifiche,
     privacyCountResult,
+    sessioniNonFirmateResult,
   ] = await Promise.all([
     admin.from('progetti_con_stats').select('*').order('created_at', { ascending: false }),
     admin.from('corsi').select('id, project_id, formatore_id, tutor_previsto, ore_tutoraggio, ore_totali, calendario_inviato_at, calendario_confermato, stato_assegnazione, accettazione_risposta_at, finanziamento_id'),
@@ -38,11 +41,20 @@ export default async function DashboardPage() {
     isSuperAdmin
       ? admin.from('profiles').select('id', { count: 'exact', head: true }).in('role', ['formatore', 'tutor']).eq('privacy_accettata', false)
       : Promise.resolve({ count: 0, error: null }),
+    admin.from('sessioni')
+      .select('id, corso_id, corsi!corso_id(corso_completato)', { count: 'exact', head: false })
+      .lt('data', today)
+      .or('completata.is.null,completata.eq.false'),
   ])
 
   const privacyResult = privacyCountResult as { count: number | null; error?: unknown }
   if (privacyResult.error) console.error('[dashboard] privacy count error:', privacyResult.error)
   const formatoriSenzaPrivacyCount = privacyResult.count ?? 0
+
+  // Conta sessioni passate non firmate, escludendo corsi completati
+  const sessioniNonFirmate = ((sessioniNonFirmateResult.data as Array<{ corsi: { corso_completato?: boolean } | null }>) || [])
+    .filter(s => !s.corsi?.corso_completato)
+  const sessioniNonFirmateCount = sessioniNonFirmate.length
 
   const progetti = (progettiRaw || []) as ProgettoConStats[]
 
@@ -103,6 +115,7 @@ export default async function DashboardPage() {
         thisMonthStart={thisMonthStart.toISOString()}
         isSuperAdmin={isSuperAdmin}
         formatoriSenzaPrivacy={formatoriSenzaPrivacyCount ?? 0}
+        sessioniNonFirmateCount={sessioniNonFirmateCount}
       />
     </AppLayout>
   )
