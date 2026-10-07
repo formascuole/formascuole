@@ -558,7 +558,8 @@ export function FormatoriClient({ utenti, isSuperAdmin, isAdmin }: FormatoriClie
       </div>
 
       <div className="bg-white rounded-xl overflow-hidden" style={{ border: '0.5px solid #e5e5e5' }}>
-        <table className="w-full">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[900px]">
           <thead>
             <tr className="border-b border-gray-100">
               {isAdmin && (
@@ -764,6 +765,7 @@ export function FormatoriClient({ utenti, isSuperAdmin, isAdmin }: FormatoriClie
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* ── Modal: Crea utente ──────────────────────────────────────────────── */}
