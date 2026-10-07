@@ -215,6 +215,59 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
   const isTargetSuperAdmin = profile.roles.includes('super_admin')
   const canDelete = isAdmin && !isSelf && !isTargetSuperAdmin
 
+  // ── Modal modifica ruolo/nome ──────────────────────────────────────────────
+  const SELECTABLE_ROLES: { value: UserRole; label: string }[] = [
+    { value: 'formatore', label: 'Formatore' },
+    { value: 'tutor', label: 'Tutor' },
+    ...(isSuperAdmin ? [{ value: 'admin' as UserRole, label: 'Admin' }] : []),
+  ]
+  const [editOpen, setEditOpen] = useState(false)
+  const [editNome, setEditNome] = useState(profile.nome)
+  const [editRoles, setEditRoles] = useState<UserRole[]>(
+    profile.roles.filter(r => r !== 'super_admin') as UserRole[]
+  )
+  const [editSaving, setEditSaving] = useState(false)
+  const [editError, setEditError] = useState('')
+  const [editSuccess, setEditSuccess] = useState('')
+  const [currentRoles, setCurrentRoles] = useState<UserRole[]>(profile.roles)
+
+  const openEditModal = () => {
+    setEditNome(profile.nome)
+    setEditRoles(currentRoles.filter(r => r !== 'super_admin') as UserRole[])
+    setEditError('')
+    setEditSuccess('')
+    setEditOpen(true)
+  }
+
+  const toggleRole = (role: UserRole) => {
+    setEditRoles(prev => {
+      if (prev.includes(role)) {
+        if (prev.length === 1) return prev
+        return prev.filter(r => r !== role)
+      }
+      return [...prev, role]
+    })
+  }
+
+  const handleSaveEdit = async () => {
+    setEditSaving(true)
+    setEditError('')
+    try {
+      const res = await fetch(`/api/formatori/${profile.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nome: editNome.trim(), roles: editRoles }),
+      })
+      const json = await res.json()
+      if (!res.ok) { setEditError(json.error || 'Errore durante il salvataggio'); return }
+      setEditSuccess(`Modifiche salvate per "${editNome.trim()}".`)
+      setCurrentRoles(editRoles)
+      router.refresh()
+    } finally {
+      setEditSaving(false)
+    }
+  }
+
   const handleSaveTariffe = async () => {
     setTariffaSaving(true)
     try {
@@ -278,12 +331,12 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
               {profile.email}
             </a>
             <div className="flex flex-wrap gap-1.5 mt-2">
-              {profile.roles.filter(r => r !== 'super_admin').map(r => (
+              {currentRoles.filter(r => r !== 'super_admin').map(r => (
                 <span key={r} className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md ${ROLE_COLORS[r]}`}>
                   {ROLE_LABELS[r]}
                 </span>
               ))}
-              {(profile.roles.includes('formatore') || profile.roles.includes('tutor')) && (
+              {(currentRoles.includes('formatore') || currentRoles.includes('tutor')) && (
                 profile.profilo_completo
                   ? <span className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md bg-green-100 text-green-700">Profilo completo</span>
                   : <span className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md bg-red-100 text-red-700">Profilo incompleto</span>
@@ -308,18 +361,32 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
               <div className="text-xs text-gray-400">Account creato il</div>
               <div className="text-sm text-gray-600 font-medium mt-0.5">{formatDate(profile.created_at)}</div>
             </div>
-            {canDelete && (
-              <button
-                onClick={() => { setDeleteOpen(true); setDeleteConfirmEmail(''); setDeleteError('') }}
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 px-3 py-1.5 rounded-[7px] transition-colors"
-              >
-                <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
-                  <polyline points="3 6 5 6 21 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                  <path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                Elimina utente
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              {isAdmin && !isTargetSuperAdmin && (
+                <button
+                  onClick={openEditModal}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-gray-900 bg-gray-50 hover:bg-gray-100 border border-gray-200 px-3 py-1.5 rounded-[7px] transition-colors"
+                >
+                  <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
+                    <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  Modifica
+                </button>
+              )}
+              {canDelete && (
+                <button
+                  onClick={() => { setDeleteOpen(true); setDeleteConfirmEmail(''); setDeleteError('') }}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 px-3 py-1.5 rounded-[7px] transition-colors"
+                >
+                  <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
+                    <polyline points="3 6 5 6 21 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                    <path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  Elimina utente
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -764,6 +831,75 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
           </div>
         </div>
       )}
+
+      {/* Modal modifica ruolo/nome */}
+      <Modal
+        open={editOpen}
+        onClose={() => { if (!editSaving) { setEditOpen(false); setEditError(''); setEditSuccess('') } }}
+        title={`Modifica — ${profile.nome}`}
+        size="sm"
+        footer={
+          editSuccess ? (
+            <Button onClick={() => setEditOpen(false)}>Chiudi</Button>
+          ) : (
+            <>
+              <Button variant="ghost" onClick={() => setEditOpen(false)} disabled={editSaving}>Annulla</Button>
+              <Button onClick={handleSaveEdit} disabled={editSaving || editNome.trim().length === 0 || editRoles.length === 0}>
+                {editSaving ? 'Salvo…' : 'Salva modifiche'}
+              </Button>
+            </>
+          )
+        }
+      >
+        {editSuccess ? (
+          <div className="flex items-start gap-3 bg-green-50 border border-green-200 rounded-[7px] px-4 py-3">
+            <svg className="text-green-500 shrink-0 mt-0.5" width="16" height="16" fill="none" viewBox="0 0 24 24">
+              <polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            <p className="text-sm text-green-800">{editSuccess}</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <Input
+              label="Nome completo *"
+              value={editNome}
+              onChange={e => setEditNome(e.target.value)}
+              autoComplete="off"
+            />
+            <div>
+              <div className="text-sm font-medium text-gray-700 mb-1">Email</div>
+              <div className="text-sm text-gray-500 bg-gray-50 border border-gray-200 rounded-[7px] px-3 py-2 select-all">
+                {profile.email}
+              </div>
+              <p className="text-xs text-gray-400 mt-1">L&apos;email non può essere modificata da qui.</p>
+            </div>
+            <div>
+              <div className="text-sm font-medium text-gray-700 mb-2">Ruoli *</div>
+              <div className="space-y-2">
+                {SELECTABLE_ROLES.map(r => (
+                  <label key={r.value} className="flex items-center gap-3 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={editRoles.includes(r.value)}
+                      onChange={() => toggleRole(r.value)}
+                      className="w-4 h-4 rounded accent-[#d64b55]"
+                    />
+                    <span className="text-sm text-gray-700 group-hover:text-gray-900">{r.label}</span>
+                  </label>
+                ))}
+              </div>
+              {editRoles.length === 0 && (
+                <p className="text-xs text-red-500 mt-1">Seleziona almeno un ruolo.</p>
+              )}
+            </div>
+            {editError && (
+              <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-[7px] px-3 py-2">
+                <p className="text-sm text-red-700">{editError}</p>
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
 
       {/* Modal elimina utente */}
       <Modal
