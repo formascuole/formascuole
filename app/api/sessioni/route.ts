@@ -128,7 +128,31 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // ── CHECK 2: Conflitto orario formatore ───────────────────────────────────────
+  // ── CHECK 2a: Conflitto orario all'interno dello stesso corso ────────────────
+  if (ora_inizio && ora_fine) {
+    const { data: sessioniCorso } = await admin
+      .from('sessioni')
+      .select('id, ora_inizio, ora_fine')
+      .eq('corso_id', corso_id)
+      .eq('data', sessioneData)
+      .not('ora_inizio', 'is', null)
+      .not('ora_fine', 'is', null)
+
+    for (const s of sessioniCorso || []) {
+      const newStart = (ora_inizio as string).substring(0, 5)
+      const newEnd = (ora_fine as string).substring(0, 5)
+      const exStart = (s.ora_inizio as string).substring(0, 5)
+      const exEnd = (s.ora_fine as string).substring(0, 5)
+      if (newStart < exEnd && newEnd > exStart) {
+        return NextResponse.json(
+          { error: `Esiste già una sessione in questo corso per lo stesso slot orario (${exStart}–${exEnd}).` },
+          { status: 409 }
+        )
+      }
+    }
+  }
+
+  // ── CHECK 2b: Conflitto orario formatore su altri corsi ───────────────────────
   if (corso.formatore_id && ora_inizio && ora_fine) {
     const { data: altriCorsi } = await admin
       .from('corsi')
