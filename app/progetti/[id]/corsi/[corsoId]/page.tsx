@@ -46,7 +46,10 @@ export default async function CorsoDetailPage({
 
   // Formatori e tutori possono vedere solo i propri corsi
   if (!isAdmin) {
-    const hasAccess = corsoData.formatore_id === user.id || corsoData.tutor_id === user.id
+    const hasAccess =
+      corsoData.formatore_id === user.id ||
+      (corsoData as any).co_formatore_id === user.id ||
+      corsoData.tutor_id === user.id
     if (!hasAccess) redirect(isFormatore ? '/formatore' : '/tutor')
   }
 
@@ -205,8 +208,11 @@ export default async function CorsoDetailPage({
   const corsoTags = ((corsoTagsData || []) as any[]).map(r => r.tag).filter(Boolean) as import('@/lib/types').Tag[]
   const allTags = (allTagsData || []) as import('@/lib/types').Tag[]
 
-  // Il formatore assegnato può confermare le sessioni
-  const canConfirmSessions = isAdmin || corsoData.formatore_id === user.id
+  // Il formatore principale e il co-formatore possono confermare le sessioni
+  const canConfirmSessions =
+    isAdmin ||
+    corsoData.formatore_id === user.id ||
+    (corsoData as any).co_formatore_id === user.id
 
   return (
     <AppLayout

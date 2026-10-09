@@ -23,47 +23,51 @@ export async function POST(
 
   const { data: corso } = await admin
     .from('corsi')
-    .select('id, title, edizione, project_id, formatore_id, co_formatore_id, ore_totali, ore_formatore, ore_presenza, ore_online, tipo, modalita, location, tariffa_oraria, lettera_incarico_url, finanziamento_id')
+    .select('id, title, edizione, project_id, co_formatore_id, ore_totali, ore_co_formatore, ore_presenza, ore_online, tipo, modalita, location, tariffa_oraria_co_formatore, lettera_co_formatore_url, finanziamento_id')
     .eq('id', id)
     .single()
-  if (!corso || !corso.formatore_id)
-    return NextResponse.json({ error: 'Corso o formatore non trovato' }, { status: 404 })
+  if (!corso || !(corso as any).co_formatore_id)
+    return NextResponse.json({ error: 'Corso o co-formatore non trovato' }, { status: 404 })
 
-  const isRigenera = !!corso.lettera_incarico_url
+  const isRigenera = !!(corso as any).lettera_co_formatore_url
+  const coFormatoreId = (corso as any).co_formatore_id as string
 
-  const [{ data: formatore }, { data: progetto }] = await Promise.all([
-    admin.from('profiles').select('id, nome, email, indirizzo_via, indirizzo_cap, indirizzo_citta, indirizzo_provincia, codice_fiscale, tariffa_oraria_formatore').eq('id', corso.formatore_id as string).single(),
+  const [{ data: coFormatore }, { data: progetto }] = await Promise.all([
+    admin.from('profiles').select('id, nome, email, indirizzo_via, indirizzo_cap, indirizzo_citta, indirizzo_provincia, codice_fiscale, tariffa_oraria_formatore').eq('id', coFormatoreId).single(),
     admin.from('progetti').select('school_name, finanziamento_id').eq('id', corso.project_id as string).single(),
   ])
-  if (!formatore || !progetto)
-    return NextResponse.json({ error: 'Dati formatore o progetto mancanti' }, { status: 404 })
+  if (!coFormatore || !progetto)
+    return NextResponse.json({ error: 'Dati co-formatore o progetto mancanti' }, { status: 404 })
 
-  const finId = (corso.finanziamento_id || progetto.finanziamento_id) as string | null
+  const finId = ((corso as any).finanziamento_id || progetto.finanziamento_id) as string | null
   let finanziamento_nome: string | null = null
   if (finId) {
     const { data: fin } = await admin.from('finanziamenti').select('nome').eq('id', finId).single()
     finanziamento_nome = (fin?.nome as string | null) ?? null
   }
 
-  const tariffa = corso.tariffa_oraria != null
-    ? Number(corso.tariffa_oraria)
-    : (formatore.tariffa_oraria_formatore != null ? Number(formatore.tariffa_oraria_formatore) : null)
-  // Se c'è un co-formatore con ore_formatore separate, usa quelle; altrimenti ore_totali
-  const oreTotali = (corso as any).co_formatore_id && (corso as any).ore_formatore != null
-    ? Number((corso as any).ore_formatore)
+  // Ore del co-formatore (priorità: ore_co_formatore, fallback: ore_totali)
+  const oreTotali = (corso as any).ore_co_formatore != null
+    ? Number((corso as any).ore_co_formatore)
     : Number(corso.ore_totali)
+
+  // Tariffa: campo specifico co-formatore, poi tariffa generale del profilo
+  const tariffa = (corso as any).tariffa_oraria_co_formatore != null
+    ? Number((corso as any).tariffa_oraria_co_formatore)
+    : (coFormatore.tariffa_oraria_formatore != null ? Number(coFormatore.tariffa_oraria_formatore) : null)
+
   const compensoStimato = tariffa != null ? +(oreTotali * tariffa).toFixed(2) : null
 
   const today = new Date().toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' })
 
   const pdfBuffer = await generateLetteraIncaricoFormatorePdf({
     data: today,
-    formatore_nome: formatore.nome as string,
-    formatore_indirizzo: formatore.indirizzo_via as string | null,
-    formatore_cap: formatore.indirizzo_cap as string | null,
-    formatore_citta: formatore.indirizzo_citta as string | null,
-    formatore_provincia: formatore.indirizzo_provincia as string | null,
-    formatore_codice_fiscale: formatore.codice_fiscale as string | null,
+    formatore_nome: coFormatore.nome as string,
+    formatore_indirizzo: coFormatore.indirizzo_via as string | null,
+    formatore_cap: coFormatore.indirizzo_cap as string | null,
+    formatore_citta: coFormatore.indirizzo_citta as string | null,
+    formatore_provincia: coFormatore.indirizzo_provincia as string | null,
+    formatore_codice_fiscale: coFormatore.codice_fiscale as string | null,
     corso_title: corso.title as string,
     corso_edizione: (corso.edizione as string | null) ?? null,
     corso_tipo: corso.tipo as string,
@@ -79,7 +83,7 @@ export async function POST(
     firma_admin_nome: callerProfile?.nome as string | null,
   })
 
-  const storagePath = `lettere/${id}/lettera_formatore.pdf`
+  const storagePath = `lettere/${id}/lettera_co_formatore.pdf`
   const { error: uploadError } = await admin.storage.from('notule').upload(storagePath, pdfBuffer, {
     contentType: 'application/pdf',
     upsert: true,
@@ -91,16 +95,16 @@ export async function POST(
   const { data: updated, error: updateError } = await admin
     .from('corsi')
     .update({
-      lettera_incarico_url: publicUrl,
-      lettera_incarico_firmata: false,
-      lettera_incarico_firmata_at: null,
-      lettera_incarico_ip: null,
-      lettera_incarico_pending: true,
-      lettera_incarico_inviata_at: null,
-      lettera_incarico_sollecito_at: null,
+      lettera_co_formatore_url: publicUrl,
+      lettera_co_formatore_firmata: false,
+      lettera_co_formatore_firmata_at: null,
+      lettera_co_formatore_ip: null,
+      lettera_co_formatore_pending: true,
+      lettera_co_formatore_inviata_at: null,
+      lettera_co_formatore_sollecito_at: null,
     })
     .eq('id', id)
-    .select('lettera_incarico_url, lettera_incarico_firmata, lettera_incarico_firmata_at, lettera_incarico_pending')
+    .select('lettera_co_formatore_url, lettera_co_formatore_firmata, lettera_co_formatore_firmata_at, lettera_co_formatore_pending')
     .single()
   if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 })
 
@@ -108,15 +112,15 @@ export async function POST(
     try {
       const letteraUrl = `${APP_URL}/progetti/${corso.project_id}/corsi/${id}#lettera-incarico`
       await sendLetteraAggiornataEmail({
-        to: formatore.email as string,
-        persona_nome: formatore.nome as string,
+        to: coFormatore.email as string,
+        persona_nome: coFormatore.nome as string,
         corso_title: corso.title as string,
         school_name: progetto.school_name as string,
         tipo: 'formatore',
         lettera_url: letteraUrl,
       })
     } catch (err) {
-      console.error('[lettera-incarico] Rigenera notification failed (non-fatal):', err)
+      console.error('[lettera-co-formatore] Rigenera notification failed (non-fatal):', err)
     }
   }
 

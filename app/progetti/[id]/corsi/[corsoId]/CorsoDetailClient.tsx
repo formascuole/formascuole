@@ -519,6 +519,35 @@ export function CorsoDetailClient({
   const [annullandoLetteraTutor, setAnnullandoLetteraTutor] = useState(false)
   const [annullaLetteraTutorError, setAnnullaLetteraTutorError] = useState<string | null>(null)
 
+  // Lettera d'incarico — co-formatore
+  const [letteraCoFormatoreUrl, setLetteraCoFormatoreUrl] = useState<string | null>((corso as any).lettera_co_formatore_url ?? null)
+  const [letteraCoFormatoreFirmata, setLetteraCoFormatoreFirmata] = useState((corso as any).lettera_co_formatore_firmata ?? false)
+  const [letteraCoFormatoreFirmataAt, setLetteraCoFormatoreFirmataAt] = useState<string | null>((corso as any).lettera_co_formatore_firmata_at ?? null)
+  const [letteraCoFormatorePending, setLetteraCoFormatorePending] = useState((corso as any).lettera_co_formatore_pending ?? false)
+  const [generandoLetteraCoFormatore, setGenerandoLetteraCoFormatore] = useState(false)
+  const [generandoLetteraCoFormatoreError, setGenerandoLetteraCoFormatoreError] = useState<string | null>(null)
+  const [rigeneraLetteraCoFormatoreOpen, setRigeneraLetteraCoFormatoreOpen] = useState(false)
+
+  const handleGeneraLetteraCoFormatore = async () => {
+    setGenerandoLetteraCoFormatore(true)
+    setGenerandoLetteraCoFormatoreError(null)
+    try {
+      const res = await fetch(`/api/corsi/${corso.id}/lettera-co-formatore`, { method: 'POST' })
+      if (res.ok) {
+        const d = await res.json()
+        setLetteraCoFormatoreUrl(d.lettera_co_formatore_url)
+        setLetteraCoFormatoreFirmata(false)
+        setLetteraCoFormatoreFirmataAt(null)
+        setLetteraCoFormatorePending(true)
+      } else {
+        const j = await res.json()
+        setGenerandoLetteraCoFormatoreError(j.error || 'Errore nella generazione')
+      }
+    } finally {
+      setGenerandoLetteraCoFormatore(false)
+    }
+  }
+
   // Rinuncia formatore
   const [rinunciaOpen, setRinunciaOpen] = useState(false)
   const [rinunciaMotivo, setRinunciaMotivo] = useState('')
@@ -2040,7 +2069,7 @@ export function CorsoDetailClient({
       )}
 
       {/* Lettere d'incarico — admin */}
-      {isAdmin && (corso.formatore_id || (corso.tipo === 'PF' && corso.tutor_id)) && (
+      {isAdmin && (corso.formatore_id || (corso.tipo === 'PF' && corso.tutor_id) || (corso as any).co_formatore_id) && (
         <div className="bg-white rounded-xl p-6 mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
           <h2 className="font-semibold text-gray-900 mb-4">Lettere d&apos;incarico</h2>
           <div className="space-y-3">
@@ -2147,6 +2176,74 @@ export function CorsoDetailClient({
               </div>
             )}
             {generandoLetteraTutorError && <p className="text-xs text-red-500">{generandoLetteraTutorError}</p>}
+
+            {(corso as any).co_formatore_id && (
+              <div className="flex items-center justify-between py-2 border-t border-gray-50">
+                <div>
+                  <div className="text-sm font-medium text-gray-700">Lettera co-formatore</div>
+                  <div className="mt-0.5">
+                    {letteraCoFormatoreUrl ? (
+                      letteraCoFormatoreFirmata ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-md bg-green-100 text-green-700">
+                          <svg width="10" height="10" fill="none" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>
+                          Firmata{letteraCoFormatoreFirmataAt ? ` il ${new Date(letteraCoFormatoreFirmataAt).toLocaleDateString('it-IT')}` : ''}
+                        </span>
+                      ) : letteraCoFormatorePending ? (
+                        <span className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md bg-amber-100 text-amber-700">
+                          In invio (cron ore 18:00)
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-md bg-blue-100 text-blue-700">
+                          Inviata — in attesa di firma
+                        </span>
+                      )
+                    ) : (
+                      <span className="text-xs text-gray-400">Non ancora generata</span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {letteraCoFormatoreUrl && (
+                    <a href={letteraCoFormatoreUrl} target="_blank" rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-gray-900 border border-gray-200 hover:bg-gray-50 px-2.5 py-1.5 rounded-[7px] transition-colors"
+                    >
+                      <svg width="12" height="12" fill="none" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      PDF
+                    </a>
+                  )}
+                  <Button
+                    size="sm"
+                    variant={letteraCoFormatoreUrl ? 'secondary' : undefined}
+                    onClick={letteraCoFormatoreUrl ? () => setRigeneraLetteraCoFormatoreOpen(true) : handleGeneraLetteraCoFormatore}
+                    loading={generandoLetteraCoFormatore}
+                  >
+                    {letteraCoFormatoreUrl ? 'Rigenera' : 'Genera lettera'}
+                  </Button>
+                </div>
+              </div>
+            )}
+            {generandoLetteraCoFormatoreError && <p className="text-xs text-red-500">{generandoLetteraCoFormatoreError}</p>}
+
+            {/* Dialog conferma rigenera co-formatore */}
+            <Dialog open={rigeneraLetteraCoFormatoreOpen} onOpenChange={setRigeneraLetteraCoFormatoreOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Rigenera lettera co-formatore</DialogTitle>
+                  <DialogDescription>
+                    La lettera attuale verrà sostituita e il co-formatore riceverà una notifica via email. Continuare?
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                  <Button variant="secondary" onClick={() => setRigeneraLetteraCoFormatoreOpen(false)}>Annulla</Button>
+                  <Button
+                    onClick={() => { setRigeneraLetteraCoFormatoreOpen(false); handleGeneraLetteraCoFormatore() }}
+                    loading={generandoLetteraCoFormatore}
+                  >
+                    Rigenera
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
       )}
