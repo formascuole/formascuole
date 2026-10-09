@@ -2223,27 +2223,6 @@ export function CorsoDetailClient({
               </div>
             )}
             {generandoLetteraCoFormatoreError && <p className="text-xs text-red-500">{generandoLetteraCoFormatoreError}</p>}
-
-            {/* Dialog conferma rigenera co-formatore */}
-            <Dialog open={rigeneraLetteraCoFormatoreOpen} onOpenChange={setRigeneraLetteraCoFormatoreOpen}>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Rigenera lettera co-formatore</DialogTitle>
-                  <DialogDescription>
-                    La lettera attuale verrà sostituita e il co-formatore riceverà una notifica via email. Continuare?
-                  </DialogDescription>
-                </DialogHeader>
-                <DialogFooter>
-                  <Button variant="secondary" onClick={() => setRigeneraLetteraCoFormatoreOpen(false)}>Annulla</Button>
-                  <Button
-                    onClick={() => { setRigeneraLetteraCoFormatoreOpen(false); handleGeneraLetteraCoFormatore() }}
-                    loading={generandoLetteraCoFormatore}
-                  >
-                    Rigenera
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
           </div>
         </div>
       )}
@@ -4696,6 +4675,24 @@ export function CorsoDetailClient({
       >
         <p className="text-sm text-gray-600">
           La lettera precedente verrà sostituita con una nuova versione aggiornata. Il tutor riceverà una notifica via email e la nuova lettera verrà inviata con la prossima spedizione giornaliera.
+        </p>
+      </Modal>
+
+      {/* Rigenera lettera co-formatore modal */}
+      <Modal
+        open={rigeneraLetteraCoFormatoreOpen}
+        onClose={() => setRigeneraLetteraCoFormatoreOpen(false)}
+        title="Rigenera lettera d'incarico co-formatore"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setRigeneraLetteraCoFormatoreOpen(false)}>Annulla</Button>
+            <Button onClick={() => { setRigeneraLetteraCoFormatoreOpen(false); handleGeneraLetteraCoFormatore() }} loading={generandoLetteraCoFormatore}>Rigenera</Button>
+          </>
+        }
+      >
+        <p className="text-sm text-gray-600">
+          La lettera precedente verrà sostituita con una nuova versione aggiornata. Il co-formatore riceverà una notifica via email e la nuova lettera verrà inviata con la prossima spedizione giornaliera.
         </p>
       </Modal>
 
