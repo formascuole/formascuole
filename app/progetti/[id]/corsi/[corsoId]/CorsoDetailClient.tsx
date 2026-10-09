@@ -1861,6 +1861,47 @@ export function CorsoDetailClient({
         )}
       </div>
 
+      {/* Co-formatore assegnato */}
+      {(corso as any).co_formatore_id && (corso as any).co_formatore && (
+        <div className="bg-white rounded-xl p-6 mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-semibold text-gray-900">Co-formatore assegnato</h2>
+            {(corso as any).stato_assegnazione_co_formatore && (corso as any).stato_assegnazione_co_formatore !== 'non_assegnato' && (() => {
+              const badges: Record<string, { label: string; className: string }> = {
+                in_attesa: { label: 'In attesa di accettazione', className: 'bg-amber-100 text-amber-800' },
+                accettato:  { label: 'Accettato',               className: 'bg-green-100 text-green-800' },
+                rifiutato:  { label: 'Rifiutato',               className: 'bg-red-100 text-red-700' },
+              }
+              const b = badges[(corso as any).stato_assegnazione_co_formatore]
+              return b ? (
+                <span className={`inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-md ${b.className}`}>
+                  {b.label}
+                </span>
+              ) : null
+            })()}
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Avatar
+                nome={(corso as any).co_formatore.nome}
+                id={(corso as any).co_formatore.id}
+                initials={(corso as any).co_formatore.avatar_initials}
+                size="lg"
+              />
+              <div>
+                <div className="font-medium text-gray-900">{(corso as any).co_formatore.nome}</div>
+                <a href={`mailto:${(corso as any).co_formatore.email}`} className="text-sm text-blue-600 hover:underline">
+                  {(corso as any).co_formatore.email}
+                </a>
+                {(corso as any).ore_co_formatore != null && (
+                  <div className="text-xs text-gray-400 mt-0.5">{(corso as any).ore_co_formatore}h assegnate</div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Storico rinuncia */}
       {isAdmin && corso.rinuncia_at && (
         <div className="bg-white rounded-xl p-6 mb-4" style={{ border: '0.5px solid #e5e5e5' }}>

@@ -53,20 +53,23 @@ export default async function CorsoDetailPage({
     if (!hasAccess) redirect(isFormatore ? '/formatore' : '/tutor')
   }
 
-  // Fetch formatore, tutor, referente in parallel
-  const [{ data: formatore }, { data: tutor }, { data: referente }] = await Promise.all([
+  // Fetch formatore, tutor, co-formatore, referente in parallel
+  const [{ data: formatore }, { data: tutor }, { data: coFormatore }, { data: referente }] = await Promise.all([
     corsoData.formatore_id
       ? supabase.from('profiles').select('id,nome,email,avatar_initials,ha_partita_iva,regime_fiscale,rivalsa_iva,tariffa_oraria_formatore').eq('id', corsoData.formatore_id).single()
       : Promise.resolve({ data: null }),
     corsoData.tutor_id
       ? supabase.from('profiles').select('id,nome,email,avatar_initials').eq('id', corsoData.tutor_id).single()
       : Promise.resolve({ data: null }),
+    (corsoData as any).co_formatore_id
+      ? supabase.from('profiles').select('id,nome,email,avatar_initials').eq('id', (corsoData as any).co_formatore_id).single()
+      : Promise.resolve({ data: null }),
     corsoData.referente_id
       ? supabase.from('referenti_progetto').select('*').eq('id', corsoData.referente_id).single()
       : Promise.resolve({ data: null }),
   ])
 
-  const corso = { ...corsoData, formatore, tutor, referente }
+  const corso = { ...corsoData, formatore, tutor, co_formatore: coFormatore, referente }
 
   const { data: progetto } = await supabase
     .from('progetti')
