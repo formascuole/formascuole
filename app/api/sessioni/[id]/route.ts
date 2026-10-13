@@ -175,6 +175,88 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
   }
 
+  // ── CHECK OVERLAP: Conflitto orario ─────────────────────────────────────────
+  // Determina la data e gli orari definitivi dopo la modifica
+  const checkData = (dateChanged ? newData : sessione.data) as string
+  // Leggi ora_inizio e ora_fine attuali della sessione (non incluse nel select iniziale, le recuperiamo)
+  const { data: sessioneOrari } = await supabase
+    .from('sessioni')
+    .select('ora_inizio, ora_fine')
+    .eq('id', id)
+    .single()
+  const checkOraInizio = oraInizioChanged ? newOraInizio : sessioneOrari?.ora_inizio
+  const checkOraFine = oraFineChanged ? newOraFine : sessioneOrari?.ora_fine
+
+  if (checkOraInizio && checkOraFine) {
+    const adminOverlap = createAdminClient()
+    const newStart = (checkOraInizio as string).substring(0, 5)
+    const newEnd = (checkOraFine as string).substring(0, 5)
+
+    // CHECK A: Conflitto all'interno dello stesso corso (esclude la sessione corrente)
+    const { data: sessioniCorso } = await adminOverlap
+      .from('sessioni')
+      .select('id, ora_inizio, ora_fine')
+      .eq('corso_id', sessione.corso_id)
+      .eq('data', checkData)
+      .neq('id', id)
+      .not('ora_inizio', 'is', null)
+      .not('ora_fine', 'is', null)
+
+    for (const s of sessioniCorso || []) {
+      const exStart = (s.ora_inizio as string).substring(0, 5)
+      const exEnd = (s.ora_fine as string).substring(0, 5)
+      if (newStart < exEnd && newEnd > exStart) {
+        return NextResponse.json(
+          { error: `Esiste già una sessione in questo corso per lo stesso slot orario (${exStart}–${exEnd}).` },
+          { status: 409 }
+        )
+      }
+    }
+
+    // CHECK B: Conflitto formatore su altri corsi
+    const { data: corsoFormatore } = await adminOverlap
+      .from('corsi')
+      .select('formatore_id')
+      .eq('id', sessione.corso_id)
+      .single()
+
+    if (corsoFormatore?.formatore_id) {
+      const { data: altriCorsi } = await adminOverlap
+        .from('corsi')
+        .select('id')
+        .eq('formatore_id', corsoFormatore.formatore_id)
+        .neq('id', sessione.corso_id)
+
+      if (altriCorsi && altriCorsi.length > 0) {
+        const altriCorsiIds = altriCorsi.map((c: { id: string }) => c.id)
+        const { data: sessioniSovrapposte } = await adminOverlap
+          .from('sessioni')
+          .select('id, corso_id, ora_inizio, ora_fine')
+          .in('corso_id', altriCorsiIds)
+          .eq('data', checkData)
+          .not('ora_inizio', 'is', null)
+          .not('ora_fine', 'is', null)
+
+        for (const s of sessioniSovrapposte || []) {
+          const exStart = (s.ora_inizio as string).substring(0, 5)
+          const exEnd = (s.ora_fine as string).substring(0, 5)
+          if (newStart < exEnd && newEnd > exStart) {
+            const { data: altroCorso } = await adminOverlap
+              .from('corsi')
+              .select('title')
+              .eq('id', s.corso_id)
+              .single()
+            return NextResponse.json(
+              { error: `Il formatore ha già un'altra sessione (${exStart}–${exEnd}) nel corso "${altroCorso?.title ?? s.corso_id}" in questa data.` },
+              { status: 409 }
+            )
+          }
+        }
+      }
+    }
+  }
+  // ── FINE CHECK OVERLAP ────────────────────────────────────────────────────
+
   const updates: Record<string, unknown> = {}
   if (dateChanged) updates.data = newData
   if (oreChanged) updates.ore = Number(newOre)
