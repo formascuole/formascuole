@@ -570,6 +570,7 @@ export function CorsoDetailClient({
   const [loadingElaborati, setLoadingElaborati] = useState(false)
   const [elaboratiLoaded, setElaboratiLoaded] = useState(false)
   const [portaleExpanded, setPortaleExpanded] = useState(false)
+  const [qrModalOpen, setQrModalOpen] = useState(false)
 
   const loadMateriali = async () => {
     setLoadingMateriali(true)
@@ -3292,13 +3293,52 @@ export function CorsoDetailClient({
                   </div>
                 </div>
                 {typeof window !== 'undefined' && (
-                  <img
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(window.location.origin + '/materiali/' + portaleToken)}`}
-                    alt="QR portale"
-                    width={100}
-                    height={100}
-                    className="rounded border border-blue-200 shrink-0"
-                  />
+                  <>
+                    <button
+                      type="button"
+                      title="Ingrandisci QR code"
+                      onClick={() => setQrModalOpen(true)}
+                      className="shrink-0 rounded border border-blue-200 hover:border-blue-400 hover:shadow-md transition-all cursor-zoom-in focus:outline-none"
+                    >
+                      <img
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(window.location.origin + '/materiali/' + portaleToken)}`}
+                        alt="QR portale"
+                        width={100}
+                        height={100}
+                        className="rounded block"
+                      />
+                    </button>
+                    {qrModalOpen && (
+                      <div
+                        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+                        onClick={() => setQrModalOpen(false)}
+                      >
+                        <div
+                          className="bg-white rounded-2xl p-8 flex flex-col items-center gap-5 shadow-2xl max-w-sm w-full mx-4"
+                          onClick={e => e.stopPropagation()}
+                        >
+                          <h3 className="font-semibold text-gray-900 text-lg">QR Code portale materiali</h3>
+                          <img
+                            src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(window.location.origin + '/materiali/' + portaleToken)}`}
+                            alt="QR portale"
+                            width={280}
+                            height={280}
+                            className="rounded-lg border border-gray-200"
+                          />
+                          <p className="text-xs text-gray-400 text-center break-all font-mono">
+                            {window.location.origin}/materiali/{portaleToken}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => setQrModalOpen(false)}
+                            className="mt-1 text-sm text-gray-500 hover:text-gray-800 underline"
+                          >
+                            Chiudi
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
 
