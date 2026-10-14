@@ -2111,7 +2111,7 @@ export function CorsoDetailClient({
       )}
 
       {/* Lettere d'incarico — admin */}
-      {isAdmin && (corso.formatore_id || (corso.tipo === 'PF' && corso.tutor_id) || (corso as any).co_formatore_id) && (
+      {isAdmin && (corso.formatore_id || corso.tutor_id || (corso as any).co_formatore_id) && (
         <div className="bg-white rounded-xl p-6 mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
           <h2 className="font-semibold text-gray-900 mb-4">Lettere d&apos;incarico</h2>
           <div className="space-y-3">
@@ -2167,7 +2167,7 @@ export function CorsoDetailClient({
             )}
             {generandoLetteraError && <p className="text-xs text-red-500">{generandoLetteraError}</p>}
 
-            {corso.tipo === 'PF' && corso.tutor_id && (
+            {corso.tutor_id && (
               <div className="flex items-center justify-between py-2">
                 <div>
                   <div className="text-sm font-medium text-gray-700">Lettera tutor</div>
