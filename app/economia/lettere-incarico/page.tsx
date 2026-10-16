@@ -49,7 +49,7 @@ export default async function LettereIncaricoPage() {
   ])
 
   const activeProgettoIds = (activeProgettiRes.data ?? []).map(p => p.id as string)
-  const { count: nLetteredMancanti } = await (
+  const [{ count: nLetteredMancanti }, { count: nLettereTutorMancanti }] = await Promise.all([
     activeProgettoIds.length > 0
       ? admin
           .from('corsi')
@@ -58,8 +58,16 @@ export default async function LettereIncaricoPage() {
           .is('lettera_incarico_url', null)
           .not('formatore_id', 'is', null)
           .in('project_id', activeProgettoIds)
-      : Promise.resolve({ count: 0 })
-  )
+      : Promise.resolve({ count: 0 }),
+    activeProgettoIds.length > 0
+      ? admin
+          .from('corsi')
+          .select('id', { count: 'exact', head: true })
+          .is('lettera_tutor_url', null)
+          .not('tutor_id', 'is', null)
+          .in('project_id', activeProgettoIds)
+      : Promise.resolve({ count: 0 }),
+  ])
 
   const corsiRaw = corsiRes.data
 
@@ -144,6 +152,7 @@ export default async function LettereIncaricoPage() {
         items={items}
         isSuperAdmin={isSuperAdmin}
         nLetteredMancanti={nLetteredMancanti ?? 0}
+        nLettereTutorMancanti={nLettereTutorMancanti ?? 0}
       />
     </AppLayout>
   )

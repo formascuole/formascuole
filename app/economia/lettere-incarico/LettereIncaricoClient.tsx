@@ -8,6 +8,7 @@ interface Props {
   items: LetteraItem[]
   isSuperAdmin: boolean
   nLetteredMancanti: number
+  nLettereTutorMancanti: number
 }
 
 interface GenProgress {
@@ -19,14 +20,16 @@ interface GenProgress {
   error: string | null
 }
 
-export function LettereIncaricoClient({ items, isSuperAdmin, nLetteredMancanti }: Props) {
+export function LettereIncaricoClient({ items, isSuperAdmin, nLetteredMancanti, nLettereTutorMancanti }: Props) {
   const router = useRouter()
   const [filterAnno, setFilterAnno] = useState('')
   const [filterPersona, setFilterPersona] = useState('')
   const [filterTipo, setFilterTipo] = useState<'' | 'formatore' | 'tutor'>('')
   const [filterStato, setFilterStato] = useState<'' | 'non_firmata' | 'firmata'>('')
   const [genProgress, setGenProgress] = useState<GenProgress | null>(null)
+  const [genTutorProgress, setGenTutorProgress] = useState<GenProgress | null>(null)
   const abortRef = useRef<AbortController | null>(null)
+  const abortTutorRef = useRef<AbortController | null>(null)
 
   const startGenera = useCallback(async () => {
     abortRef.current = new AbortController()
@@ -76,6 +79,56 @@ export function LettereIncaricoClient({ items, isSuperAdmin, nLetteredMancanti }
   const stopGenera = useCallback(() => {
     abortRef.current?.abort()
     setGenProgress(p => p ? { ...p, running: false } : p)
+  }, [])
+
+  const startGeneraTutor = useCallback(async () => {
+    abortTutorRef.current = new AbortController()
+    setGenTutorProgress({ processed: 0, total: 0, item: '', running: true, done: false, error: null })
+    try {
+      const res = await fetch('/api/admin/genera-lettere-tutor-mancanti', {
+        method: 'POST',
+        signal: abortTutorRef.current.signal,
+      })
+      if (!res.ok) {
+        setGenTutorProgress(p => p ? { ...p, running: false, error: `Errore ${res.status}` } : p)
+        return
+      }
+      const reader = res.body!.getReader()
+      const decoder = new TextDecoder()
+      let buf = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buf += decoder.decode(value, { stream: true })
+        const lines = buf.split('\n')
+        buf = lines.pop() ?? ''
+        for (const line of lines) {
+          if (!line.trim()) continue
+          try {
+            const msg = JSON.parse(line)
+            if (msg.type === 'start') {
+              setGenTutorProgress(p => p ? { ...p, total: msg.total } : p)
+            } else if (msg.type === 'progress') {
+              setGenTutorProgress(p => p ? { ...p, processed: msg.processed, total: msg.total, item: msg.item } : p)
+            } else if (msg.type === 'complete') {
+              setGenTutorProgress(p => p ? { ...p, running: false, done: true, processed: msg.processed, total: msg.total } : p)
+              router.refresh()
+            } else if (msg.type === 'error') {
+              setGenTutorProgress(p => p ? { ...p, running: false, error: msg.message } : p)
+            }
+          } catch { /* malformed line */ }
+        }
+      }
+    } catch (err) {
+      if ((err as Error).name !== 'AbortError') {
+        setGenTutorProgress(p => p ? { ...p, running: false, error: String(err) } : p)
+      }
+    }
+  }, [router])
+
+  const stopGeneraTutor = useCallback(() => {
+    abortTutorRef.current?.abort()
+    setGenTutorProgress(p => p ? { ...p, running: false } : p)
   }, [])
 
   const anni = useMemo(() => {
@@ -169,9 +222,53 @@ export function LettereIncaricoClient({ items, isSuperAdmin, nLetteredMancanti }
                   <line x1="12" y1="18" x2="12" y2="12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                   <line x1="9" y1="15" x2="15" y2="15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                 </svg>
-                Genera lettere mancanti
+                Genera lettere formatori mancanti
                 <span className="bg-blue-200 text-blue-800 rounded-full px-1.5 py-0.5 text-[11px] font-semibold leading-none">
                   {nLetteredMancanti}
+                </span>
+              </button>
+            ) : null
+          )}
+
+          {/* Genera lettere tutor mancanti — super_admin only */}
+          {isSuperAdmin && (
+            genTutorProgress?.running ? (
+              <div className="flex items-center gap-2 text-xs text-gray-600 bg-purple-50 border border-purple-100 px-3 py-2 rounded-[7px]">
+                <svg className="animate-spin w-3.5 h-3.5 text-purple-500 shrink-0" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+                </svg>
+                <span className="max-w-[180px] truncate">{genTutorProgress.item}</span>
+                <span className="font-semibold shrink-0">
+                  {genTutorProgress.processed}/{genTutorProgress.total}
+                </span>
+                <button
+                  onClick={stopGeneraTutor}
+                  className="ml-1 text-red-500 hover:text-red-700 font-medium shrink-0"
+                >
+                  Stop
+                </button>
+              </div>
+            ) : genTutorProgress?.done ? (
+              <span className="text-xs text-green-600 font-medium">
+                ✓ {genTutorProgress.processed} lettera tutor{genTutorProgress.processed !== 1 ? 'e' : ''} generate
+              </span>
+            ) : genTutorProgress?.error ? (
+              <span className="text-xs text-red-600">Errore: {genTutorProgress.error}</span>
+            ) : nLettereTutorMancanti > 0 ? (
+              <button
+                onClick={startGeneraTutor}
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-purple-700 hover:text-purple-900 border border-purple-200 hover:bg-purple-50 px-3 py-2 rounded-[7px] transition-colors bg-purple-50/50"
+              >
+                <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
+                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" strokeWidth="1.5"/>
+                  <polyline points="14 2 14 8 20 8" stroke="currentColor" strokeWidth="1.5"/>
+                  <line x1="12" y1="18" x2="12" y2="12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  <line x1="9" y1="15" x2="15" y2="15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+                Genera lettere tutor mancanti
+                <span className="bg-purple-200 text-purple-800 rounded-full px-1.5 py-0.5 text-[11px] font-semibold leading-none">
+                  {nLettereTutorMancanti}
                 </span>
               </button>
             ) : null
