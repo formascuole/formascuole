@@ -487,8 +487,14 @@ export function CorsoDetailClient({
   const [tariffaTutorForm, setTariffaTutorForm] = useState(corso.tariffa_oraria_tutor != null ? String(corso.tariffa_oraria_tutor) : '')
   const [savingTariffaTutor, setSavingTariffaTutor] = useState(false)
 
+  // Cache-busting per PDF Supabase Storage (stesso path → browser serve versione cachata)
+  const withCacheBust = (url: string | null | undefined): string | null => {
+    if (!url) return null
+    return `${url}?t=${Date.now()}`
+  }
+
   // Lettera d'incarico — formatore
-  const [letteraUrl, setLetteraUrl] = useState<string | null>(corso.lettera_incarico_url ?? null)
+  const [letteraUrl, setLetteraUrl] = useState<string | null>(withCacheBust(corso.lettera_incarico_url))
   const [letteraFirmata, setLetteraFirmata] = useState(corso.lettera_incarico_firmata ?? false)
   const [letteraFirmataAt, setLetteraFirmataAt] = useState<string | null>(corso.lettera_incarico_firmata_at ?? null)
   const [letteraPending, setLetteraPending] = useState(corso.lettera_incarico_pending ?? false)
@@ -504,7 +510,7 @@ export function CorsoDetailClient({
   const [annullaLetteraError, setAnnullaLetteraError] = useState<string | null>(null)
 
   // Lettera d'incarico — tutor
-  const [letteraTutorUrl, setLetteraTutorUrl] = useState<string | null>(corso.lettera_tutor_url ?? null)
+  const [letteraTutorUrl, setLetteraTutorUrl] = useState<string | null>(withCacheBust(corso.lettera_tutor_url))
   const [letteraTutorFirmata, setLetteraTutorFirmata] = useState(corso.lettera_tutor_firmata ?? false)
   const [letteraTutorFirmataAt, setLetteraTutorFirmataAt] = useState<string | null>(corso.lettera_tutor_firmata_at ?? null)
   const [letteraTutorPending, setLetteraTutorPending] = useState(corso.lettera_tutor_pending ?? false)
@@ -1221,7 +1227,7 @@ export function CorsoDetailClient({
       const res = await fetch(`/api/corsi/${corso.id}/lettera-incarico`, { method: 'POST' })
       if (res.ok) {
         const d = await res.json()
-        setLetteraUrl(d.lettera_incarico_url)
+        setLetteraUrl(withCacheBust(d.lettera_incarico_url))
         setLetteraFirmata(false)
         setLetteraFirmataAt(null)
         setLetteraPending(true)
@@ -1242,7 +1248,7 @@ export function CorsoDetailClient({
       const res = await fetch(`/api/corsi/${corso.id}/lettera-tutor`, { method: 'POST' })
       if (res.ok) {
         const d = await res.json()
-        setLetteraTutorUrl(d.lettera_tutor_url)
+        setLetteraTutorUrl(withCacheBust(d.lettera_tutor_url))
         setLetteraTutorFirmata(false)
         setLetteraTutorFirmataAt(null)
         setLetteraTutorPending(true)
