@@ -2769,9 +2769,13 @@ export function CorsoDetailClient({
                     {corso.tipo === 'PF' && corso.tutor_previsto ? 'Tariffa formatore' : 'Tariffa oraria'}
                   </div>
                   <div className="text-sm text-gray-600 mt-0.5">
-                    {(corso.tariffa_oraria ?? corso.formatore?.tariffa_oraria_formatore) != null
-                      ? <>{`€ ${Number(corso.tariffa_oraria ?? corso.formatore?.tariffa_oraria_formatore).toFixed(2)}/h`}{corso.tariffa_oraria == null && <span className="ml-1 text-xs text-gray-400">(tariffa standard)</span>}</>
-                      : <span className="text-gray-400">Non definita</span>}
+                    {(() => {
+                      // Priorità: tariffa nel profilo formatore → tariffa sul corso (da bando/decreto)
+                      const tariffaEffettiva = corso.formatore?.tariffa_oraria_formatore ?? corso.tariffa_oraria ?? null
+                      if (tariffaEffettiva == null) return <span className="text-gray-400">Non definita</span>
+                      const isDaBando = corso.formatore?.tariffa_oraria_formatore == null && corso.tariffa_oraria != null
+                      return <>{`€ ${Number(tariffaEffettiva).toFixed(2)}/h`}{isDaBando && <span className="ml-1 text-xs text-gray-400">(da bando)</span>}</>
+                    })()}
                   </div>
                 </div>
                 <Button variant="secondary" size="sm" onClick={() => {
@@ -2781,8 +2785,9 @@ export function CorsoDetailClient({
                   {corso.tariffa_oraria != null ? 'Modifica' : 'Imposta'}
                 </Button>
               </div>
-              {(corso.tariffa_oraria ?? corso.formatore?.tariffa_oraria_formatore) != null && oreErogate > 0 && (() => {
-                const tariffa = Number(corso.tariffa_oraria ?? corso.formatore?.tariffa_oraria_formatore)
+              {(corso.formatore?.tariffa_oraria_formatore ?? corso.tariffa_oraria) != null && oreErogate > 0 && (() => {
+                // Priorità: tariffa nel profilo formatore → tariffa sul corso (da bando/decreto)
+                const tariffa = Number(corso.formatore?.tariffa_oraria_formatore ?? corso.tariffa_oraria)
                 const imponibile = +(oreErogate * tariffa).toFixed(2)
                 const regime = corso.formatore?.regime_fiscale ?? 'notula'
                 const rivalsaIva = corso.formatore?.rivalsa_iva ?? false
