@@ -59,7 +59,7 @@ export default async function CorsoDetailPage({
       ? supabase.from('profiles').select('id,nome,email,avatar_initials,ha_partita_iva,regime_fiscale,rivalsa_iva,tariffa_oraria_formatore').eq('id', corsoData.formatore_id).single()
       : Promise.resolve({ data: null }),
     corsoData.tutor_id
-      ? supabase.from('profiles').select('id,nome,email,avatar_initials').eq('id', corsoData.tutor_id).single()
+      ? supabase.from('profiles').select('id,nome,email,avatar_initials,tariffa_oraria_tutor').eq('id', corsoData.tutor_id).single()
       : Promise.resolve({ data: null }),
     (corsoData as any).co_formatore_id
       ? supabase.from('profiles').select('id,nome,email,avatar_initials').eq('id', (corsoData as any).co_formatore_id).single()

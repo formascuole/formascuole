@@ -2910,8 +2910,9 @@ export function CorsoDetailClient({
         <div className="bg-white rounded-xl p-6 mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
           <h2 className="font-semibold text-gray-900 mb-3">La tua tariffa per questo corso</h2>
           {(() => {
-            const tariffaEffettiva = corso.tariffa_oraria ?? corso.formatore?.tariffa_oraria_formatore ?? null
-            const isStandard = corso.tariffa_oraria == null && tariffaEffettiva != null
+            // Priorità: tariffa nel profilo formatore → tariffa sul corso (da bando/decreto)
+            const tariffaEffettiva = corso.formatore?.tariffa_oraria_formatore ?? corso.tariffa_oraria ?? null
+            const isStandard = corso.tariffa_oraria != null && corso.formatore?.tariffa_oraria_formatore == null
             if (tariffaEffettiva != null) {
               return (
                 <div>
@@ -2938,16 +2939,20 @@ export function CorsoDetailClient({
       {!isAdmin && corso.tutor_id === currentUserId && (
         <div className="bg-white rounded-xl p-6 mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
           <h2 className="font-semibold text-gray-900 mb-3">La tua tariffa per questo corso</h2>
-          {corso.tariffa_oraria_tutor != null ? (
-            <div className="flex items-end gap-1">
-              <span className="text-2xl font-bold text-gray-900">€ {Number(corso.tariffa_oraria_tutor).toFixed(2)}</span>
-              <span className="text-sm text-gray-400 mb-0.5">/h</span>
-            </div>
-          ) : (
-            <p className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-[7px] px-3 py-2">
-              Tariffa da definire — contatta l&apos;amministrazione
-            </p>
-          )}
+          {(() => {
+            // Priorità: tariffa nel profilo tutor → tariffa sul corso (da decreto)
+            const tariffaTutorEffettiva = (corso.tutor as any)?.tariffa_oraria_tutor ?? corso.tariffa_oraria_tutor ?? null
+            return tariffaTutorEffettiva != null ? (
+              <div className="flex items-end gap-1">
+                <span className="text-2xl font-bold text-gray-900">€ {Number(tariffaTutorEffettiva).toFixed(2)}</span>
+                <span className="text-sm text-gray-400 mb-0.5">/h</span>
+              </div>
+            ) : (
+              <p className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-[7px] px-3 py-2">
+                Tariffa da definire — contatta l&apos;amministrazione
+              </p>
+            )
+          })()}
         </div>
       )}
 

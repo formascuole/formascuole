@@ -1186,8 +1186,10 @@ function EstrattoContoSection({ corsiFormatore, sessionDatesByCorso, savedTariff
     return corsiFormatore
       .filter(c => c.corso_completato)
       .map(c => {
-        const tariffa = (c.tariffa_oraria != null ? Number(c.tariffa_oraria) : null)
-          ?? savedTariffe.tariffa_oraria_formatore
+        // Priorità: tariffa nel profilo formatore → tariffa sul corso (da bando/decreto)
+        const tariffa = savedTariffe.tariffa_oraria_formatore != null
+          ? savedTariffe.tariffa_oraria_formatore
+          : (c.tariffa_oraria != null ? Number(c.tariffa_oraria) : null)
         const dates = sessionDatesByCorso[c.id]
         const prima = dates?.prima ?? null
         const ultima = dates?.ultima ?? null
