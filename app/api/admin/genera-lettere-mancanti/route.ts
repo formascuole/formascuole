@@ -95,9 +95,10 @@ export async function POST(_req: NextRequest) {
             const finId = (corso.finanziamento_id ?? progetto.finanziamento_id ?? null) as string | null
             const finanziamento_nome = finId ? (finMap.get(finId) ?? null) : null
 
-            const tariffa = corso.tariffa_oraria != null
-              ? Number(corso.tariffa_oraria)
-              : (formatore.tariffa_oraria_formatore != null ? Number(formatore.tariffa_oraria_formatore) : null)
+            // Priorità: tariffa nel profilo formatore → tariffa sul corso (da bando/decreto)
+            const tariffa = formatore.tariffa_oraria_formatore != null
+              ? Number(formatore.tariffa_oraria_formatore)
+              : (corso.tariffa_oraria != null ? Number(corso.tariffa_oraria) : null)
             const oreTotali = Number(corso.ore_totali)
             const compenso_stimato = tariffa != null ? +(oreTotali * tariffa).toFixed(2) : null
             const today = new Date().toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' })

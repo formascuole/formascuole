@@ -45,9 +45,10 @@ export async function POST(
     finanziamento_nome = (fin?.nome as string | null) ?? null
   }
 
-  const tariffa = corso.tariffa_oraria != null
-    ? Number(corso.tariffa_oraria)
-    : (formatore.tariffa_oraria_formatore != null ? Number(formatore.tariffa_oraria_formatore) : null)
+  // Priorità: tariffa nel profilo formatore → tariffa sul corso (da bando/decreto)
+  const tariffa = formatore.tariffa_oraria_formatore != null
+    ? Number(formatore.tariffa_oraria_formatore)
+    : (corso.tariffa_oraria != null ? Number(corso.tariffa_oraria) : null)
   // Se c'è un co-formatore con ore_formatore separate, usa quelle; altrimenti ore_totali
   const oreTotali = (corso as any).co_formatore_id && (corso as any).ore_formatore != null
     ? Number((corso as any).ore_formatore)
