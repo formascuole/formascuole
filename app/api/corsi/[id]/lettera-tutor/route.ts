@@ -23,7 +23,7 @@ export async function POST(
 
   const { data: corso } = await admin
     .from('corsi')
-    .select('id, title, edizione, project_id, tutor_id, tipo, modalita, location, ore_tutoraggio, ore_presenza, ore_online, tariffa_oraria_tutor, lettera_tutor_url, finanziamento_id')
+    .select('id, title, edizione, project_id, tutor_id, tipo, modalita, location, ore_tutoraggio, ore_totali, ore_presenza, ore_online, tariffa_oraria_tutor, lettera_tutor_url, finanziamento_id')
     .eq('id', id)
     .single()
   if (!corso || !corso.tutor_id)
@@ -48,7 +48,10 @@ export async function POST(
   const tariffaTutor = corso.tariffa_oraria_tutor != null
     ? Number(corso.tariffa_oraria_tutor)
     : (tutor.tariffa_oraria_tutor != null ? Number(tutor.tariffa_oraria_tutor) : null)
-  const oreTutoraggio = Number(corso.ore_tutoraggio || 0)
+  // Fallback a ore_totali se ore_tutoraggio non è valorizzato
+  const oreTutoraggio = Number(corso.ore_tutoraggio) > 0
+    ? Number(corso.ore_tutoraggio)
+    : Number(corso.ore_totali || 0)
   const compensoStimato = tariffaTutor != null && oreTutoraggio > 0 ? +(oreTutoraggio * tariffaTutor).toFixed(2) : null
 
   const today = new Date().toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' })

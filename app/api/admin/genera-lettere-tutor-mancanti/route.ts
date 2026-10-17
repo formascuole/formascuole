@@ -39,7 +39,7 @@ export async function POST(_req: NextRequest) {
         // Step 2: find corsi con tutor assegnato e lettera tutor non ancora generata
         const { data: corsiRaw } = await admin
           .from('corsi')
-          .select('id, title, project_id, tutor_id, tipo, modalita, location, ore_tutoraggio, ore_presenza, ore_online, tariffa_oraria_tutor, finanziamento_id')
+          .select('id, title, project_id, tutor_id, tipo, modalita, location, ore_tutoraggio, ore_totali, ore_presenza, ore_online, tariffa_oraria_tutor, finanziamento_id')
           .is('lettera_tutor_url', null)
           .not('tutor_id', 'is', null)
           .in('project_id', activeIds)
@@ -97,7 +97,10 @@ export async function POST(_req: NextRequest) {
             const tariffaTutor = corso.tariffa_oraria_tutor != null
               ? Number(corso.tariffa_oraria_tutor)
               : (tutor.tariffa_oraria_tutor != null ? Number(tutor.tariffa_oraria_tutor) : null)
-            const oreTutoraggio = Number(corso.ore_tutoraggio || 0)
+            // Fallback a ore_totali se ore_tutoraggio non è valorizzato
+            const oreTutoraggio = Number(corso.ore_tutoraggio) > 0
+              ? Number(corso.ore_tutoraggio)
+              : Number((corso as any).ore_totali || 0)
             const compenso_stimato = tariffaTutor != null && oreTutoraggio > 0
               ? +(oreTutoraggio * tariffaTutor).toFixed(2)
               : null
