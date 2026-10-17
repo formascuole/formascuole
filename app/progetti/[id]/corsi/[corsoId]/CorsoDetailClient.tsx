@@ -1673,7 +1673,7 @@ export function CorsoDetailClient({
             </div>
             {corso.tutor_previsto && (
               <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-md bg-indigo-100 text-indigo-700">
-                👤 Tutor: {corso.tutor_nome || 'Da definire'}
+                👤 Tutor: {corso.tutor?.nome || corso.tutor_nome || 'Da definire'}
                 {corso.ore_tutoraggio ? ` · ${corso.ore_tutoraggio}h` : ''}
               </span>
             )}
