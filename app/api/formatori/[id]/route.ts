@@ -56,7 +56,7 @@ export async function PATCH(
   }
 
   const body = await request.json()
-  const { nome, roles } = body
+  const { nome, roles, tariffa_oraria_formatore, tariffa_oraria_tutor } = body
 
   if (!nome?.trim()) {
     return NextResponse.json({ error: 'Il nome è obbligatorio' }, { status: 400 })
@@ -70,6 +70,14 @@ export async function PATCH(
     if (!validRoles.includes(r)) {
       return NextResponse.json({ error: `Ruolo non valido: ${r}` }, { status: 400 })
     }
+  }
+
+  // Tariffe obbligatorie per formatore/tutor
+  if ((roles as UserRole[]).includes('formatore') && !(Number(tariffa_oraria_formatore) > 0)) {
+    return NextResponse.json({ error: 'La tariffa come formatore è obbligatoria.' }, { status: 400 })
+  }
+  if ((roles as UserRole[]).includes('tutor') && !(Number(tariffa_oraria_tutor) > 0)) {
+    return NextResponse.json({ error: 'La tariffa come tutor è obbligatoria.' }, { status: 400 })
   }
 
   // Only super_admin can assign admin role
@@ -126,6 +134,14 @@ export async function PATCH(
 
   if (rolesError) {
     console.error('profiles_roles update failed:', rolesError)
+  }
+
+  // Save tariffe
+  const tariffe: Record<string, number | null> = {}
+  if ((roles as UserRole[]).includes('formatore')) tariffe.tariffa_oraria_formatore = Number(tariffa_oraria_formatore)
+  if ((roles as UserRole[]).includes('tutor')) tariffe.tariffa_oraria_tutor = Number(tariffa_oraria_tutor)
+  if (Object.keys(tariffe).length > 0) {
+    await adminClient.from('profiles').update(tariffe).eq('id', targetId)
   }
 
   // Send notification email if new roles were added

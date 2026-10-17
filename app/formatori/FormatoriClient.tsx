@@ -146,9 +146,14 @@ async function exportFormatori(utenti: UtenteConStats[], statsMap: Record<string
   XLSX.writeFile(wb, `Formatori_Formascuole_${today}.xlsx`)
 }
 
-const initialCreateForm = { nome: '', email: '', ruolo: 'formatore' as UserRole, tariffa: '' }
+const initialCreateForm = {
+  nome: '', email: '',
+  roles: ['formatore'] as UserRole[],
+  tariffa_formatore: '',
+  tariffa_tutor: '',
+}
 
-type EditForm = { nome: string; roles: UserRole[] }
+type EditForm = { nome: string; roles: UserRole[]; tariffa_formatore: string; tariffa_tutor: string }
 
 export function FormatoriClient({ utenti, isSuperAdmin, isAdmin }: FormatoriClientProps) {
   const router = useRouter()
@@ -268,6 +273,15 @@ export function FormatoriClient({ utenti, isSuperAdmin, isAdmin }: FormatoriClie
 
   const handleCreate = async () => {
     setCreateError('')
+    // Validazione tariffe obbligatorie
+    if (createForm.roles.includes('formatore') && !(Number(createForm.tariffa_formatore) > 0)) {
+      setCreateError('La tariffa come formatore è obbligatoria.')
+      return
+    }
+    if (createForm.roles.includes('tutor') && !(Number(createForm.tariffa_tutor) > 0)) {
+      setCreateError('La tariffa come tutor è obbligatoria.')
+      return
+    }
     setCreating(true)
     try {
       const res = await fetch('/api/admin/crea-utente', {
@@ -276,9 +290,10 @@ export function FormatoriClient({ utenti, isSuperAdmin, isAdmin }: FormatoriClie
         body: JSON.stringify({
           nome: createForm.nome,
           email: createForm.email,
-          ruolo: createForm.ruolo,
-          ...(createForm.ruolo === 'formatore' && { tariffa_oraria_formatore: Number(createForm.tariffa) }),
-          ...(createForm.ruolo === 'tutor' && { tariffa_oraria_tutor: Number(createForm.tariffa) }),
+          ruolo: createForm.roles[0], // primary role
+          roles: createForm.roles,
+          ...(createForm.roles.includes('formatore') ? { tariffa_oraria_formatore: Number(createForm.tariffa_formatore) } : {}),
+          ...(createForm.roles.includes('tutor') ? { tariffa_oraria_tutor: Number(createForm.tariffa_tutor) } : {}),
         }),
       })
       const json = await res.json()
@@ -303,19 +318,20 @@ export function FormatoriClient({ utenti, isSuperAdmin, isAdmin }: FormatoriClie
     })
   }
 
-  const needsTariffa = createForm.ruolo === 'formatore' || createForm.ruolo === 'tutor'
   const canCreate = createForm.nome.trim().length > 0
     && createForm.email.trim().length > 0
-    && !!createForm.ruolo
-    && (!needsTariffa || Number(createForm.tariffa) > 0)
+    && createForm.roles.length > 0
+    && (!createForm.roles.includes('formatore') || Number(createForm.tariffa_formatore) > 0)
+    && (!createForm.roles.includes('tutor') || Number(createForm.tariffa_tutor) > 0)
 
   // ─── Edit handlers ─────────────────────────────────────────────────────────
   const openEdit = (u: UtenteConStats) => {
     setEditTarget(u)
     setEditForm({
       nome: u.nome,
-      // Only include editable roles (filter out super_admin if present)
       roles: (u.roles || [u.role]).filter(r => r !== 'super_admin') as UserRole[],
+      tariffa_formatore: u.tariffa_oraria_formatore != null ? String(u.tariffa_oraria_formatore) : '',
+      tariffa_tutor: u.tariffa_oraria_tutor != null ? String(u.tariffa_oraria_tutor) : '',
     })
     setEditError('')
     setEditSuccess('')
@@ -323,7 +339,7 @@ export function FormatoriClient({ utenti, isSuperAdmin, isAdmin }: FormatoriClie
 
   const handleCloseEdit = () => {
     setEditTarget(null)
-    setEditForm({ nome: '', roles: [] })
+    setEditForm({ nome: '', roles: [], tariffa_formatore: '', tariffa_tutor: '' })
     setEditError('')
     setEditSuccess('')
   }
@@ -332,7 +348,12 @@ export function FormatoriClient({ utenti, isSuperAdmin, isAdmin }: FormatoriClie
     setEditForm(f => {
       if (f.roles.includes(role)) {
         if (f.roles.length === 1) return f
-        return { ...f, roles: f.roles.filter(r => r !== role) }
+        return {
+          ...f,
+          roles: f.roles.filter(r => r !== role),
+          ...(role === 'formatore' ? { tariffa_formatore: '' } : {}),
+          ...(role === 'tutor' ? { tariffa_tutor: '' } : {}),
+        }
       }
       return { ...f, roles: [...f.roles, role] }
     })
@@ -341,12 +362,26 @@ export function FormatoriClient({ utenti, isSuperAdmin, isAdmin }: FormatoriClie
   const handleSaveEdit = async () => {
     if (!editTarget) return
     setEditError('')
+    // Validazione tariffe obbligatorie
+    if (editForm.roles.includes('formatore') && !(Number(editForm.tariffa_formatore) > 0)) {
+      setEditError('La tariffa come formatore è obbligatoria.')
+      return
+    }
+    if (editForm.roles.includes('tutor') && !(Number(editForm.tariffa_tutor) > 0)) {
+      setEditError('La tariffa come tutor è obbligatoria.')
+      return
+    }
     setSaving(true)
     try {
       const res = await fetch(`/api/formatori/${editTarget.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nome: editForm.nome, roles: editForm.roles }),
+        body: JSON.stringify({
+          nome: editForm.nome,
+          roles: editForm.roles,
+          ...(editForm.roles.includes('formatore') ? { tariffa_oraria_formatore: Number(editForm.tariffa_formatore) } : {}),
+          ...(editForm.roles.includes('tutor') ? { tariffa_oraria_tutor: Number(editForm.tariffa_tutor) } : {}),
+        }),
       })
       const json = await res.json()
       if (!res.ok) {
@@ -361,6 +396,8 @@ export function FormatoriClient({ utenti, isSuperAdmin, isAdmin }: FormatoriClie
   }
 
   const canSave = editForm.nome.trim().length > 0 && editForm.roles.length > 0
+    && (!editForm.roles.includes('formatore') || Number(editForm.tariffa_formatore) > 0)
+    && (!editForm.roles.includes('tutor') || Number(editForm.tariffa_tutor) > 0)
 
   const openSollecitaModal = async () => {
     setSollecitaOpen(true)
@@ -843,10 +880,10 @@ export function FormatoriClient({ utenti, isSuperAdmin, isAdmin }: FormatoriClie
               autoComplete="off"
             />
             <div>
-              <div className="text-sm font-medium text-gray-700 mb-2">Ruolo *</div>
+              <div className="text-sm font-medium text-gray-700 mb-2">Ruolo * <span className="text-xs font-normal text-gray-400">(puoi selezionarne più di uno)</span></div>
               <div className="space-y-2">
                 {visibleRoles.map(({ value, label, desc }) => {
-                  const checked = createForm.ruolo === value
+                  const checked = createForm.roles.includes(value)
                   return (
                     <label
                       key={value}
@@ -857,10 +894,19 @@ export function FormatoriClient({ utenti, isSuperAdmin, isAdmin }: FormatoriClie
                       }}
                     >
                       <input
-                        type="radio"
-                        name="ruolo"
+                        type="checkbox"
                         checked={checked}
-                        onChange={() => setCreateForm(f => ({ ...f, ruolo: value, tariffa: '' }))}
+                        onChange={() => setCreateForm(f => {
+                          const next = f.roles.includes(value)
+                            ? f.roles.filter(r => r !== value)
+                            : [...f.roles, value]
+                          return {
+                            ...f,
+                            roles: next,
+                            ...(value === 'formatore' && f.roles.includes(value) ? { tariffa_formatore: '' } : {}),
+                            ...(value === 'tutor' && f.roles.includes(value) ? { tariffa_tutor: '' } : {}),
+                          }
+                        })}
                         className="mt-0.5 accent-[#d64b55]"
                       />
                       <div className="flex-1 min-w-0">
@@ -878,15 +924,26 @@ export function FormatoriClient({ utenti, isSuperAdmin, isAdmin }: FormatoriClie
                 La password temporanea verrà generata automaticamente e inviata via email.
               </p>
             </div>
-            {needsTariffa && (
+            {createForm.roles.includes('formatore') && (
               <Input
-                label={createForm.ruolo === 'formatore' ? 'Tariffa come formatore (€/h) *' : 'Tariffa come tutor (€/h) *'}
+                label="Tariffa come formatore (€/h) *"
                 type="number"
                 min="1"
                 step="0.5"
                 placeholder="es. 40.00"
-                value={createForm.tariffa}
-                onChange={e => setCreateForm(f => ({ ...f, tariffa: e.target.value }))}
+                value={createForm.tariffa_formatore}
+                onChange={e => setCreateForm(f => ({ ...f, tariffa_formatore: e.target.value }))}
+              />
+            )}
+            {createForm.roles.includes('tutor') && (
+              <Input
+                label="Tariffa come tutor (€/h) *"
+                type="number"
+                min="1"
+                step="0.5"
+                placeholder="es. 25.00"
+                value={createForm.tariffa_tutor}
+                onChange={e => setCreateForm(f => ({ ...f, tariffa_tutor: e.target.value }))}
               />
             )}
             {createError && <ErrorBanner message={createError} />}
@@ -942,6 +999,28 @@ export function FormatoriClient({ utenti, isSuperAdmin, isAdmin }: FormatoriClie
               visibleRoles={visibleRoles}
               isSuperAdmin={isSuperAdmin}
             />
+            {editForm.roles.includes('formatore') && (
+              <Input
+                label="Tariffa come formatore (€/h) *"
+                type="number"
+                min="1"
+                step="0.5"
+                placeholder="es. 40.00"
+                value={editForm.tariffa_formatore}
+                onChange={e => setEditForm(f => ({ ...f, tariffa_formatore: e.target.value }))}
+              />
+            )}
+            {editForm.roles.includes('tutor') && (
+              <Input
+                label="Tariffa come tutor (€/h) *"
+                type="number"
+                min="1"
+                step="0.5"
+                placeholder="es. 25.00"
+                value={editForm.tariffa_tutor}
+                onChange={e => setEditForm(f => ({ ...f, tariffa_tutor: e.target.value }))}
+              />
+            )}
             {editError && <ErrorBanner message={editError} />}
           </div>
         ) : null}
