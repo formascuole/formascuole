@@ -169,7 +169,7 @@ export function FormatoriClient({ utenti, isSuperAdmin, isAdmin }: FormatoriClie
 
   // --- Edit state ---
   const [editTarget, setEditTarget] = useState<UtenteConStats | null>(null)
-  const [editForm, setEditForm] = useState<EditForm>({ nome: '', roles: [] })
+  const [editForm, setEditForm] = useState<EditForm>({ nome: '', roles: [], tariffa_formatore: '', tariffa_tutor: '' })
   const [saving, setSaving] = useState(false)
   const [editError, setEditError] = useState('')
   const [editSuccess, setEditSuccess] = useState('')
