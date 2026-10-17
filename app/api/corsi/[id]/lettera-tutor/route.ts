@@ -45,9 +45,10 @@ export async function POST(
     finanziamento_nome = (fin?.nome as string | null) ?? null
   }
 
-  const tariffaTutor = corso.tariffa_oraria_tutor != null
-    ? Number(corso.tariffa_oraria_tutor)
-    : (tutor.tariffa_oraria_tutor != null ? Number(tutor.tariffa_oraria_tutor) : null)
+  // Priorità: tariffa nel profilo tutor → tariffa sul corso (da decreto)
+  const tariffaTutor = tutor.tariffa_oraria_tutor != null
+    ? Number(tutor.tariffa_oraria_tutor)
+    : (corso.tariffa_oraria_tutor != null ? Number(corso.tariffa_oraria_tutor) : null)
   // Fallback a ore_totali se ore_tutoraggio non è valorizzato
   const oreTutoraggio = Number(corso.ore_tutoraggio) > 0
     ? Number(corso.ore_tutoraggio)
