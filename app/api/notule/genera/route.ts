@@ -87,7 +87,8 @@ export async function POST(request: NextRequest) {
   let importoTotale = 0
   for (const c of corsiRaw) {
     const agg = sessionByCorso.get(c.id as string) ?? { ore_erogate: 0, prima: null, ultima: null }
-    const tariffa = (c.tariffa_oraria as number | null) ?? tariffaProfile
+    // Priorità: tariffa nel profilo formatore → tariffa sul corso (da bando/decreto)
+    const tariffa = tariffaProfile > 0 ? tariffaProfile : ((c.tariffa_oraria as number | null) ?? 0)
     const importo = agg.ore_erogate * tariffa
     importoTotale += importo
     const schoolName = progettiMap.get(c.project_id as string) ?? '—'
