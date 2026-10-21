@@ -13,6 +13,7 @@ export function getStatusLabel(status: ProjectStatus): string {
     active: 'Attivo',
     pending: 'In attesa',
     completed: 'Completato',
+    cancelled: 'Annullato',
   }
   return labels[status]
 }
