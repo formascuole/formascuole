@@ -39,7 +39,7 @@ export async function POST(_req: NextRequest) {
         // Step 2: find qualifying corsi
         const { data: corsiRaw } = await admin
           .from('corsi')
-          .select('id, title, project_id, formatore_id, ore_totali, tipo, modalita, location, tariffa_oraria, finanziamento_id')
+          .select('id, title, edizione, project_id, formatore_id, ore_totali, tipo, modalita, location, tariffa_oraria, finanziamento_id')
           .eq('stato_assegnazione', 'accettato')
           .is('lettera_incarico_url', null)
           .not('formatore_id', 'is', null)
@@ -112,6 +112,7 @@ export async function POST(_req: NextRequest) {
               formatore_provincia: formatore.indirizzo_provincia as string | null,
               formatore_codice_fiscale: formatore.codice_fiscale as string | null,
               corso_title: corso.title as string,
+              corso_edizione: (corso.edizione as string | null) ?? null,
               corso_tipo: corso.tipo as string,
               modalita: corso.modalita as string | null,
               location: corso.location as string | null,
