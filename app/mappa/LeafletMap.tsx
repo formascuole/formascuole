@@ -48,11 +48,13 @@ const ICONS = {
 function statusLabel(s: string) {
   if (s === 'active') return 'Attivo'
   if (s === 'pending') return 'In attesa'
+  if (s === 'cancelled') return 'Annullato'
   return 'Concluso'
 }
 function statusColor(s: string) {
   if (s === 'active') return '#22c55e'
   if (s === 'pending') return '#eab308'
+  if (s === 'cancelled') return '#ef4444'
   return '#9ca3af'
 }
 

@@ -60,7 +60,7 @@ export default async function DashboardPage() {
   const progetti = (progettiRaw || []) as ProgettoConStats[]
 
   const activeOrPendingProjectIds = new Set(
-    progetti.filter(p => p.status === 'active' || p.status === 'pending').map(p => p.id)
+    progetti.filter(p => p.status === 'active' || p.status === 'pending').map(p => p.id)  // cancelled esclusi
   )
   const daAssegnareCount = (corsiRaw || []).filter(
     c => c.formatore_id === null && activeOrPendingProjectIds.has(c.project_id as string)

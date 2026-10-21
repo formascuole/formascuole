@@ -2046,6 +2046,7 @@ export function ProgettoDetailClient({
             options={[
               { value: 'active', label: 'Attivo' },
               { value: 'pending', label: 'In attesa' },
+              { value: 'cancelled', label: 'Annullato' },
               { value: 'completed', label: 'Completato' },
             ]}
           />

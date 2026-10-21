@@ -126,7 +126,7 @@ export function DashboardClient({
   const corsiInAttesa = filteredCorsi.filter(c => c.stato_assegnazione === 'in_attesa').length
 
   const [nCorsiDaAssegnare, nProgettiDaAssegnare] = useMemo(() => {
-    const activeOrPendingIds = new Set(filteredProjects.filter(p => p.status === 'active' || p.status === 'pending').map(p => p.id))
+    const activeOrPendingIds = new Set(filteredProjects.filter(p => p.status === 'active' || p.status === 'pending').map(p => p.id))  // cancelled esclusi
     const daAssegnare = filteredCorsi.filter(c => c.formatore_id === null && activeOrPendingIds.has(c.project_id))
     return [daAssegnare.length, new Set(daAssegnare.map(c => c.project_id)).size]
   }, [filteredCorsi, filteredProjects])

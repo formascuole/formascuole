@@ -31,10 +31,15 @@ export async function GET() {
 
   const admin = createAdminClient()
 
-  const [{ data: corsi, error: corsiError }, { data: sessioni, error: sessioniError }] = await Promise.all([
-    admin.from('corsi').select('id, formatore_id, tutor_id, ore_totali, stato_assegnazione'),
+  // Escludi corsi appartenenti a progetti cancelled
+  const { data: cancelledProgetti } = await admin.from('progetti').select('id').eq('status', 'cancelled')
+  const cancelledIds = new Set((cancelledProgetti || []).map(p => p.id as string))
+
+  const [{ data: corsiAll, error: corsiError }, { data: sessioni, error: sessioniError }] = await Promise.all([
+    admin.from('corsi').select('id, formatore_id, tutor_id, ore_totali, stato_assegnazione, project_id'),
     admin.from('sessioni').select('corso_id, ore, completata'),
   ])
+  const corsi = (corsiAll || []).filter(c => !cancelledIds.has(c.project_id as string))
 
   if (corsiError) return NextResponse.json({ error: corsiError.message }, { status: 500 })
   if (sessioniError) return NextResponse.json({ error: sessioniError.message }, { status: 500 })

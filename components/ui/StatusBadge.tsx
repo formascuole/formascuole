@@ -13,6 +13,7 @@ export function StatusBadge({ variant, label, size = 'md' }: StatusBadgeProps) {
     active: { label: 'Attivo', className: 'bg-green-100 text-green-700' },
     pending: { label: 'In attesa', className: 'bg-yellow-100 text-yellow-700' },
     completed: { label: 'Completato', className: 'bg-blue-100 text-blue-700' },
+    cancelled: { label: 'Annullato', className: 'bg-red-100 text-red-700' },
     PF: { label: 'Percorso Formativo', className: 'bg-purple-100 text-purple-700' },
     Lab: { label: 'Laboratorio', className: 'bg-orange-100 text-orange-700' },
     MF: { label: 'Mod. Formativo', className: 'bg-green-100 text-green-700' },

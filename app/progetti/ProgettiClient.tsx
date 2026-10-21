@@ -470,6 +470,7 @@ export function ProgettiClient({ progetti, finanziamenti, partners, inAttesaProj
             options={[
               { value: 'active', label: 'Attivo' },
               { value: 'pending', label: 'In attesa' },
+              { value: 'cancelled', label: 'Annullato' },
               { value: 'completed', label: 'Completato' },
             ]}
           />

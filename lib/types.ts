@@ -1,6 +1,6 @@
 export type UserRole = 'super_admin' | 'admin' | 'formatore' | 'tutor'
 export type FasciaIndisponibilita = 'mattina' | 'pomeriggio' | 'tutto_il_giorno'
-export type ProjectStatus = 'active' | 'pending' | 'completed'
+export type ProjectStatus = 'active' | 'pending' | 'completed' | 'cancelled'
 export type CorsoTipo = 'PF' | 'Lab' | 'MF'
 export type ModalitaCorso = 'presenza' | 'online' | 'ibrido' | 'residenziale' | 'semi_residenziale'
 export type ModalitaSessione = 'presenza' | 'online'

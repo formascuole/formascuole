@@ -50,6 +50,40 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   // Use admin client to bypass RLS for the update
   const adminForUpdate = createAdminClient()
+
+  // Se il progetto viene cancellato, azzera assegnazioni, sessioni e lettere di tutti i corsi
+  if (body.status === 'cancelled') {
+    const { data: corsiProgetto } = await adminForUpdate
+      .from('corsi')
+      .select('id')
+      .eq('project_id', id)
+    const corsoIds = (corsiProgetto || []).map((c: { id: string }) => c.id)
+
+    if (corsoIds.length > 0) {
+      // Elimina sessioni
+      await adminForUpdate.from('sessioni').delete().in('corso_id', corsoIds)
+      // Azzera assegnazioni e lettere formatore
+      await adminForUpdate.from('corsi').update({
+        formatore_id: null,
+        stato_assegnazione: null,
+        lettera_incarico_url: null,
+        lettera_incarico_firmata: false,
+        lettera_incarico_firmata_at: null,
+        lettera_incarico_pending: false,
+        lettera_incarico_ip: null,
+        lettera_incarico_inviata_at: null,
+        lettera_incarico_sollecito_at: null,
+        // Azzera anche tutor
+        tutor_id: null,
+        lettera_tutor_url: null,
+        lettera_tutor_firmata: false,
+        lettera_tutor_firmata_at: null,
+        lettera_tutor_pending: false,
+        lettera_tutor_inviata_at: null,
+      }).in('id', corsoIds)
+    }
+  }
+
   const { data, error } = await adminForUpdate
     .from('progetti')
     .update(body)
