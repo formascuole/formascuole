@@ -83,6 +83,16 @@ const adminNav: NavEntry[] = [
     ),
   },
   {
+    href: '/repository-materiali',
+    label: 'Repository Materiali',
+    icon: (
+      <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
+        <path d="M2 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v8.25" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M2.25 15.75v1.5A2.25 2.25 0 004.5 19.5h15a2.25 2.25 0 002.25-2.25v-1.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    ),
+  },
+  {
     href: '/mappa',
     label: 'Mappa',
     icon: (
