@@ -342,7 +342,7 @@ export function Sidebar({ role, nome, email, avatarInitials, notificheBadge, isS
         'transition-transform duration-200 ease-in-out',
         isMobileOpen ? 'translate-x-0' : '-translate-x-full',
         // Desktop (md+): back in normal flow, always visible
-        'md:static md:translate-x-0 md:w-60 md:shrink-0 md:h-screen',
+        'md:static md:translate-x-0 md:w-60 md:shrink-0 md:h-[100dvh]',
       ].join(' ')}
       style={{ borderRight: '0.5px solid #e5e5e5' }}
     >

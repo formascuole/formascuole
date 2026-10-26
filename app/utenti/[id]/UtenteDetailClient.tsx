@@ -133,15 +133,13 @@ export function UtenteDetailClient({ profile, corsiFormatore, corsiTutor, isSupe
   const handleSendPasswordReset = async () => {
     setResetLoading(true)
     setResetMsg('')
-    const supabase = createClient()
-    const { error } = await supabase.auth.resetPasswordForEmail(profile.email, {
-      redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
-    })
+    // Usa endpoint admin che genera link con admin API (valido 24h, non dipende da scadenza OTP)
+    const res = await fetch(`/api/utenti/${profile.id}/invia-reset-password`, { method: 'POST' })
     setResetLoading(false)
-    if (error) {
+    if (!res.ok) {
       setResetMsg(`Errore nell'invio. Contatta il supporto tecnico.`)
     } else {
-      setResetMsg(`Email di reset inviata a ${profile.email}`)
+      setResetMsg(`Email di reset inviata a ${profile.email} (link valido 24 ore)`)
     }
   }
 

@@ -23,7 +23,7 @@ export function AppLayout({ children, role, nome, email, avatarInitials, notific
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   return (
-    <div className={`flex overflow-hidden bg-[#f7f7f5] ${isStaging ? 'h-[calc(100vh-32px)]' : 'h-screen'}`}>
+    <div className={`flex overflow-hidden bg-[#f7f7f5] ${isStaging ? 'h-[calc(100dvh-32px)]' : 'h-[100dvh]'}`}>
       {/* Mobile backdrop */}
       {sidebarOpen && (
         <div
