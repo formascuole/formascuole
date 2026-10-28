@@ -252,6 +252,7 @@ export function CorsoDetailClient({
   const [assigningId, setAssigningId] = useState<string | null>(null)
   const [assigningReferente, setAssigningReferente] = useState(false)
   const [assignError, setAssignError] = useState<string | null>(null)
+  const [searchFormatore, setSearchFormatore] = useState('')
   const [letteraBlock, setLetteraBlock] = useState<{ errorCode: string; formatoreName: string } | null>(null)
 
   // Tariffa mancante modal state
@@ -803,6 +804,7 @@ export function CorsoDetailClient({
     setDualCoFormatore(null)
     setDualOreCoFormatore('')
     setDualError(null)
+    setSearchFormatore('')
   }
 
   const handleDualSelectFormatore = (f: Profile) => {
@@ -4008,6 +4010,17 @@ export function CorsoDetailClient({
           </div>
         </div>
 
+        {/* ── Ricerca formatore ── */}
+        <div className="mb-4">
+          <input
+            type="text"
+            placeholder="🔍 Cerca per nome..."
+            value={searchFormatore}
+            onChange={e => setSearchFormatore(e.target.value)}
+            className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 focus:outline-none focus:border-[#d64b55] transition-colors"
+          />
+        </div>
+
         {numFormatori === 1 ? (
           // ── Flusso singolo (invariato) ──
           <>
@@ -4020,7 +4033,7 @@ export function CorsoDetailClient({
               <p className="text-sm text-gray-400 text-center py-4">Nessun formatore disponibile.</p>
             ) : (
               <div className="space-y-5">
-                {suggestedScores.length > 0 && (
+                {suggestedScores.filter(({ formatore: f }) => !searchFormatore || f.nome.toLowerCase().includes(searchFormatore.toLowerCase())).length > 0 && (
                   <div>
                     <div className="flex items-center gap-2 mb-3">
                       <svg width="13" height="13" fill="none" viewBox="0 0 24 24" className="text-amber-500">
@@ -4029,7 +4042,7 @@ export function CorsoDetailClient({
                       <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Formatori suggeriti</span>
                     </div>
                     <div className="space-y-2">
-                      {suggestedScores.map(({ formatore: f, score, skillScore, availScore, regionScore, skillMatches, totalCorsoTags, isAvailable, sameRegion }) => (
+                      {suggestedScores.filter(({ formatore: f }) => !searchFormatore || f.nome.toLowerCase().includes(searchFormatore.toLowerCase())).map(({ formatore: f, score, skillScore, availScore, regionScore, skillMatches, totalCorsoTags, isAvailable, sameRegion }) => (
                         <FormatorePickerCard
                           key={f.id}
                           f={f}
@@ -4055,7 +4068,7 @@ export function CorsoDetailClient({
                     </div>
                   </div>
                 )}
-                {otherScores.length > 0 && (
+                {otherScores.filter(({ formatore: f }) => !searchFormatore || f.nome.toLowerCase().includes(searchFormatore.toLowerCase())).length > 0 && (
                   <div>
                     <div className="flex items-center gap-2 mb-3">
                       <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
@@ -4063,7 +4076,7 @@ export function CorsoDetailClient({
                       </span>
                     </div>
                     <div className="space-y-2">
-                      {otherScores.map(({ formatore: f, score, skillScore, availScore, regionScore, skillMatches, totalCorsoTags, isAvailable, sameRegion }) => (
+                      {otherScores.filter(({ formatore: f }) => !searchFormatore || f.nome.toLowerCase().includes(searchFormatore.toLowerCase())).map(({ formatore: f, score, skillScore, availScore, regionScore, skillMatches, totalCorsoTags, isAvailable, sameRegion }) => (
                         <FormatorePickerCard
                           key={f.id}
                           f={f}
@@ -4119,7 +4132,7 @@ export function CorsoDetailClient({
                   </div>
                 ) : (
                   <div className="space-y-2 max-h-72 overflow-y-auto">
-                    {[...suggestedScores, ...otherScores].map(({ formatore: f, score, skillScore, availScore, regionScore, skillMatches, totalCorsoTags, isAvailable, sameRegion }) => (
+                    {[...suggestedScores, ...otherScores].filter(({ formatore: f }) => !searchFormatore || f.nome.toLowerCase().includes(searchFormatore.toLowerCase())).map(({ formatore: f, score, skillScore, availScore, regionScore, skillMatches, totalCorsoTags, isAvailable, sameRegion }) => (
                       <FormatorePickerCard
                         key={f.id}
                         f={f}
@@ -4192,6 +4205,7 @@ export function CorsoDetailClient({
                   <div className="space-y-2 max-h-60 overflow-y-auto">
                     {[...suggestedScores, ...otherScores]
                       .filter(({ formatore: f }) => f.id !== dualFormatore?.id)
+                      .filter(({ formatore: f }) => !searchFormatore || f.nome.toLowerCase().includes(searchFormatore.toLowerCase()))
                       .map(({ formatore: f, score, skillScore, availScore, regionScore, skillMatches, totalCorsoTags, isAvailable, sameRegion }) => (
                         <FormatorePickerCard
                           key={f.id}
