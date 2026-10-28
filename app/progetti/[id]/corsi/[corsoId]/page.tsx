@@ -56,13 +56,13 @@ export default async function CorsoDetailPage({
   // Fetch formatore, tutor, co-formatore, referente in parallel
   const [{ data: formatore }, { data: tutor }, { data: coFormatore }, { data: referente }] = await Promise.all([
     corsoData.formatore_id
-      ? supabase.from('profiles').select('id,nome,email,avatar_initials,ha_partita_iva,regime_fiscale,rivalsa_iva,tariffa_oraria_formatore').eq('id', corsoData.formatore_id).single()
+      ? supabase.from('profiles').select('id,nome,email,avatar_initials,ha_partita_iva,regime_fiscale,rivalsa_iva,tariffa_oraria_formatore,telefono').eq('id', corsoData.formatore_id).single()
       : Promise.resolve({ data: null }),
     corsoData.tutor_id
-      ? supabase.from('profiles').select('id,nome,email,avatar_initials,tariffa_oraria_tutor').eq('id', corsoData.tutor_id).single()
+      ? supabase.from('profiles').select('id,nome,email,avatar_initials,tariffa_oraria_tutor,telefono').eq('id', corsoData.tutor_id).single()
       : Promise.resolve({ data: null }),
     (corsoData as any).co_formatore_id
-      ? supabase.from('profiles').select('id,nome,email,avatar_initials').eq('id', (corsoData as any).co_formatore_id).single()
+      ? supabase.from('profiles').select('id,nome,email,avatar_initials,telefono').eq('id', (corsoData as any).co_formatore_id).single()
       : Promise.resolve({ data: null }),
     corsoData.referente_id
       ? supabase.from('referenti_progetto').select('*').eq('id', corsoData.referente_id).single()
@@ -243,6 +243,7 @@ export default async function CorsoDetailPage({
         currentUserId={user.id}
         isAdmin={isAdmin}
         isFormatore={isFormatore}
+        isTutor={isTutor}
         canConfirmSessions={canConfirmSessions}
         isSuperAdmin={isSuperAdmin}
         finanziamentoNome={finanziamentoNome}

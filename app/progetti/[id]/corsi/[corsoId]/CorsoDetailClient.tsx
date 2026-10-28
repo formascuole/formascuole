@@ -35,6 +35,7 @@ interface CorsoDetailClientProps {
   currentUserId: string
   isAdmin: boolean
   isFormatore?: boolean
+  isTutor?: boolean
   canConfirmSessions: boolean
   isSuperAdmin?: boolean
   corsoTags: Tag[]
@@ -206,6 +207,7 @@ export function CorsoDetailClient({
   currentUserId,
   isAdmin,
   isFormatore = false,
+  isTutor = false,
   canConfirmSessions,
   isSuperAdmin,
   finanziamentoNome,
@@ -1808,6 +1810,11 @@ export function CorsoDetailClient({
               <div>
                 <div className="font-medium text-gray-900">{corso.formatore.nome}</div>
                 <a href={`mailto:${corso.formatore.email}`} className="text-sm text-blue-600 hover:underline">{corso.formatore.email}</a>
+                {(corso.formatore as Profile & { telefono?: string | null }).telefono && (
+                  <a href={telHref((corso.formatore as Profile & { telefono?: string | null }).telefono!)} className="text-sm text-gray-500 hover:underline">
+                    {(corso.formatore as Profile & { telefono?: string | null }).telefono}
+                  </a>
+                )}
               </div>
             </div>
             {isAdmin && (
@@ -1902,6 +1909,11 @@ export function CorsoDetailClient({
                 <a href={`mailto:${(corso as any).co_formatore.email}`} className="text-sm text-blue-600 hover:underline">
                   {(corso as any).co_formatore.email}
                 </a>
+                {(corso as any).co_formatore.telefono && (
+                  <a href={telHref((corso as any).co_formatore.telefono)} className="text-sm text-gray-500 hover:underline block">
+                    {(corso as any).co_formatore.telefono}
+                  </a>
+                )}
                 {(corso as any).ore_co_formatore != null && (
                   <div className="text-xs text-gray-400 mt-0.5">{(corso as any).ore_co_formatore}h assegnate</div>
                 )}
@@ -2413,7 +2425,7 @@ export function CorsoDetailClient({
       )}
 
       {/* Stato calendario */}
-      {canConfirmSessions && corso.calendario_completo && (
+      {(canConfirmSessions || isTutor) && corso.calendario_completo && (
         <div className="bg-white rounded-xl p-6 mb-4" style={{ border: '0.5px solid #e5e5e5' }}>
           <h2 className="font-semibold text-gray-900 mb-4">Stato calendario</h2>
           <div className="space-y-4">
@@ -2430,6 +2442,7 @@ export function CorsoDetailClient({
                 )}
               </div>
               {!calendarioInviatoAt ? (
+                !isTutor ? (
                 <div className="flex flex-col items-end gap-1">
                   <Button
                     size="sm"
@@ -2443,6 +2456,9 @@ export function CorsoDetailClient({
                   </Button>
                   {invioError && <p className="text-xs text-red-500">{invioError}</p>}
                 </div>
+                ) : (
+                  <span className="text-xs text-gray-400">Non ancora inviato</span>
+                )
               ) : (
                 <span className="inline-flex items-center gap-1 text-xs text-green-700 bg-green-100 px-2.5 py-1 rounded-md font-medium">
                   <svg width="10" height="10" fill="none" viewBox="0 0 24 24">
@@ -2471,7 +2487,7 @@ export function CorsoDetailClient({
                     </svg>
                     {confermatoManualmenteLocal ? 'Calendario confermato' : 'Calendario confermato dalla scuola'}
                   </span>
-                ) : (
+                ) : !isTutor ? (
                   <button
                     onClick={handleConfermaManuale}
                     disabled={confermandoManualmente}
@@ -2490,6 +2506,8 @@ export function CorsoDetailClient({
                     )}
                     Segna come confermato
                   </button>
+                ) : (
+                  <span className="text-xs text-gray-400">Non ancora confermato</span>
                 )}
               </div>
             )}
