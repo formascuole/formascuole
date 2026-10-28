@@ -82,12 +82,23 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // modalita_sessione obbligatoria per corsi PF ibridi
-  if (corso.tipo === 'PF' && corso.modalita === 'ibrido' && !modalita_sessione) {
-    return NextResponse.json(
-      { error: 'La modalità sessione è obbligatoria per i corsi ibridi' },
-      { status: 400 }
-    )
+  // modalita_sessione obbligatoria per corsi PF ibridi senza suddivisione ore
+  // Se il corso ha ore_presenza/ore_online definite (hasOreSubdivision), il frontend
+  // manda tipo_sessione invece di modalita_sessione — in quel caso il check va su tipo_sessione
+  const hasOreSubdivision = !!(corso.ore_presenza || corso.ore_online)
+  if (corso.tipo === 'PF' && corso.modalita === 'ibrido') {
+    if (hasOreSubdivision && !tipo_sessione) {
+      return NextResponse.json(
+        { error: 'Il tipo sessione è obbligatorio per i corsi ibridi con suddivisione ore' },
+        { status: 400 }
+      )
+    }
+    if (!hasOreSubdivision && !modalita_sessione) {
+      return NextResponse.json(
+        { error: 'La modalità sessione è obbligatoria per i corsi ibridi' },
+        { status: 400 }
+      )
+    }
   }
 
   // ── CHECK 1: Data termine finanziamento ──────────────────────────────────────
