@@ -131,7 +131,8 @@ export default async function UtenteDetailPage({ params }: { params: Promise<{ i
       ? adminQ.from('questionari_risultati').select('*').in('corso_id', corsiIds).not('media_formatore', 'is', null).not('media_contenuti', 'is', null).not('media_apprendimento', 'is', null).order('created_at', { ascending: false })
       : Promise.resolve({ data: [] as import('@/lib/types').QuestionarioRisultato[] }),
     adminQ.from('questionari_risultati').select('*').eq('formatore', profile.nome).not('media_formatore', 'is', null).not('media_contenuti', 'is', null).not('media_apprendimento', 'is', null).order('created_at', { ascending: false }),
-    adminQ.from('questionari_risultati').select('media_formatore,media_contenuti,media_apprendimento,numero_risposte').not('media_formatore', 'is', null).not('media_contenuti', 'is', null).not('media_apprendimento', 'is', null),
+    // media globale: solo i questionari di questo formatore (per corso_id o per nome)
+    Promise.resolve({ data: null as null }),
   ])
 
   const seenQ = new Set<string>()
@@ -139,9 +140,10 @@ export default async function UtenteDetailPage({ params }: { params: Promise<{ i
     .filter(q => { if (seenQ.has(q.id)) return false; seenQ.add(q.id); return true })
     .sort((a, b) => b.created_at.localeCompare(a.created_at))
 
-  const globalTot = (allQuestionari || []).reduce((s, q) => s + (q.numero_risposte ?? 1), 0)
+  // Media globale ponderata per numero risposte, calcolata solo sui questionari di questo formatore
+  const globalTot = questionari.reduce((s, q) => s + (q.numero_risposte ?? 1), 0)
   const globalMedia = globalTot > 0
-    ? (allQuestionari || []).reduce((s, q) => {
+    ? questionari.reduce((s, q) => {
         const avg = (Number(q.media_formatore ?? 0) + Number(q.media_contenuti ?? 0) + Number(q.media_apprendimento ?? 0)) / 3
         return s + avg * (q.numero_risposte ?? 1)
       }, 0) / globalTot
