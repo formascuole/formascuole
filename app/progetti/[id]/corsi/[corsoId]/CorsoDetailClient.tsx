@@ -1809,9 +1809,13 @@ export function CorsoDetailClient({
               <Avatar nome={corso.formatore.nome} id={corso.formatore.id} initials={corso.formatore.avatar_initials} size="lg" />
               <div>
                 <div className="font-medium text-gray-900">{corso.formatore.nome}</div>
-                <a href={`mailto:${corso.formatore.email}`} className="text-sm text-blue-600 hover:underline">{corso.formatore.email}</a>
+                <a href={`mailto:${corso.formatore.email}`} className="inline-flex items-center gap-1 text-sm text-blue-600 hover:underline">
+                  <svg width="12" height="12" fill="none" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><polyline points="22,6 12,13 2,6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  {corso.formatore.email}
+                </a>
                 {(corso.formatore as Profile & { telefono?: string | null }).telefono && (
-                  <a href={telHref((corso.formatore as Profile & { telefono?: string | null }).telefono!)} className="text-sm text-gray-500 hover:underline">
+                  <a href={telHref((corso.formatore as Profile & { telefono?: string | null }).telefono!)} className="inline-flex items-center gap-1 text-sm text-gray-500 hover:underline mt-1">
+                    <svg width="12" height="12" fill="none" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 01.11 1.18 2 2 0 012.11 1h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 8.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
                     {(corso.formatore as Profile & { telefono?: string | null }).telefono}
                   </a>
                 )}
@@ -1906,11 +1910,13 @@ export function CorsoDetailClient({
               />
               <div>
                 <div className="font-medium text-gray-900">{(corso as any).co_formatore.nome}</div>
-                <a href={`mailto:${(corso as any).co_formatore.email}`} className="text-sm text-blue-600 hover:underline">
+                <a href={`mailto:${(corso as any).co_formatore.email}`} className="inline-flex items-center gap-1 text-sm text-blue-600 hover:underline">
+                  <svg width="12" height="12" fill="none" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><polyline points="22,6 12,13 2,6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
                   {(corso as any).co_formatore.email}
                 </a>
                 {(corso as any).co_formatore.telefono && (
-                  <a href={telHref((corso as any).co_formatore.telefono)} className="text-sm text-gray-500 hover:underline block">
+                  <a href={telHref((corso as any).co_formatore.telefono)} className="inline-flex items-center gap-1 text-sm text-gray-500 hover:underline mt-1">
+                    <svg width="12" height="12" fill="none" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 01.11 1.18 2 2 0 012.11 1h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 8.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
                     {(corso as any).co_formatore.telefono}
                   </a>
                 )}
@@ -2042,13 +2048,15 @@ export function CorsoDetailClient({
                 <Avatar nome={corso.tutor.nome} id={corso.tutor.id} initials={corso.tutor.avatar_initials} size="lg" />
                 <div>
                   <div className="font-medium text-gray-900">{corso.tutor.nome}</div>
-                  <a href={`mailto:${corso.tutor.email}`} className="text-sm text-blue-600 hover:underline">{corso.tutor.email}</a>
+                  <a href={`mailto:${corso.tutor.email}`} className="inline-flex items-center gap-1 text-sm text-blue-600 hover:underline">
+                    <svg width="12" height="12" fill="none" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><polyline points="22,6 12,13 2,6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    {corso.tutor.email}
+                  </a>
                   {(corso.tutor as Profile & { telefono?: string | null }).telefono && (
-                    <div className="text-sm text-gray-500">
-                      <a href={telHref((corso.tutor as Profile & { telefono?: string | null }).telefono!)} className="hover:underline">
-                        {(corso.tutor as Profile & { telefono?: string | null }).telefono}
-                      </a>
-                    </div>
+                    <a href={telHref((corso.tutor as Profile & { telefono?: string | null }).telefono!)} className="inline-flex items-center gap-1 text-sm text-gray-500 hover:underline mt-1">
+                      <svg width="12" height="12" fill="none" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 01.11 1.18 2 2 0 012.11 1h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 8.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      {(corso.tutor as Profile & { telefono?: string | null }).telefono}
+                    </a>
                   )}
                 </div>
               </div>
