@@ -54,18 +54,21 @@ export default async function CorsoDetailPage({
   }
 
   // Fetch formatore, tutor, co-formatore, referente in parallel
+  // Usiamo adminClient per bypassare RLS su profiles: il formatore non può leggere
+  // il profilo del tutor (e viceversa) con il client utente normale.
+  const adminQ = createAdminClient()
   const [{ data: formatore }, { data: tutor }, { data: coFormatore }, { data: referente }] = await Promise.all([
     corsoData.formatore_id
-      ? supabase.from('profiles').select('id,nome,email,avatar_initials,ha_partita_iva,regime_fiscale,rivalsa_iva,tariffa_oraria_formatore,telefono').eq('id', corsoData.formatore_id).single()
+      ? adminQ.from('profiles').select('id,nome,email,avatar_initials,ha_partita_iva,regime_fiscale,rivalsa_iva,tariffa_oraria_formatore,telefono').eq('id', corsoData.formatore_id).single()
       : Promise.resolve({ data: null }),
     corsoData.tutor_id
-      ? supabase.from('profiles').select('id,nome,email,avatar_initials,tariffa_oraria_tutor,telefono').eq('id', corsoData.tutor_id).single()
+      ? adminQ.from('profiles').select('id,nome,email,avatar_initials,tariffa_oraria_tutor,telefono').eq('id', corsoData.tutor_id).single()
       : Promise.resolve({ data: null }),
     (corsoData as any).co_formatore_id
-      ? supabase.from('profiles').select('id,nome,email,avatar_initials,telefono').eq('id', (corsoData as any).co_formatore_id).single()
+      ? adminQ.from('profiles').select('id,nome,email,avatar_initials,telefono').eq('id', (corsoData as any).co_formatore_id).single()
       : Promise.resolve({ data: null }),
     corsoData.referente_id
-      ? supabase.from('referenti_progetto').select('*').eq('id', corsoData.referente_id).single()
+      ? adminQ.from('referenti_progetto').select('*').eq('id', corsoData.referente_id).single()
       : Promise.resolve({ data: null }),
   ])
 
@@ -111,8 +114,6 @@ export default async function CorsoDetailPage({
       tutori = (allProfiles || []).filter((p: Profile) => tutorIds.has(p.id))
     }
   }
-
-  const adminQ = createAdminClient()
 
   // Formatori scoring data (admin only, loaded once)
   let formatoriSkills: Record<string, string[]> = {}
