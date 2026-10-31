@@ -289,15 +289,17 @@ export function CalendarioGrid({
                   onClick={() => canAdd && onDayClick(dateStr)}
                 >
                   <div className="flex items-center justify-between mb-1">
-                    <span
-                      className={`text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'text-white' : 'text-gray-500'}`}
-                      style={isToday ? { backgroundColor: '#d64b55' } : {}}
-                    >
-                      {dayNum}
-                    </span>
-                    {dayOre > 0 && (
-                      <span className="text-[10px] text-gray-400 pr-0.5">{fmtOre(dayOre)}</span>
-                    )}
+                    <div className="flex flex-col items-start">
+                      <span
+                        className={`text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'text-white' : 'text-gray-500'}`}
+                        style={isToday ? { backgroundColor: '#d64b55' } : {}}
+                      >
+                        {dayNum}
+                      </span>
+                      {dayOre > 0 && (
+                        <span className="text-[10px] font-medium text-gray-400 pl-0.5 leading-tight">{fmtOre(dayOre)}h</span>
+                      )}
+                    </div>
                     {canAdd && (
                       <span className="text-xs text-gray-200 group-hover:text-gray-400 transition-colors pr-1 select-none">+</span>
                     )}
