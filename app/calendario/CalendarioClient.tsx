@@ -1,5 +1,5 @@
 'use client'
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { CalendarioGrid, CalendarioEvent, SessioneCalendarioEvent, IndisponibilitaCalendarioEvent } from '@/components/calendario/CalendarioGrid'
 
@@ -52,6 +52,33 @@ export function CalendarioClient({
   const [filterFormatore, setFilterFormatore] = useState('')
   const [filterProgetto, setFilterProgetto] = useState('')
   const [showIndisponibilita, setShowIndisponibilita] = useState(true)
+
+  // Searchable select state
+  const [searchFormatore, setSearchFormatore] = useState('')
+  const [openFormatore, setOpenFormatore] = useState(false)
+  const [searchScuola, setSearchScuola] = useState('')
+  const [openScuola, setOpenScuola] = useState(false)
+  const refFormatore = useRef<HTMLDivElement>(null)
+  const refScuola = useRef<HTMLDivElement>(null)
+
+  // Chiudi dropdown cliccando fuori
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (refFormatore.current && !refFormatore.current.contains(e.target as Node)) setOpenFormatore(false)
+      if (refScuola.current && !refScuola.current.contains(e.target as Node)) setOpenScuola(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const formatoriFiltered = formatori.filter(f =>
+    !searchFormatore || f.nome.toLowerCase().includes(searchFormatore.toLowerCase())
+  )
+  const scuoleFiltered = progetti.filter(p =>
+    !searchScuola || p.school_name.toLowerCase().includes(searchScuola.toLowerCase())
+  )
+  const formatoreLabel = filterFormatore ? (formatori.find(f => f.id === filterFormatore)?.nome ?? 'Tutti i formatori') : 'Tutti i formatori'
+  const scuolaLabel = filterProgetto ? (progetti.find(p => p.id === filterProgetto)?.school_name ?? 'Tutte le scuole') : 'Tutte le scuole'
 
   useEffect(() => { setSessioni(initialSessioni) }, [initialSessioni])
   useEffect(() => { setIndisponibilita(initialIndisponibilita) }, [initialIndisponibilita])
@@ -122,26 +149,101 @@ export function CalendarioClient({
 
       {/* Filters */}
       <div className="flex items-center gap-3 mb-4 flex-wrap">
-        <select
-          value={filterFormatore}
-          onChange={e => setFilterFormatore(e.target.value)}
-          className="text-sm px-3 py-2 border border-gray-200 rounded-[7px] text-gray-700 bg-white focus:outline-none focus:border-[#d64b55] transition-colors appearance-none"
-        >
-          <option value="">Tutti i formatori</option>
-          {formatori.map(f => (
-            <option key={f.id} value={f.id}>{f.nome}</option>
-          ))}
-        </select>
-        <select
-          value={filterProgetto}
-          onChange={e => setFilterProgetto(e.target.value)}
-          className="text-sm px-3 py-2 border border-gray-200 rounded-[7px] text-gray-700 bg-white focus:outline-none focus:border-[#d64b55] transition-colors appearance-none"
-        >
-          <option value="">Tutte le scuole</option>
-          {progetti.map(p => (
-            <option key={p.id} value={p.id}>{p.school_name}</option>
-          ))}
-        </select>
+        {/* Formatore searchable select */}
+        <div ref={refFormatore} className="relative">
+          <button
+            type="button"
+            onClick={() => { setOpenFormatore(v => !v); setSearchFormatore('') }}
+            className={`text-sm px-3 py-2 border rounded-[7px] bg-white focus:outline-none transition-colors flex items-center gap-2 min-w-[180px] ${filterFormatore ? 'border-[#d64b55] text-[#d64b55]' : 'border-gray-200 text-gray-700'}`}
+          >
+            <span className="flex-1 text-left truncate">{formatoreLabel}</span>
+            <svg width="12" height="12" fill="none" viewBox="0 0 24 24" className="shrink-0 text-gray-400"><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </button>
+          {openFormatore && (
+            <div className="absolute z-50 mt-1 w-64 bg-white border border-gray-200 rounded-[9px] shadow-lg overflow-hidden">
+              <div className="p-2 border-b border-gray-100">
+                <input
+                  autoFocus
+                  type="text"
+                  placeholder="Cerca formatore..."
+                  value={searchFormatore}
+                  onChange={e => setSearchFormatore(e.target.value)}
+                  className="w-full text-sm px-2 py-1.5 border border-gray-200 rounded-[6px] focus:outline-none focus:border-[#d64b55]"
+                />
+              </div>
+              <div className="max-h-56 overflow-y-auto">
+                <button
+                  type="button"
+                  onClick={() => { setFilterFormatore(''); setOpenFormatore(false) }}
+                  className={`w-full text-left text-sm px-3 py-2 hover:bg-gray-50 transition-colors ${!filterFormatore ? 'font-medium text-[#d64b55]' : 'text-gray-700'}`}
+                >
+                  Tutti i formatori
+                </button>
+                {formatoriFiltered.map(f => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => { setFilterFormatore(f.id); setOpenFormatore(false) }}
+                    className={`w-full text-left text-sm px-3 py-2 hover:bg-gray-50 transition-colors ${filterFormatore === f.id ? 'font-medium text-[#d64b55]' : 'text-gray-700'}`}
+                  >
+                    {f.nome}
+                  </button>
+                ))}
+                {formatoriFiltered.length === 0 && (
+                  <div className="text-xs text-gray-400 px-3 py-3 text-center">Nessun risultato</div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Scuola searchable select */}
+        <div ref={refScuola} className="relative">
+          <button
+            type="button"
+            onClick={() => { setOpenScuola(v => !v); setSearchScuola('') }}
+            className={`text-sm px-3 py-2 border rounded-[7px] bg-white focus:outline-none transition-colors flex items-center gap-2 min-w-[180px] ${filterProgetto ? 'border-[#d64b55] text-[#d64b55]' : 'border-gray-200 text-gray-700'}`}
+          >
+            <span className="flex-1 text-left truncate">{scuolaLabel}</span>
+            <svg width="12" height="12" fill="none" viewBox="0 0 24 24" className="shrink-0 text-gray-400"><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </button>
+          {openScuola && (
+            <div className="absolute z-50 mt-1 w-72 bg-white border border-gray-200 rounded-[9px] shadow-lg overflow-hidden">
+              <div className="p-2 border-b border-gray-100">
+                <input
+                  autoFocus
+                  type="text"
+                  placeholder="Cerca scuola..."
+                  value={searchScuola}
+                  onChange={e => setSearchScuola(e.target.value)}
+                  className="w-full text-sm px-2 py-1.5 border border-gray-200 rounded-[6px] focus:outline-none focus:border-[#d64b55]"
+                />
+              </div>
+              <div className="max-h-56 overflow-y-auto">
+                <button
+                  type="button"
+                  onClick={() => { setFilterProgetto(''); setOpenScuola(false) }}
+                  className={`w-full text-left text-sm px-3 py-2 hover:bg-gray-50 transition-colors ${!filterProgetto ? 'font-medium text-[#d64b55]' : 'text-gray-700'}`}
+                >
+                  Tutte le scuole
+                </button>
+                {scuoleFiltered.map(p => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => { setFilterProgetto(p.id); setOpenScuola(false) }}
+                    className={`w-full text-left text-sm px-3 py-2 hover:bg-gray-50 transition-colors ${filterProgetto === p.id ? 'font-medium text-[#d64b55]' : 'text-gray-700'}`}
+                  >
+                    {p.school_name}
+                  </button>
+                ))}
+                {scuoleFiltered.length === 0 && (
+                  <div className="text-xs text-gray-400 px-3 py-3 text-center">Nessun risultato</div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
         <label className="flex items-center gap-2 cursor-pointer select-none">
           <div
             onClick={() => setShowIndisponibilita(v => !v)}
