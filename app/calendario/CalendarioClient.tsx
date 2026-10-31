@@ -3,6 +3,8 @@ import { useState, useMemo, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { CalendarioGrid, CalendarioEvent, SessioneCalendarioEvent, IndisponibilitaCalendarioEvent } from '@/components/calendario/CalendarioGrid'
 
+export type FinanziamentoRow = { id: string; nome: string }
+
 export type SessioneRow = {
   id: string
   data: string
@@ -20,6 +22,7 @@ export type SessioneRow = {
   tipo: string | null
   corso_modalita: string | null
   calendario_confermato: boolean | null
+  finanziamento_id: string | null
 }
 
 export type IndisponibilitaRow = {
@@ -36,6 +39,7 @@ interface Props {
   initialIndisponibilita: IndisponibilitaRow[]
   formatori: { id: string; nome: string }[]
   progetti: { id: string; school_name: string }[]
+  finanziamenti: FinanziamentoRow[]
   currentUserId: string
 }
 
@@ -44,6 +48,7 @@ export function CalendarioClient({
   initialIndisponibilita,
   formatori,
   progetti,
+  finanziamenti,
   currentUserId,
 }: Props) {
   const router = useRouter()
@@ -58,14 +63,19 @@ export function CalendarioClient({
   const [openFormatore, setOpenFormatore] = useState(false)
   const [searchScuola, setSearchScuola] = useState('')
   const [openScuola, setOpenScuola] = useState(false)
+  const [filterFinanziamento, setFilterFinanziamento] = useState('')
+  const [searchFinanziamento, setSearchFinanziamento] = useState('')
+  const [openFinanziamento, setOpenFinanziamento] = useState(false)
   const refFormatore = useRef<HTMLDivElement>(null)
   const refScuola = useRef<HTMLDivElement>(null)
+  const refFinanziamento = useRef<HTMLDivElement>(null)
 
   // Chiudi dropdown cliccando fuori
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (refFormatore.current && !refFormatore.current.contains(e.target as Node)) setOpenFormatore(false)
       if (refScuola.current && !refScuola.current.contains(e.target as Node)) setOpenScuola(false)
+      if (refFinanziamento.current && !refFinanziamento.current.contains(e.target as Node)) setOpenFinanziamento(false)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
@@ -77,8 +87,12 @@ export function CalendarioClient({
   const scuoleFiltered = progetti.filter(p =>
     !searchScuola || p.school_name.toLowerCase().includes(searchScuola.toLowerCase())
   )
+  const finanziamentiFiltered = finanziamenti.filter(f =>
+    !searchFinanziamento || f.nome.toLowerCase().includes(searchFinanziamento.toLowerCase())
+  )
   const formatoreLabel = filterFormatore ? (formatori.find(f => f.id === filterFormatore)?.nome ?? 'Tutti i formatori') : 'Tutti i formatori'
   const scuolaLabel = filterProgetto ? (progetti.find(p => p.id === filterProgetto)?.school_name ?? 'Tutte le scuole') : 'Tutte le scuole'
+  const finanziamentoLabel = filterFinanziamento ? (finanziamenti.find(f => f.id === filterFinanziamento)?.nome ?? 'Tutti i finanziamenti') : 'Tutti i finanziamenti'
 
   useEffect(() => { setSessioni(initialSessioni) }, [initialSessioni])
   useEffect(() => { setIndisponibilita(initialIndisponibilita) }, [initialIndisponibilita])
@@ -102,6 +116,7 @@ export function CalendarioClient({
       tipo: s.tipo,
       corso_modalita: s.corso_modalita,
       calendario_confermato: s.calendario_confermato,
+      finanziamento_id: s.finanziamento_id,
     }))
 
     const indEvs: IndisponibilitaCalendarioEvent[] = (showIndisponibilita && !filterProgetto)
@@ -126,9 +141,14 @@ export function CalendarioClient({
         ev.kind === 'sessione' ? ev.project_id === filterProgetto : true
       )
     }
+    if (filterFinanziamento) {
+      combined = combined.filter(ev =>
+        ev.kind === 'sessione' ? (ev as SessioneCalendarioEvent).finanziamento_id === filterFinanziamento : true
+      )
+    }
 
     return combined
-  }, [sessioni, indisponibilita, filterFormatore, filterProgetto, showIndisponibilita])
+  }, [sessioni, indisponibilita, filterFormatore, filterProgetto, filterFinanziamento, showIndisponibilita])
 
   const handleDeleteIndisponibilita = async (id: string) => {
     const res = await fetch(`/api/indisponibilita/${id}`, { method: 'DELETE' })
@@ -244,6 +264,54 @@ export function CalendarioClient({
             </div>
           )}
         </div>
+        {/* Finanziamento searchable select */}
+        <div ref={refFinanziamento} className="relative">
+          <button
+            type="button"
+            onClick={() => { setOpenFinanziamento(v => !v); setSearchFinanziamento('') }}
+            className={`text-sm px-3 py-2 border rounded-[7px] bg-white focus:outline-none transition-colors flex items-center gap-2 min-w-[180px] ${filterFinanziamento ? 'border-[#d64b55] text-[#d64b55]' : 'border-gray-200 text-gray-700'}`}
+          >
+            <span className="flex-1 text-left truncate">{finanziamentoLabel}</span>
+            <svg width="12" height="12" fill="none" viewBox="0 0 24 24" className="shrink-0 text-gray-400"><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </button>
+          {openFinanziamento && (
+            <div className="absolute z-50 mt-1 w-72 bg-white border border-gray-200 rounded-[9px] shadow-lg overflow-hidden">
+              <div className="p-2 border-b border-gray-100">
+                <input
+                  autoFocus
+                  type="text"
+                  placeholder="Cerca finanziamento..."
+                  value={searchFinanziamento}
+                  onChange={e => setSearchFinanziamento(e.target.value)}
+                  className="w-full text-sm px-2 py-1.5 border border-gray-200 rounded-[6px] focus:outline-none focus:border-[#d64b55]"
+                />
+              </div>
+              <div className="max-h-56 overflow-y-auto">
+                <button
+                  type="button"
+                  onClick={() => { setFilterFinanziamento(''); setOpenFinanziamento(false) }}
+                  className={`w-full text-left text-sm px-3 py-2 hover:bg-gray-50 transition-colors ${!filterFinanziamento ? 'font-medium text-[#d64b55]' : 'text-gray-700'}`}
+                >
+                  Tutti i finanziamenti
+                </button>
+                {finanziamentiFiltered.map(f => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => { setFilterFinanziamento(f.id); setOpenFinanziamento(false) }}
+                    className={`w-full text-left text-sm px-3 py-2 hover:bg-gray-50 transition-colors ${filterFinanziamento === f.id ? 'font-medium text-[#d64b55]' : 'text-gray-700'}`}
+                  >
+                    {f.nome}
+                  </button>
+                ))}
+                {finanziamentiFiltered.length === 0 && (
+                  <div className="text-xs text-gray-400 px-3 py-3 text-center">Nessun risultato</div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
         <label className="flex items-center gap-2 cursor-pointer select-none">
           <div
             onClick={() => setShowIndisponibilita(v => !v)}

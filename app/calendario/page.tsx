@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { AppLayout } from '@/components/layout/AppLayout'
-import { CalendarioClient, SessioneRow, IndisponibilitaRow } from './CalendarioClient'
+import { CalendarioClient, SessioneRow, IndisponibilitaRow, FinanziamentoRow } from './CalendarioClient'
 import { getUnreadNotificheCount } from '@/lib/notifiche-utils'
 
 export default async function CalendarioPage() {
@@ -18,11 +18,11 @@ export default async function CalendarioPage() {
   type RawSessione = {
     id: string; data: string; ore: number; completata: boolean; corso_id: string
     ora_inizio: string | null; ora_fine: string | null; modalita_sessione: string | null
-    corso: { id: string; title: string; tipo: string | null; modalita: string | null; project_id: string; formatore_id: string | null; calendario_confermato: boolean | null; progetti: { school_name: string } | null } | null
+    corso: { id: string; title: string; tipo: string | null; modalita: string | null; project_id: string; formatore_id: string | null; calendario_confermato: boolean | null; progetti: { school_name: string; finanziamento_id: string | null } | null } | null
   }
   const { data: rawSessioni } = await supabase
     .from('sessioni')
-    .select('id, data, ora_inizio, ora_fine, ore, completata, modalita_sessione, corso_id, corso:corsi(id, title, tipo, modalita, project_id, formatore_id, calendario_confermato, progetti(school_name))')
+    .select('id, data, ora_inizio, ora_fine, ore, completata, modalita_sessione, corso_id, corso:corsi(id, title, tipo, modalita, project_id, formatore_id, calendario_confermato, progetti(school_name, finanziamento_id))')
     .order('data')
 
   const { data: allProfiles } = await admin.from('profiles').select('id, nome, role')
@@ -45,6 +45,7 @@ export default async function CalendarioPage() {
     tipo: s.corso?.tipo || null,
     corso_modalita: s.corso?.modalita || null,
     calendario_confermato: s.corso?.calendario_confermato ?? null,
+    finanziamento_id: s.corso?.progetti?.finanziamento_id || null,
   }))
 
   type RawInd = { id: string; formatore_id: string; data: string; fascia: string; note: string | null }
@@ -72,6 +73,11 @@ export default async function CalendarioPage() {
     .select('id, school_name')
     .order('school_name')
 
+  const { data: finanziamentiData } = await supabase
+    .from('finanziamenti')
+    .select('id, nome')
+    .order('nome')
+
   const notifiche = await getUnreadNotificheCount(supabase, user.id)
 
   return (
@@ -87,6 +93,7 @@ export default async function CalendarioPage() {
         initialIndisponibilita={indisponibilita}
         formatori={formatori}
         progetti={(progetti || []).map(p => ({ id: p.id, school_name: p.school_name }))}
+        finanziamenti={(finanziamentiData || []).map(f => ({ id: f.id, nome: f.nome }))}
         currentUserId={user.id}
       />
     </AppLayout>
