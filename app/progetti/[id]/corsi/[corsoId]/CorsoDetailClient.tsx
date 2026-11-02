@@ -337,7 +337,7 @@ export function CorsoDetailClient({
       }
 
       // 3. Region (25pts) — applies for corsi in presenza/residenziale/semi-residenziale OR tipo Lab (always on-site)
-      const regioneRilevante = corso.modalita === 'presenza' || corso.modalita === 'residenziale' || corso.modalita === 'semi_residenziale' || corso.tipo === 'Lab' || corso.tipo === 'PF+Lab' || corso.tipo === 'PF+Lab'
+      const regioneRilevante = corso.modalita === 'presenza' || corso.modalita === 'residenziale' || corso.modalita === 'semi_residenziale' || corso.tipo === 'Lab' || corso.tipo === 'PF+Lab'
       let regionScore = 25
       let sameRegion: boolean | null = null
       if (regioneRilevante) {
