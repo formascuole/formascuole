@@ -185,7 +185,7 @@ export function PreAssegnazioniClient({ corsi, progetto, token, scadenzaAt }: Pr
               <div className="flex items-center gap-2 flex-wrap mb-1">
                 <h2 className="font-semibold text-gray-900">{corso.title}</h2>
                 <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                  corso.tipo === 'Lab' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'
+                  corso.tipo === 'Lab' ? 'bg-orange-100 text-orange-700' : corso.tipo === 'PF+Lab' ? 'bg-indigo-100 text-indigo-700' : 'bg-blue-100 text-blue-700'
                 }`}>
                   {corso.tipo}
                 </span>

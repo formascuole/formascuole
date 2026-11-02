@@ -54,6 +54,7 @@ interface Props {
 function tipoBadgeClass(tipo: string) {
   if (tipo === 'PF') return 'bg-blue-100 text-blue-700'
   if (tipo === 'MF') return 'bg-green-100 text-green-700'
+  if (tipo === 'PF+Lab') return 'bg-indigo-100 text-indigo-700'
   return 'bg-purple-100 text-purple-700'
 }
 

@@ -161,6 +161,7 @@ const colTutor = {
 function tipoLabel(tipo?: string | null): string {
   if (tipo === 'PF') return 'Percorso Formativo (PF)'
   if (tipo === 'Lab') return 'Laboratorio sul Campo (Lab)'
+  if (tipo === 'PF+Lab') return 'Percorso Formativo e Laboratorio (PF+Lab)'
   if (tipo === 'MF') return 'Modulo Formativo (MF)'
   return tipo || '—'
 }

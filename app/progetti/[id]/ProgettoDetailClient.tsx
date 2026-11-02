@@ -432,7 +432,7 @@ export function ProgettoDetailClient({
   const [residProgress, setResidProgress] = useState<{ done: number; total: number } | null>(null)
   const [residResults, setResidResults] = useState<{ successi: string[]; errori: string[] } | null>(null)
 
-  const labResidCorsi = corsi.filter(c => c.tipo === 'Lab' && c.modalita === 'residenziale')
+  const labResidCorsi = corsi.filter(c => (c.tipo === 'Lab' || c.tipo === 'PF+Lab') && c.modalita === 'residenziale')
 
   const openResidModal = () => {
     const initial: Record<string, ResidSessionRow[]> = {}
@@ -1460,7 +1460,7 @@ export function ProgettoDetailClient({
           let imponibilePotF = 0
           let imponibilePotT = 0
           for (const c of corsi) {
-            const hasRealTutor = c.tipo === 'PF' && !!c.tutor_id
+            const hasRealTutor = (c.tipo === 'PF' || c.tipo === 'PF+Lab') && !!c.tutor_id
             const oreTutor = hasRealTutor ? Number((c as CorsoConOre & { ore_tutoraggio?: number }).ore_tutoraggio ?? 0) : 0
             if (c.corso_completato) {
               const oreErogate = oreErogatePerCorso[c.id] ?? 0
@@ -1530,7 +1530,7 @@ export function ProgettoDetailClient({
         for (const c of corsi) {
           const oreTotali = Number(c.ore_totali ?? 0)
           const oreErogate = oreErogatePerCorso[c.id] ?? 0
-          const hasRealTutor = c.tipo === 'PF' && !!c.tutor_id
+          const hasRealTutor = (c.tipo === 'PF' || c.tipo === 'PF+Lab') && !!c.tutor_id
           const oreTutor = hasRealTutor ? Number((c as CorsoConOre & { ore_tutoraggio?: number }).ore_tutoraggio ?? 0) : 0
           fatturatoCorsiFull += oreTotali * tariffaF + oreTutor * tariffaT
           if (c.corso_completato) {
@@ -2450,7 +2450,7 @@ export function ProgettoDetailClient({
                   >
                     <div className="flex items-center gap-2 mb-0.5">
                       <span className="text-sm font-medium text-gray-900">{c.titolo}</span>
-                      <span className={`inline-flex items-center text-xs font-medium px-1.5 py-0.5 rounded ${c.tipo === 'PF' ? 'bg-blue-100 text-blue-700' : c.tipo === 'MF' ? 'bg-green-100 text-green-700' : 'bg-purple-100 text-purple-700'}`}>
+                      <span className={`inline-flex items-center text-xs font-medium px-1.5 py-0.5 rounded ${c.tipo === 'PF' ? 'bg-blue-100 text-blue-700' : c.tipo === 'MF' ? 'bg-green-100 text-green-700' : c.tipo === 'PF+Lab' ? 'bg-indigo-100 text-indigo-700' : 'bg-purple-100 text-purple-700'}`}>
                         {c.tipo}
                       </span>
                     </div>
@@ -2489,11 +2489,13 @@ export function ProgettoDetailClient({
                   onChange={e => setCorsoForm(f => {
                     const newTipo = e.target.value
                     const shouldReset = newTipo === 'Lab' && ['online', 'ibrido'].includes(f.modalita)
+                  // PF+Lab: mantieni le opzioni PF (online/ibrido disponibili)
                     return { ...f, tipo: newTipo, modalita: shouldReset ? 'presenza' : (f.modalita || 'presenza'), location: shouldReset ? '' : f.location }
                   })}
                   options={[
                     { value: 'PF', label: 'Percorso Formativo (PF)' },
                     { value: 'Lab', label: 'Laboratorio sul Campo (Lab)' },
+                    { value: 'PF+Lab', label: 'Percorso Formativo e Laboratorio (PF+Lab)' },
                   ]}
                 />
               )}
@@ -2512,7 +2514,7 @@ export function ProgettoDetailClient({
               )}
             </div>
             <Select
-              label={`Modalità erogazione${corsoForm.tipo === 'PF' ? ' *' : ''}`}
+              label={`Modalità erogazione${(corsoForm.tipo === 'PF' || corsoForm.tipo === 'PF+Lab') ? ' *' : ''}`}
               value={corsoForm.modalita}
               onChange={e => setCorsoForm(f => ({ ...f, modalita: e.target.value, location: ['residenziale', 'semi_residenziale'].includes(e.target.value) ? f.location : '', ore_presenza: (e.target.value === 'ibrido' || e.target.value === 'residenziale') ? f.ore_presenza : '', ore_online: (e.target.value === 'ibrido' || e.target.value === 'residenziale') ? f.ore_online : '' }))}
               options={corsoForm.tipo === 'Lab' ? [
@@ -2547,7 +2549,7 @@ export function ProgettoDetailClient({
                 </div>
               </div>
             )}
-            {(corsoForm.tipo === 'PF' || corsoForm.tipo === 'MF') && (
+            {(corsoForm.tipo === 'PF' || corsoForm.tipo === 'PF+Lab' || corsoForm.tipo === 'MF') && (
               <div className="space-y-3 pt-1">
                 <label className="flex items-center gap-2.5 cursor-pointer">
                   <input
@@ -3130,7 +3132,7 @@ export function ProgettoDetailClient({
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
                               <span className="text-sm font-medium text-gray-900">{c.titolo}</span>
-                              <span className={`inline-flex items-center text-xs font-medium px-1.5 py-0.5 rounded ${c.tipo === 'PF' ? 'bg-blue-100 text-blue-700' : c.tipo === 'MF' ? 'bg-green-100 text-green-700' : 'bg-purple-100 text-purple-700'}`}>
+                              <span className={`inline-flex items-center text-xs font-medium px-1.5 py-0.5 rounded ${c.tipo === 'PF' ? 'bg-blue-100 text-blue-700' : c.tipo === 'MF' ? 'bg-green-100 text-green-700' : c.tipo === 'PF+Lab' ? 'bg-indigo-100 text-indigo-700' : 'bg-purple-100 text-purple-700'}`}>
                                 {c.tipo}
                               </span>
                             </div>
@@ -3289,6 +3291,7 @@ export function ProgettoDetailClient({
                                       <option value="presenza">In presenza</option>
                                       {row.tipo !== 'Lab' && <option value="online">Online</option>}
                                       {row.tipo !== 'Lab' && <option value="ibrido">Ibrido</option>}
+                                      {/* PF+Lab: tutte le modalità disponibili (già incluse sopra) */}
                                       <option value="residenziale">Residenziale</option>
                                       <option value="semi_residenziale">Semi-residenziale</option>
                                     </select>
@@ -3301,7 +3304,7 @@ export function ProgettoDetailClient({
                                         className="mt-1.5 w-full text-sm border border-gray-200 rounded-[7px] px-2 py-1.5 focus:outline-none focus:border-[#d64b55]"
                                       />
                                     )}
-                                    {((row.tipo === 'PF' && ed.modalita === 'ibrido') || (row.tipo === 'Lab' && ed.modalita === 'residenziale')) && (
+                                    {(((row.tipo === 'PF' || row.tipo === 'PF+Lab') && ed.modalita === 'ibrido') || ((row.tipo === 'Lab' || row.tipo === 'PF+Lab') && ed.modalita === 'residenziale')) && (
                                       <div className="mt-1.5 grid grid-cols-2 gap-1">
                                         <input
                                           type="number"
@@ -3363,7 +3366,7 @@ export function ProgettoDetailClient({
                                   <td className="py-3 pr-3 align-top">
                                     <div className="flex items-center gap-2 flex-wrap">
                                       <span className="font-medium text-gray-900">{row.title}</span>
-                                      <span className={`inline-flex text-xs font-medium px-1.5 py-0.5 rounded ${row.tipo === 'PF' ? 'bg-blue-100 text-blue-700' : row.tipo === 'MF' ? 'bg-green-100 text-green-700' : 'bg-purple-100 text-purple-700'}`}>
+                                      <span className={`inline-flex text-xs font-medium px-1.5 py-0.5 rounded ${row.tipo === 'PF' ? 'bg-blue-100 text-blue-700' : row.tipo === 'MF' ? 'bg-green-100 text-green-700' : row.tipo === 'PF+Lab' ? 'bg-indigo-100 text-indigo-700' : 'bg-purple-100 text-purple-700'}`}>
                                         {row.tipo}
                                       </span>
                                     </div>

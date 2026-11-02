@@ -112,8 +112,8 @@ export default async function StatistichePage() {
   const nProgettiPending  = progettiList.filter(p => p.status === 'pending').length
   const nProgettiCompletati = progettiList.filter(p => p.status === 'completed').length
 
-  const nCorsiPF  = corsiList.filter(c => c.tipo === 'PF').length
-  const nCorsiLab = corsiList.filter(c => c.tipo === 'Lab').length
+  const nCorsiPF  = corsiList.filter(c => c.tipo === 'PF' || c.tipo === 'PF+Lab').length
+  const nCorsiLab = corsiList.filter(c => c.tipo === 'Lab' || c.tipo === 'PF+Lab').length
 
   const oreTotali = corsiList.reduce((s, c) => s + Number(c.ore_totali), 0)
   const orePianificate = corsiList.reduce((s, c) => s + (orePianMap.get(c.id) ?? 0), 0)

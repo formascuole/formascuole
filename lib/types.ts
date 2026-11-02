@@ -1,7 +1,7 @@
 export type UserRole = 'super_admin' | 'admin' | 'formatore' | 'tutor'
 export type FasciaIndisponibilita = 'mattina' | 'pomeriggio' | 'tutto_il_giorno'
 export type ProjectStatus = 'active' | 'pending' | 'completed' | 'cancelled'
-export type CorsoTipo = 'PF' | 'Lab' | 'MF'
+export type CorsoTipo = 'PF' | 'Lab' | 'MF' | 'PF+Lab'
 export type ModalitaCorso = 'presenza' | 'online' | 'ibrido' | 'residenziale' | 'semi_residenziale'
 export type ModalitaSessione = 'presenza' | 'online'
 export type SollectipoTipo = 'assegnazione' | 'sollecito_1' | 'sollecito_2' | 'sollecito_3' | 'reminder_sessione' | 'reminder_accettazione' | 'reminder_questionario' | 'reminder_candidatura' | 'notifica_calendario_completo' | 'notifica_corso_concluso' | 'calendario_inviato_scuola'

@@ -301,7 +301,7 @@ export function FormatoreClient({ corsi, profile, finanziamenti, questionari = [
                 presenza: 'In presenza', online: 'Online', ibrido: 'Ibrido',
                 residenziale: 'Residenziale', semi_residenziale: 'Semi-res.',
               }
-              const modalitaLabel = (corso.tipo === 'Lab' && (!corso.modalita || corso.modalita === 'presenza'))
+              const modalitaLabel = ((corso.tipo === 'Lab' || corso.tipo === 'PF+Lab') && (!corso.modalita || corso.modalita === 'presenza'))
                 ? 'Laboratorio'
                 : (MODALITA_LABELS[corso.modalita || 'presenza'] ?? 'In presenza')
 

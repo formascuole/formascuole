@@ -94,7 +94,7 @@ export default async function PartnersPage() {
     const tariffaF = (fin?.tariffa_formatore_ora as number | null) ?? null
     const tariffaT = (fin?.tariffa_tutor_ora as number | null) ?? null
     const oreErogate = orePerCorso.get(c.id as string) ?? 0
-    const hasTutor = !!c.tutor_id && c.tipo === 'PF'
+    const hasTutor = !!c.tutor_id && (c.tipo === 'PF' || c.tipo === 'PF+Lab')
     const oreTutor = hasTutor ? Number(c.ore_tutoraggio ?? 0) : 0
     const importoF = tariffaF != null && oreErogate > 0 ? oreErogate * tariffaF : 0
     const importoT = tariffaT != null && oreTutor > 0 ? oreTutor * tariffaT : 0

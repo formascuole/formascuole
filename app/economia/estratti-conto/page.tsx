@@ -143,7 +143,7 @@ export default async function EstrattiContoPage() {
     const tariffa = (c.tariffa_oraria as number | null) ?? tariffaProfile
 
     // Tutor fiscal — tutoring billing only for PF tipo with assigned tutor
-    const hasTutor = !!c.tutor_id && c.tipo === 'PF'
+    const hasTutor = !!c.tutor_id && (c.tipo === 'PF' || c.tipo === 'PF+Lab')
     const tutorRegime = ((tutorData?.regime_fiscale ?? 'notula') as RegimeFiscale)
     const tutorRivalsa = !!(tutorData?.rivalsa_iva)
     const tutorHaPiva = !!(tutorData?.ha_partita_iva)

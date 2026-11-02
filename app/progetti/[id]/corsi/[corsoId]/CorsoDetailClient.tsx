@@ -337,7 +337,7 @@ export function CorsoDetailClient({
       }
 
       // 3. Region (25pts) — applies for corsi in presenza/residenziale/semi-residenziale OR tipo Lab (always on-site)
-      const regioneRilevante = corso.modalita === 'presenza' || corso.modalita === 'residenziale' || corso.modalita === 'semi_residenziale' || corso.tipo === 'Lab'
+      const regioneRilevante = corso.modalita === 'presenza' || corso.modalita === 'residenziale' || corso.modalita === 'semi_residenziale' || corso.tipo === 'Lab' || corso.tipo === 'PF+Lab' || corso.tipo === 'PF+Lab'
       let regionScore = 25
       let sameRegion: boolean | null = null
       if (regioneRilevante) {
@@ -661,7 +661,7 @@ export function CorsoDetailClient({
     return Math.round((diffMin / 60) * 2) / 2
   }
 
-  const isIbrido = corso.tipo === 'PF' && corso.modalita === 'ibrido'
+  const isIbrido = (corso.tipo === 'PF' || corso.tipo === 'PF+Lab') && corso.modalita === 'ibrido'
   const hasOreSubdivision = !!(corso.ore_presenza || corso.ore_online)
 
   const today = new Date().toISOString().slice(0, 10)
@@ -1505,7 +1505,7 @@ export function CorsoDetailClient({
   const sessioniCompletate = sessioni.filter(s => s.completata).length
   const sessioniScadute = sessioni.filter(s => !s.completata && s.data <= today).length
   const oreErogate = sessioni.filter(s => s.completata).reduce((sum, s) => sum + Number(s.ore), 0)
-  const isLabResidenziale = corso.tipo === 'Lab' && corso.modalita === 'residenziale'
+  const isLabResidenziale = (corso.tipo === 'Lab' || corso.tipo === 'PF+Lab') && corso.modalita === 'residenziale'
   const oreResidencialeAdmin = isLabResidenziale
     ? sessioni.filter(s => s.formatore_id === null && (s.tipo_sessione === 'residenziale' || s.tipo_sessione === 'scuola')).reduce((sum, s) => sum + Number(s.ore), 0)
     : undefined
@@ -1666,7 +1666,7 @@ export function CorsoDetailClient({
             )}
           </div>
         </div>
-        {(corso.tipo === 'Lab' || corso.modalita) && (
+        {(corso.tipo === 'Lab' || corso.tipo === 'PF+Lab' || corso.modalita) && (
           <div className="flex flex-wrap gap-2 mb-4">
             <div className="flex items-center gap-2">
               <ModalitaIcon modalita={corso.modalita} tipo={corso.tipo} size={18} />
@@ -2800,7 +2800,7 @@ export function CorsoDetailClient({
               <div className="flex items-center justify-between py-2 border-b border-gray-50">
                 <div>
                   <div className="text-sm font-medium text-gray-700">
-                    {corso.tipo === 'PF' && corso.tutor_previsto ? 'Tariffa formatore' : 'Tariffa oraria'}
+                    {(corso.tipo === 'PF' || corso.tipo === 'PF+Lab') && corso.tutor_previsto ? 'Tariffa formatore' : 'Tariffa oraria'}
                   </div>
                   <div className="text-sm text-gray-600 mt-0.5">
                     {(() => {
@@ -2886,7 +2886,7 @@ export function CorsoDetailClient({
             </div>
 
             {/* Tariffa tutor — solo per corsi PF con tutor previsto */}
-            {corso.tipo === 'PF' && corso.tutor_previsto && (
+            {(corso.tipo === 'PF' || corso.tipo === 'PF+Lab') && corso.tutor_previsto && (
               <div>
                 <div className="flex items-center justify-between py-2 border-b border-gray-50">
                   <div>
@@ -3565,7 +3565,7 @@ export function CorsoDetailClient({
               disabled={
                 !corsoEditForm.title.trim() ||
                 !corsoEditForm.ore_totali ||
-                (corsoEditForm.tipo === 'PF' && !corsoEditForm.modalita) ||
+                ((corsoEditForm.tipo === 'PF' || corsoEditForm.tipo === 'PF+Lab') && !corsoEditForm.modalita) ||
                 (['residenziale', 'semi_residenziale'].includes(corsoEditForm.modalita) && !corsoEditForm.location.trim()) ||
                 ((corsoEditForm.modalita === 'ibrido' || corsoEditForm.modalita === 'residenziale') && (!corsoEditForm.ore_presenza || !corsoEditForm.ore_online))
               }
@@ -3591,6 +3591,7 @@ export function CorsoDetailClient({
               >
                 <option value="PF">Percorso Formativo (PF)</option>
                 <option value="Lab">Laboratorio sul Campo (Lab)</option>
+                <option value="PF+Lab">Percorso Formativo e Laboratorio (PF+Lab)</option>
               </select>
             </div>
             <Input
@@ -3609,8 +3610,8 @@ export function CorsoDetailClient({
               className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 focus:outline-none focus:border-[#d64b55] transition-colors bg-white"
             >
               <option value="presenza">In presenza</option>
-              {corsoEditForm.tipo === 'PF' && <option value="online">Online</option>}
-              {corsoEditForm.tipo === 'PF' && <option value="ibrido">Ibrido (presenza + online)</option>}
+              {(corsoEditForm.tipo === 'PF' || corsoEditForm.tipo === 'PF+Lab') && <option value="online">Online</option>}
+              {(corsoEditForm.tipo === 'PF' || corsoEditForm.tipo === 'PF+Lab') && <option value="ibrido">Ibrido (presenza + online)</option>}
               <option value="residenziale">Residenziale</option>
               <option value="semi_residenziale">Semi-residenziale</option>
             </select>
@@ -4091,7 +4092,7 @@ export function CorsoDetailClient({
                           isAssigning={assigningId === f.id}
                           tasso={tassoAccettazioneMap[f.id] ?? null}
                           oreAssegnate={oreAssegnateMap[f.id]}
-                          regioneRilevante={corso.modalita === 'presenza' || corso.modalita === 'residenziale' || corso.modalita === 'semi_residenziale' || corso.tipo === 'Lab'}
+                          regioneRilevante={corso.modalita === 'presenza' || corso.modalita === 'residenziale' || corso.modalita === 'semi_residenziale' || corso.tipo === 'Lab' || corso.tipo === 'PF+Lab'}
                           showScore
                           noTariffa={!f.tariffa_oraria_formatore}
                           onClick={() => handleAssignFormatore(f)}
@@ -4125,7 +4126,7 @@ export function CorsoDetailClient({
                           isAssigning={assigningId === f.id}
                           tasso={tassoAccettazioneMap[f.id] ?? null}
                           oreAssegnate={oreAssegnateMap[f.id]}
-                          regioneRilevante={corso.modalita === 'presenza' || corso.modalita === 'residenziale' || corso.modalita === 'semi_residenziale' || corso.tipo === 'Lab'}
+                          regioneRilevante={corso.modalita === 'presenza' || corso.modalita === 'residenziale' || corso.modalita === 'semi_residenziale' || corso.tipo === 'Lab' || corso.tipo === 'PF+Lab'}
                           showScore={false}
                           noTariffa={!f.tariffa_oraria_formatore}
                           onClick={() => handleAssignFormatore(f)}
@@ -4181,7 +4182,7 @@ export function CorsoDetailClient({
                         isAssigning={false}
                         tasso={tassoAccettazioneMap[f.id] ?? null}
                         oreAssegnate={oreAssegnateMap[f.id]}
-                        regioneRilevante={corso.modalita === 'presenza' || corso.modalita === 'residenziale' || corso.modalita === 'semi_residenziale' || corso.tipo === 'Lab'}
+                        regioneRilevante={corso.modalita === 'presenza' || corso.modalita === 'residenziale' || corso.modalita === 'semi_residenziale' || corso.tipo === 'Lab' || corso.tipo === 'PF+Lab'}
                         showScore={suggestedScores.some(s => s.formatore.id === f.id)}
                         noTariffa={!f.tariffa_oraria_formatore}
                         onClick={() => handleDualSelectFormatore(f)}
@@ -4255,7 +4256,7 @@ export function CorsoDetailClient({
                           isAssigning={false}
                           tasso={tassoAccettazioneMap[f.id] ?? null}
                           oreAssegnate={oreAssegnateMap[f.id]}
-                          regioneRilevante={corso.modalita === 'presenza' || corso.modalita === 'residenziale' || corso.modalita === 'semi_residenziale' || corso.tipo === 'Lab'}
+                          regioneRilevante={corso.modalita === 'presenza' || corso.modalita === 'residenziale' || corso.modalita === 'semi_residenziale' || corso.tipo === 'Lab' || corso.tipo === 'PF+Lab'}
                           showScore={false}
                           noTariffa={!f.tariffa_oraria_formatore}
                           onClick={() => handleDualSelectCoFormatore(f)}

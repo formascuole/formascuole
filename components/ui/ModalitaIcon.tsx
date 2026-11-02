@@ -12,7 +12,7 @@ export function ModalitaIcon({ modalita, tipo, size = 18, showTooltip = true }: 
   let color: string
   let tooltip: string
 
-  if (tipo === 'Lab' && (!modalita || modalita === 'presenza')) {
+  if ((tipo === 'Lab' || tipo === 'PF+Lab') && (!modalita || modalita === 'presenza')) {
     Icon = FlaskConical
     color = '#EF4444'
     tooltip = 'Laboratorio sul campo'

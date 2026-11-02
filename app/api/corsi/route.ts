@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
   if (!project_id || !title || !tipo || !ore_totali) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
-  if (tipo === 'PF' && !modalita) {
+  if ((tipo === 'PF' || tipo === 'PF+Lab') && !modalita) {
     return NextResponse.json({ error: 'La modalità è obbligatoria per i corsi PF' }, { status: 400 })
   }
 

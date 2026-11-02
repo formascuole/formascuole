@@ -29,11 +29,26 @@ export function getStatusColor(status: ProjectStatus): string {
 }
 
 export function getTipoLabel(tipo: CorsoTipo): string {
-  return tipo === 'PF' ? 'Percorso Formativo' : 'Laboratorio'
+  if (tipo === 'PF') return 'Percorso Formativo'
+  if (tipo === 'Lab') return 'Laboratorio'
+  if (tipo === 'PF+Lab') return 'PF e Laboratorio'
+  return tipo
 }
 
 export function getTipoColor(tipo: CorsoTipo): string {
-  return tipo === 'PF' ? 'bg-purple-100 text-purple-700' : 'bg-orange-100 text-orange-700'
+  if (tipo === 'PF') return 'bg-purple-100 text-purple-700'
+  if (tipo === 'PF+Lab') return 'bg-indigo-100 text-indigo-700'
+  return 'bg-orange-100 text-orange-700'
+}
+
+/** True se il corso ha natura di Percorso Formativo */
+export function isTipoPF(tipo: string | null | undefined): boolean {
+  return tipo === 'PF' || tipo === 'PF+Lab'
+}
+
+/** True se il corso ha natura di Laboratorio */
+export function isTipoLab(tipo: string | null | undefined): boolean {
+  return tipo === 'Lab' || tipo === 'PF+Lab'
 }
 
 export function calcPercentuale(pianificate: number, totali: number): number {
