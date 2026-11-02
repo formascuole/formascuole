@@ -16,6 +16,7 @@ export function StatusBadge({ variant, label, size = 'md' }: StatusBadgeProps) {
     cancelled: { label: 'Annullato', className: 'bg-red-100 text-red-700' },
     PF: { label: 'Percorso Formativo', className: 'bg-purple-100 text-purple-700' },
     Lab: { label: 'Laboratorio', className: 'bg-orange-100 text-orange-700' },
+    'PF+Lab': { label: 'PF e Laboratorio', className: 'bg-indigo-100 text-indigo-700' },
     MF: { label: 'Mod. Formativo', className: 'bg-green-100 text-green-700' },
     warning: { label: 'Attenzione', className: 'bg-red-100 text-red-700' },
     info: { label: 'Info', className: 'bg-gray-100 text-gray-600' },
