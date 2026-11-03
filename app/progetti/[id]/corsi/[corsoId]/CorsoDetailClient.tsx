@@ -1630,6 +1630,7 @@ export function CorsoDetailClient({
                     location: corso.location || '',
                     ore_presenza: corso.ore_presenza != null ? String(corso.ore_presenza) : '',
                     ore_online: corso.ore_online != null ? String(corso.ore_online) : '',
+                    tutor_previsto: corso.tutor_previsto ?? false,
                   })
                   setCorsoEditOpen(true)
                 }}
