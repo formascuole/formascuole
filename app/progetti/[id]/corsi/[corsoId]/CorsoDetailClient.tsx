@@ -477,6 +477,7 @@ export function CorsoDetailClient({
     location: corso.location || '',
     ore_presenza: corso.ore_presenza != null ? String(corso.ore_presenza) : '',
     ore_online: corso.ore_online != null ? String(corso.ore_online) : '',
+    tutor_previsto: corso.tutor_previsto ?? false,
   })
   const [savingCorsoEdit, setSavingCorsoEdit] = useState(false)
 
@@ -1488,6 +1489,7 @@ export function CorsoDetailClient({
           location: isResidenziale ? (corsoEditForm.location.trim() || null) : null,
           ore_presenza: (corsoEditForm.modalita === 'ibrido' || corsoEditForm.modalita === 'residenziale') ? (Number(corsoEditForm.ore_presenza) || null) : null,
           ore_online: (corsoEditForm.modalita === 'ibrido' || corsoEditForm.modalita === 'residenziale') ? (Number(corsoEditForm.ore_online) || null) : null,
+          tutor_previsto: corsoEditForm.tutor_previsto,
         }),
       })
       if (res.ok) {
@@ -3642,6 +3644,17 @@ export function CorsoDetailClient({
             onChange={e => setCorsoEditForm(f => ({ ...f, edizione: e.target.value }))}
             placeholder="Es. 2024-2025"
           />
+          {(corsoEditForm.tipo === 'PF' || corsoEditForm.tipo === 'PF+Lab' || corsoEditForm.tipo === 'MF') && (
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={corsoEditForm.tutor_previsto}
+                onChange={e => setCorsoEditForm(f => ({ ...f, tutor_previsto: e.target.checked }))}
+                className="w-4 h-4 rounded border-gray-300 text-[#d64b55] focus:ring-[#d64b55]"
+              />
+              <span className="text-sm text-gray-700">Tutor previsto</span>
+            </label>
+          )}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Note</label>
             <textarea
