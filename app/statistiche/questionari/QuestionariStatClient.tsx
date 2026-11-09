@@ -109,6 +109,8 @@ interface Props { questionari: QuestionarioRisultato[]; attestati: Attestato[] }
 export function QuestionariStatClient({ questionari, attestati }: Props) {
   const [tab, setTab] = useState<'questionari' | 'attestati'>('questionari')
   const [attestatiCorsoFilter, setAttestatiCorsoFilter] = useState('')
+  const [attestatiParteciFilter, setAttestatiParteciFilter] = useState('')
+  const [reinviando, setReinviando] = useState<string | null>(null)
   const [anno, setAnno] = useState('')
   const [mese, setMese] = useState('')
   const [linea, setLinea] = useState('')
@@ -264,17 +266,27 @@ export function QuestionariStatClient({ questionari, attestati }: Props) {
       {/* ── ATTESTATI TAB ─────────────────────────────── */}
       {tab === 'attestati' && (
         <div>
-          <div className="flex items-center justify-between mb-4 gap-3">
-            <input
-              value={attestatiCorsoFilter}
-              onChange={e => setAttestatiCorsoFilter(e.target.value)}
-              placeholder="Filtra per corso…"
-              className="text-sm border border-gray-200 rounded-[7px] px-3 py-1.5 focus:outline-none focus:border-[#d64b55] w-60"
-            />
+          <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+            <div className="flex gap-2 flex-1">
+              <input
+                value={attestatiCorsoFilter}
+                onChange={e => setAttestatiCorsoFilter(e.target.value)}
+                placeholder="Filtra per corso…"
+                className="text-sm border border-gray-200 rounded-[7px] px-3 py-1.5 focus:outline-none focus:border-[#d64b55] w-52"
+              />
+              <input
+                value={attestatiParteciFilter}
+                onChange={e => setAttestatiParteciFilter(e.target.value)}
+                placeholder="Filtra per partecipante o email…"
+                className="text-sm border border-gray-200 rounded-[7px] px-3 py-1.5 focus:outline-none focus:border-[#d64b55] w-64"
+              />
+            </div>
             <button
-              onClick={() => exportExcelAttestati(attestati.filter(a =>
-                !attestatiCorsoFilter || getCorsoTitle(a.corso)?.toLowerCase().includes(attestatiCorsoFilter.toLowerCase())
-              ))}
+              onClick={() => exportExcelAttestati(attestati.filter(a => {
+                const matchCorso = !attestatiCorsoFilter || getCorsoTitle(a.corso)?.toLowerCase().includes(attestatiCorsoFilter.toLowerCase())
+                const matchParteci = !attestatiParteciFilter || a.nome_cognome.toLowerCase().includes(attestatiParteciFilter.toLowerCase()) || a.email.toLowerCase().includes(attestatiParteciFilter.toLowerCase())
+                return matchCorso && matchParteci
+              }))}
               className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-[7px] border border-gray-200 hover:bg-gray-50 text-gray-600 transition-colors"
             >
               <svg width="15" height="15" fill="none" viewBox="0 0 24 24">
@@ -301,31 +313,58 @@ export function QuestionariStatClient({ questionari, attestati }: Props) {
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {attestati
-                    .filter(a => !attestatiCorsoFilter || getCorsoTitle(a.corso)?.toLowerCase().includes(attestatiCorsoFilter.toLowerCase()))
+                    .filter(a => {
+                      const matchCorso = !attestatiCorsoFilter || getCorsoTitle(a.corso)?.toLowerCase().includes(attestatiCorsoFilter.toLowerCase())
+                      const matchParteci = !attestatiParteciFilter || a.nome_cognome.toLowerCase().includes(attestatiParteciFilter.toLowerCase()) || a.email.toLowerCase().includes(attestatiParteciFilter.toLowerCase())
+                      return matchCorso && matchParteci
+                    })
                     .map(a => (
                       <tr key={a.id} className="hover:bg-gray-50/50">
                         <td className="px-4 py-3 font-medium text-gray-800">{a.nome_cognome}</td>
-                        <td className="px-4 py-3 text-gray-600 max-w-[260px] truncate">{getCorsoTitle(a.corso) || '—'}</td>
+                        <td className="px-4 py-3 text-gray-600 max-w-[220px] truncate">{getCorsoTitle(a.corso) || '—'}</td>
                         <td className="px-4 py-3 text-gray-500">{a.email}</td>
                         <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
                           {new Date(a.created_at).toLocaleDateString('it-IT')}
                         </td>
                         <td className="px-4 py-3 text-right">
-                          {a.pdf_url ? (
-                            <a
-                              href={a.pdf_url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-[7px] bg-[#d64b55]/10 text-[#d64b55] hover:bg-[#d64b55]/20 transition-colors"
-                            >
-                              <svg width="12" height="12" fill="none" viewBox="0 0 24 24">
-                                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                              </svg>
-                              Scarica PDF
-                            </a>
-                          ) : (
-                            <span className="text-xs text-gray-300">—</span>
-                          )}
+                          <div className="inline-flex items-center gap-2">
+                            {a.pdf_url && (
+                              <a
+                                href={a.pdf_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-[7px] bg-[#d64b55]/10 text-[#d64b55] hover:bg-[#d64b55]/20 transition-colors"
+                              >
+                                <svg width="12" height="12" fill="none" viewBox="0 0 24 24">
+                                  <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                                PDF
+                              </a>
+                            )}
+                            {a.pdf_url && (
+                              <button
+                                disabled={reinviando === a.id}
+                                onClick={async () => {
+                                  setReinviando(a.id)
+                                  try {
+                                    const res = await fetch('/api/attestati/reinvia', {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ attestato_id: a.id }),
+                                    })
+                                    if (res.ok) alert(`Attestato reinviato a ${a.email}`)
+                                    else { const d = await res.json(); alert(`Errore: ${d.error}`) }
+                                  } finally {
+                                    setReinviando(null)
+                                  }
+                                }}
+                                className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-[7px] bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors disabled:opacity-50"
+                              >
+                                {reinviando === a.id ? '…' : 'Reinvia'}
+                              </button>
+                            )}
+                            {!a.pdf_url && <span className="text-xs text-gray-300">—</span>}
+                          </div>
                         </td>
                       </tr>
                     ))}
