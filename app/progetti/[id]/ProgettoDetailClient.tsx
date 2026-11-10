@@ -511,6 +511,7 @@ export function ProgettoDetailClient({
   const [messaggi, setMessaggi] = useState<ChatMessaggio[]>(initialMessaggi)
   const [newMsg, setNewMsg] = useState('')
   const [sendingMsg, setSendingMsg] = useState(false)
+  const [urgenteMsg, setUrgenteMsg] = useState(false)
   const chatBottomRef = useRef<HTMLDivElement>(null)
   const chatMountedRef = useRef(false)
 
@@ -1167,12 +1168,13 @@ export function ProgettoDetailClient({
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ progetto_id: progetto.id, testo: newMsg.trim() }),
+        body: JSON.stringify({ progetto_id: progetto.id, testo: newMsg.trim(), urgente: urgenteMsg }),
       })
       if (res.ok) {
         const data = await res.json()
         setMessaggi(prev => [...prev, data])
         setNewMsg('')
+        setUrgenteMsg(false)
       }
     } finally {
       setSendingMsg(false)
@@ -1881,11 +1883,12 @@ export function ProgettoDetailClient({
                   <div className={`max-w-xs flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                     <div className="flex items-center gap-2 mb-0.5">
                       {!isMe && <span className="text-xs font-medium text-gray-700">{m.autore?.nome}</span>}
+                      {m.urgente && <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-red-100 text-red-600">🚨 urgente</span>}
                       <span className="text-xs text-gray-400">{formatDate(m.created_at)}</span>
                     </div>
                     <div
                       className={`text-sm px-3 py-2 rounded-xl break-words ${isMe ? 'text-white rounded-tr-sm' : 'bg-gray-100 text-gray-800 rounded-tl-sm'}`}
-                      style={isMe ? { backgroundColor: '#d64b55' } : {}}
+                      style={isMe ? { backgroundColor: m.urgente ? '#b91c1c' : '#d64b55' } : {}}
                     >
                       {m.testo}
                     </div>
@@ -1906,8 +1909,21 @@ export function ProgettoDetailClient({
               placeholder="Scrivi un messaggio..."
               className="flex-1 text-sm border border-gray-200 rounded-[7px] px-3 py-2 focus:outline-none focus:border-[#d64b55] transition-colors"
             />
-            <Button size="sm" onClick={handleSendMsg} loading={sendingMsg} disabled={!newMsg.trim()}>Invia</Button>
+            <button
+              type="button"
+              onClick={() => setUrgenteMsg(u => !u)}
+              title={urgenteMsg ? 'Urgente: attivo — email immediata ai formatori' : 'Attiva urgente: invia email immediata ai formatori'}
+              className={`px-3 py-2 rounded-[7px] text-sm font-medium border transition-colors ${urgenteMsg ? 'bg-red-600 text-white border-red-600' : 'bg-white text-gray-500 border-gray-200 hover:border-red-400 hover:text-red-500'}`}
+            >
+              🚨
+            </button>
+            <Button size="sm" onClick={handleSendMsg} loading={sendingMsg} disabled={!newMsg.trim()}>
+              {urgenteMsg ? 'Invia urgente' : 'Invia'}
+            </Button>
           </div>
+          {urgenteMsg && (
+            <p className="text-xs text-red-600 mt-1.5">⚡ Urgente attivo: i formatori del progetto riceveranno un&apos;email immediata.</p>
+          )}
         </div>
       </div>
 

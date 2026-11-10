@@ -1,7 +1,7 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { CorsoConOre } from '@/lib/types'
+import { CorsoConOre, ChatMessaggio } from '@/lib/types'
 import { OreCounter } from '@/components/ui/OreCounter'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { ModalitaIcon } from '@/components/ui/ModalitaIcon'
@@ -75,6 +75,14 @@ export function ProgettoFormatoreClient({ progetto, corsi, finanziamenti, format
 
   const [questionarioCorsoId, setQuestionarioCorsoId] = useState<string | null>(null)
 
+  // ── Chat ────────────────────────────────────────────────────
+  const [chatMessaggi, setChatMessaggi] = useState<ChatMessaggio[]>([])
+  const [chatLoaded, setChatLoaded] = useState(false)
+  const [chatLoading, setChatLoading] = useState(false)
+  const [newChatMsg, setNewChatMsg] = useState('')
+  const [sendingChatMsg, setSendingChatMsg] = useState(false)
+  const chatBottomRef = useRef<HTMLDivElement>(null)
+
   // Accettazione
   const [submittingAccetta, setSubmittingAccetta] = useState<string | null>(null)
   const [rifiutoModalCorso, setRifiutoModalCorso] = useState<CorsoInAttesa | null>(null)
@@ -128,6 +136,60 @@ export function ProgettoFormatoreClient({ progetto, corsi, finanziamenti, format
       }
     } finally {
       setSubmittingRifiuto(false)
+    }
+  }
+
+  // ── Chat handlers ───────────────────────────────────────────
+  const loadChat = async () => {
+    if (chatLoading) return
+    setChatLoading(true)
+    try {
+      const res = await fetch(`/api/chat?progetto_id=${progetto.id}`)
+      if (res.ok) {
+        const data = await res.json()
+        setChatMessaggi(data || [])
+        // Mark all unread as read
+        const unreadIds = (data || []).filter((m: ChatMessaggio) => !m.letto).map((m: ChatMessaggio) => m.id)
+        if (unreadIds.length > 0) {
+          fetch('/api/chat', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ messaggio_ids: unreadIds }),
+          }).catch(() => {})
+        }
+      }
+    } finally {
+      setChatLoading(false)
+      setChatLoaded(true)
+    }
+  }
+
+  const handleOpenChat = () => {
+    if (!chatLoaded) loadChat()
+  }
+
+  useEffect(() => {
+    if (chatLoaded) {
+      chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [chatLoaded, chatMessaggi.length])
+
+  const handleSendChatMsg = async () => {
+    if (!newChatMsg.trim()) return
+    setSendingChatMsg(true)
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ progetto_id: progetto.id, testo: newChatMsg.trim() }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setChatMessaggi(prev => [...prev, data])
+        setNewChatMsg('')
+      }
+    } finally {
+      setSendingChatMsg(false)
     }
   }
 
@@ -547,6 +609,71 @@ export function ProgettoFormatoreClient({ progetto, corsi, finanziamenti, format
             </div>
           )
         })}
+      </div>
+
+      {/* Chat progetto */}
+      <div className="mt-6 bg-white rounded-xl" style={{ border: '0.5px solid #e5e5e5' }}>
+        <button
+          type="button"
+          className="w-full flex items-center gap-2 px-6 py-4 border-b border-gray-100 hover:bg-gray-50 transition-colors text-left"
+          onClick={handleOpenChat}
+        >
+          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" className="text-gray-400 shrink-0">
+            <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          <h2 className="font-semibold text-gray-900 flex-1">Chat con la sede</h2>
+          {!chatLoaded && (
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" className="text-gray-400">
+              <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          )}
+        </button>
+
+        {chatLoaded && (
+          <>
+            <div className="p-4 space-y-3 max-h-80 overflow-y-auto">
+              {chatLoading ? (
+                <p className="text-sm text-gray-400 text-center py-8">Caricamento messaggi...</p>
+              ) : chatMessaggi.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-8">Nessun messaggio ancora.</p>
+              ) : (
+                chatMessaggi.map(m => (
+                  <div key={m.id} className="flex items-start gap-3">
+                    <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-xs font-semibold text-gray-600 shrink-0">
+                      {(m.autore?.nome ?? 'U').charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex flex-col items-start max-w-xs">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="text-xs font-medium text-gray-700">{m.autore?.nome ?? 'Utente'}</span>
+                        {m.urgente && <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-red-100 text-red-600">🚨 urgente</span>}
+                        <span className="text-xs text-gray-400">{formatDate(m.created_at)}</span>
+                      </div>
+                      <div
+                        className={`text-sm px-3 py-2 rounded-xl rounded-tl-sm break-words ${m.urgente ? 'bg-red-50 text-red-900 border border-red-200' : 'bg-gray-100 text-gray-800'}`}
+                      >
+                        {m.testo}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+              <div ref={chatBottomRef} />
+            </div>
+            <div className="px-4 pb-4 pt-2 border-t border-gray-100">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newChatMsg}
+                  onChange={e => setNewChatMsg(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendChatMsg() } }}
+                  placeholder="Scrivi un messaggio..."
+                  className="flex-1 text-sm border border-gray-200 rounded-[7px] px-3 py-2 focus:outline-none focus:border-[#d64b55] transition-colors"
+                />
+                <Button size="sm" onClick={handleSendChatMsg} loading={sendingChatMsg} disabled={!newChatMsg.trim()}>Invia</Button>
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Rifiuto modal */}

@@ -277,6 +277,7 @@ export interface ChatMessaggio {
   autore_id: string
   testo: string
   created_at: string
+  urgente?: boolean
   autore?: Profile
   letto?: boolean
 }
