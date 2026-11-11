@@ -19,7 +19,23 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   if ('title' in body && body.title?.trim()) updates.title = body.title.trim()
   if ('tipo' in body) updates.tipo = body.tipo
   if ('modalita' in body) updates.modalita = body.modalita || null
-  if ('ore_totali' in body) { const n = Number(body.ore_totali); if (n > 0) updates.ore_totali = n }
+  if ('ore_totali' in body) {
+    const n = Number(body.ore_totali)
+    if (n > 0) {
+      // Blocca se le ore pianificate superano il nuovo monte ore
+      const { data: corsoOre } = await createAdminClient()
+        .from('corsi_con_ore')
+        .select('ore_pianificate')
+        .eq('id', id)
+        .single()
+      if (corsoOre && Number(corsoOre.ore_pianificate) > n) {
+        return NextResponse.json({
+          error: `Impossibile ridurre le ore a ${n}: sono già state pianificate ${corsoOre.ore_pianificate} ore. Elimina o riduci le sessioni prima di modificare il monte ore.`,
+        }, { status: 422 })
+      }
+      updates.ore_totali = n
+    }
+  }
   if ('ore_presenza' in body) updates.ore_presenza = body.ore_presenza != null && body.ore_presenza !== '' ? Number(body.ore_presenza) : null
   if ('ore_online' in body) updates.ore_online = body.ore_online != null && body.ore_online !== '' ? Number(body.ore_online) : null
   if ('location' in body) updates.location = body.location?.trim() || null

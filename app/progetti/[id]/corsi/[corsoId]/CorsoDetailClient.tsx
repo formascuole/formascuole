@@ -1473,6 +1473,15 @@ export function CorsoDetailClient({
   }
 
   const handleSaveCorsoEdit = async () => {
+    // Blocco client-side: impedisce di ridurre le ore sotto quelle già pianificate
+    const nuoveOre = Number(corsoEditForm.ore_totali)
+    if (nuoveOre < orePianificate) {
+      alert(
+        `Impossibile ridurre le ore a ${nuoveOre}: sono già state pianificate ${orePianificate} ore.\n\nElimina o riduci le sessioni prima di modificare il monte ore.`
+      )
+      return
+    }
+
     setSavingCorsoEdit(true)
     try {
       const isResidenziale = ['residenziale', 'semi_residenziale'].includes(corsoEditForm.modalita)
@@ -1483,7 +1492,7 @@ export function CorsoDetailClient({
           title: corsoEditForm.title.trim(),
           tipo: corsoEditForm.tipo,
           modalita: corsoEditForm.modalita || null,
-          ore_totali: Number(corsoEditForm.ore_totali),
+          ore_totali: nuoveOre,
           edizione: corsoEditForm.edizione.trim() || null,
           note: corsoEditForm.note.trim() || null,
           location: isResidenziale ? (corsoEditForm.location.trim() || null) : null,
@@ -1497,6 +1506,10 @@ export function CorsoDetailClient({
         setNoteCorsoLocal(corsoEditForm.note.trim())
         setCorsoEditOpen(false)
         router.refresh()
+      } else {
+        // Mostra l'errore dal server (es. 422 ore pianificate > nuove ore)
+        const j = await res.json()
+        alert(j.error || 'Errore durante il salvataggio')
       }
     } finally {
       setSavingCorsoEdit(false)
