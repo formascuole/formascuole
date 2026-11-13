@@ -37,7 +37,7 @@ interface Props {
   logs: LogEntry[]
 }
 
-export function ComunicazioniClient({ progetti, logs: initialLogs }: Props) {
+export function ComunicazioniClient({ progetti: progettiInitial, logs: initialLogs }: Props) {
   const [tipologia, setTipologia] = useState<string>('')
   const [progettoId, setProgettoId] = useState<string>('')
   const [oggetto, setOggetto] = useState<string>('')
@@ -49,6 +49,16 @@ export function ComunicazioniClient({ progetti, logs: initialLogs }: Props) {
   const [risultato, setRisultato] = useState<{ n_inviati: number; n_errori: number } | null>(null)
   const [error, setError] = useState('')
   const [logs, setLogs] = useState<LogEntry[]>(initialLogs)
+  const [progetti, setProgetti] = useState<Progetto[]>(progettiInitial)
+
+  // Carica progetti lato client se il server non li ha passati
+  useEffect(() => {
+    if (progettiInitial.length > 0) return
+    fetch('/api/progetti/list')
+      .then(r => r.ok ? r.json() : [])
+      .then((data: Progetto[]) => { if (data.length > 0) setProgetti(data) })
+      .catch(() => {/* silenzioso */})
+  }, [progettiInitial])
 
   // Auto-compila oggetto e corpo per alcune tipologie
   useEffect(() => {

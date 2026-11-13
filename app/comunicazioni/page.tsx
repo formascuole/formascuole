@@ -23,22 +23,21 @@ export default async function ComunicazioniPage() {
     .select('id, school_name, linea_finanziamento')
     .order('school_name', { ascending: true })
 
-  // Log ultimi 50 invii (tabella potrebbe non esistere ancora se migration non eseguita)
+  // Log ultimi 50 invii — senza join per evitare errori se la tabella è appena creata
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let logs: any[] = []
-  try {
-    const { data: logsRaw } = await admin
-      .from('comunicazioni_log')
-      .select('id, created_at, tipologia, oggetto, n_inviati, n_errori, progetto_id, inviata_da, progetti(school_name)')
-      .order('created_at', { ascending: false })
-      .limit(50)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    logs = (logsRaw ?? []).map((l: any) => ({
+  const { data: logsRaw, error: logsError } = await admin
+    .from('comunicazioni_log')
+    .select('id, created_at, tipologia, oggetto, n_inviati, n_errori, progetto_id, inviata_da')
+    .order('created_at', { ascending: false })
+    .limit(50)
+  if (!logsError && logsRaw) {
+    // Arricchisce con il nome scuola dal progetto
+    const progettiMap = new Map((progetti ?? []).map(p => [p.id, p.school_name]))
+    logs = logsRaw.map(l => ({
       ...l,
-      progetti: Array.isArray(l.progetti) ? (l.progetti[0] ?? null) : l.progetti,
+      progetti: l.progetto_id ? { school_name: progettiMap.get(l.progetto_id) ?? null } : null,
     }))
-  } catch {
-    // tabella non ancora creata, ignora
   }
 
   return (
