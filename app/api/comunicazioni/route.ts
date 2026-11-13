@@ -170,16 +170,29 @@ export async function POST(request: NextRequest) {
   const user = await requireAdmin(supabase)
   if (!user) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-  const body = await request.json()
-  const { tipologia, progetto_id, oggetto, corpo } = body as {
-    tipologia: string
-    progetto_id?: string
-    oggetto: string
-    corpo: string
-  }
+  const formData = await request.formData()
+  const tipologia = formData.get('tipologia') as string
+  const progetto_id = (formData.get('progetto_id') as string) || undefined
+  const oggetto = formData.get('oggetto') as string
+  const corpo = formData.get('corpo') as string
+  const allegatiFiles = formData.getAll('allegati') as File[]
 
   if (!tipologia || !oggetto?.trim() || !corpo?.trim()) {
     return NextResponse.json({ error: 'Parametri mancanti' }, { status: 400 })
+  }
+
+  // Converte allegati in base64 per Resend
+  const attachments: { filename: string; content: string }[] = []
+  for (const file of allegatiFiles) {
+    if (file.size === 0) continue
+    const buffer = await file.arrayBuffer()
+    const bytes = new Uint8Array(buffer)
+    let binary = ''
+    bytes.forEach(b => { binary += String.fromCharCode(b) })
+    attachments.push({
+      filename: file.name,
+      content: btoa(binary),
+    })
   }
 
   // Recupera destinatari (riusa la stessa logica GET)
@@ -219,6 +232,7 @@ export async function POST(request: NextRequest) {
           replyTo: REPLY_TO,
           subject: oggetto,
           html: buildHtml(oggetto, corpoPersonalizzato, ctaUrl, ctaLabel),
+          ...(attachments.length > 0 ? { attachments } : {}),
         })
         n_inviati++
       } catch {

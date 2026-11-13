@@ -50,6 +50,7 @@ export function ComunicazioniClient({ progetti: progettiInitial, logs: initialLo
   const [error, setError] = useState('')
   const [logs, setLogs] = useState<LogEntry[]>(initialLogs)
   const [progetti, setProgetti] = useState<Progetto[]>(progettiInitial)
+  const [allegati, setAllegati] = useState<File[]>([])
 
   // Carica sempre i progetti lato client (il server può passare [] per problemi SSR)
   useEffect(() => {
@@ -96,10 +97,15 @@ export function ComunicazioniClient({ progetti: progettiInitial, logs: initialLo
     setSending(true)
     setError('')
     try {
+      const form = new FormData()
+      form.append('tipologia', tipologia)
+      if (progettoId) form.append('progetto_id', progettoId)
+      form.append('oggetto', oggetto)
+      form.append('corpo', corpo)
+      allegati.forEach(f => form.append('allegati', f))
       const res = await fetch('/api/comunicazioni', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tipologia, progetto_id: progettoId || undefined, oggetto, corpo }),
+        body: form,
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
@@ -117,8 +123,21 @@ export function ComunicazioniClient({ progetti: progettiInitial, logs: initialLo
 
   const handleReset = () => {
     setTipologia(''); setProgettoId(''); setOggetto(''); setCorpo('')
-    setStep('form'); setDestinatari([]); setRisultato(null); setError('')
+    setStep('form'); setDestinatari([]); setRisultato(null); setError(''); setAllegati([])
   }
+
+  const handleAllegati = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? [])
+    setAllegati(prev => {
+      const existing = new Set(prev.map(f => f.name))
+      return [...prev, ...files.filter(f => !existing.has(f.name))]
+    })
+    e.target.value = '' // reset input per poter riaggiungere lo stesso file
+  }
+
+  const removeAllegato = (name: string) => setAllegati(prev => prev.filter(f => f.name !== name))
+
+  const totaleAllegatiMB = allegati.reduce((acc, f) => acc + f.size, 0) / 1024 / 1024
 
   const tipologiaLabel = TIPOLOGIE.find(t => t.value === tipologia)?.label ?? tipologia
 
@@ -198,12 +217,46 @@ export function ComunicazioniClient({ progetti: progettiInitial, logs: initialLo
             />
           </div>
 
+          {/* Allegati — non disponibili per ore_non_firmate */}
+          {tipologia !== 'ore_non_firmate' && tipologia !== '' && (
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                Allegati
+                <span className="font-normal text-gray-400 ml-2">— opzionali, max 20 MB totali</span>
+              </label>
+              <label className="flex items-center gap-2 text-sm text-[#d64b55] font-medium cursor-pointer w-fit">
+                <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
+                  <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66L9.41 17.41a2 2 0 01-2.83-2.83l8.49-8.48" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                Aggiungi file
+                <input type="file" multiple className="hidden" onChange={handleAllegati} />
+              </label>
+              {allegati.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  {allegati.map(f => (
+                    <div key={f.name} className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 px-3 py-1.5 rounded-[6px]">
+                      <span className="flex-1 truncate">{f.name}</span>
+                      <span className="text-xs text-gray-400 shrink-0">{(f.size / 1024).toFixed(0)} KB</span>
+                      <button onClick={() => removeAllegato(f.name)} className="text-gray-300 hover:text-red-400 shrink-0">
+                        <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+                      </button>
+                    </div>
+                  ))}
+                  <p className="text-xs text-gray-400 mt-1">Totale: {totaleAllegatiMB.toFixed(2)} MB</p>
+                </div>
+              )}
+              {totaleAllegatiMB > 20 && (
+                <p className="text-xs text-red-500 mt-1">⚠️ Totale allegati supera 20 MB — rimuovi qualche file</p>
+              )}
+            </div>
+          )}
+
           {error && <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-[7px]">{error}</p>}
 
           <div className="flex justify-end">
             <button
               onClick={loadDestinatari}
-              disabled={!tipologia || (tipologia === 'progetto' && !progettoId) || !oggetto.trim() || !corpo.trim() || loadingDest}
+              disabled={!tipologia || (tipologia === 'progetto' && !progettoId) || !oggetto.trim() || !corpo.trim() || loadingDest || totaleAllegatiMB > 20}
               className="inline-flex items-center gap-2 text-sm font-semibold px-5 py-2.5 rounded-[7px] text-white transition-colors disabled:opacity-40"
               style={{ backgroundColor: '#d64b55' }}
             >
@@ -246,6 +299,16 @@ export function ComunicazioniClient({ progetti: progettiInitial, logs: initialLo
             {tipologia === 'ore_non_firmate' && (
               <div className="mt-3 p-3 bg-blue-50 rounded-[7px] text-xs text-blue-700">
                 📌 Verrà aggiunto automaticamente un bottone &quot;Firma le tue ore →&quot; con il link al progetto specifico per ogni destinatario.
+              </div>
+            )}
+            {allegati.length > 0 && (
+              <div className="mt-3 p-3 bg-gray-50 rounded-[7px]">
+                <p className="text-xs font-semibold text-gray-600 mb-1.5">📎 Allegati ({allegati.length})</p>
+                <div className="space-y-0.5">
+                  {allegati.map(f => (
+                    <p key={f.name} className="text-xs text-gray-500">{f.name} — {(f.size / 1024).toFixed(0)} KB</p>
+                  ))}
+                </div>
               </div>
             )}
           </div>
