@@ -145,7 +145,9 @@ export function ComunicazioniClient({ progetti, logs: initialLogs }: Props) {
           {/* Selettore progetto */}
           {tipologia === 'progetto' && (
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Progetto</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Progetto <span className="font-normal text-gray-400">({progetti.length} disponibili)</span>
+              </label>
               <select
                 value={progettoId}
                 onChange={e => setProgettoId(e.target.value)}
