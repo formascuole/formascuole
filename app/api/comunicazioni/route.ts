@@ -81,18 +81,18 @@ export async function GET(request: NextRequest) {
   if (tipologia === 'tutti') {
     const { data } = await admin
       .from('profiles')
-      .select('nome, cognome, email, role')
+      .select('nome, email, role')
       .not('role', 'in', '("admin","super_admin")')
       .not('email', 'is', null)
-    destinatari = (data ?? []).map(p => ({ email: p.email, nome: `${p.nome ?? ''} ${p.cognome ?? ''}`.trim() }))
+    destinatari = (data ?? []).map(p => ({ email: p.email, nome: p.nome ?? '' }))
 
   } else if (tipologia === 'admin') {
     const { data } = await admin
       .from('profiles')
-      .select('nome, cognome, email')
+      .select('nome, email')
       .in('role', ['admin', 'super_admin'])
       .not('email', 'is', null)
-    destinatari = (data ?? []).map(p => ({ email: p.email, nome: `${p.nome ?? ''} ${p.cognome ?? ''}`.trim() }))
+    destinatari = (data ?? []).map(p => ({ email: p.email, nome: p.nome ?? '' }))
 
   } else if (tipologia === 'progetto' && progetto_id) {
     // Formatori e tutor assegnati a corsi del progetto
@@ -101,16 +101,16 @@ export async function GET(request: NextRequest) {
     if (corsiIds.length > 0) {
       const { data: candidature } = await admin
         .from('candidature_corsi')
-        .select('profiles(nome, cognome, email)')
+        .select('profiles(nome, email)')
         .in('corso_id', corsiIds)
         .eq('stato', 'accettata')
       destinatari = (candidature ?? [])
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .map((c: any) => c.profiles)
         .filter(Boolean)
-        .map((p: { nome?: string; cognome?: string; email: string }) => ({
+        .map((p: { nome?: string; email: string }) => ({
           email: p.email,
-          nome: `${p.nome ?? ''} ${p.cognome ?? ''}`.trim(),
+          nome: p.nome ?? '',
           progetto_id,
         }))
       // Deduplica per email
@@ -128,7 +128,7 @@ export async function GET(request: NextRequest) {
         id,
         corsi!corso_id(
           id, title, corso_completato, project_id,
-          profiles!formatore_id(id, nome, cognome, email),
+          profiles!formatore_id(id, nome, email),
           progetti!project_id(id, school_name)
         )
       `)
@@ -163,7 +163,7 @@ export async function GET(request: NextRequest) {
       if (!grouped.has(key)) {
         grouped.set(key, {
           email: fmt.email,
-          nome: `${fmt.nome ?? ''} ${fmt.cognome ?? ''}`.trim(),
+          nome: fmt.nome ?? '',
           progetto_id: pid,
           corso: corsi?.title ?? '',
           scuola: progetto?.school_name ?? '',
