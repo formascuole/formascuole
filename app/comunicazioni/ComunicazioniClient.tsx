@@ -154,22 +154,28 @@ export function ComunicazioniClient({ progetti, logs: initialLogs }: Props) {
               <label className="block text-sm font-semibold text-gray-700 mb-2">Progetto</label>
               <input
                 value={progettoSearch}
-                onChange={e => setProgettoSearch(e.target.value)}
-                placeholder="Cerca scuola o finanziamento…"
+                onChange={e => { setProgettoSearch(e.target.value); setProgettoId('') }}
+                placeholder="Filtra per scuola o finanziamento…"
                 className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 mb-2 focus:outline-none focus:border-[#d64b55]"
               />
-              <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-[7px]">
+              <select
+                size={Math.min(progettiFiltrati.length, 8)}
+                value={progettoId}
+                onChange={e => setProgettoId(e.target.value)}
+                className="w-full text-sm border border-gray-200 rounded-[7px] focus:outline-none focus:border-[#d64b55]"
+              >
+                <option value="">— Seleziona un progetto —</option>
                 {progettiFiltrati.map(p => (
-                  <label key={p.id} className={`flex items-center gap-2 px-3 py-2.5 cursor-pointer transition-colors border-b border-gray-50 last:border-0 ${progettoId === p.id ? 'bg-red-50' : 'hover:bg-gray-50'}`}>
-                    <input type="radio" name="progetto" value={p.id} checked={progettoId === p.id}
-                      onChange={() => setProgettoId(p.id)} className="accent-[#d64b55]" />
-                    <div>
-                      <div className="text-sm font-medium text-gray-800">{p.school_name}</div>
-                      {p.linea_finanziamento && <div className="text-xs text-gray-400">{p.linea_finanziamento}</div>}
-                    </div>
-                  </label>
+                  <option key={p.id} value={p.id}>
+                    {p.school_name}{p.linea_finanziamento ? ` — ${p.linea_finanziamento}` : ''}
+                  </option>
                 ))}
-              </div>
+              </select>
+              {progettoId && (
+                <p className="text-xs text-[#d64b55] mt-1.5 font-medium">
+                  ✓ {progetti.find(p => p.id === progettoId)?.school_name}
+                </p>
+              )}
             </div>
           )}
 
