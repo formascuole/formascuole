@@ -20,16 +20,22 @@ export default async function ComunicazioniPage() {
     .order('school_name', { ascending: true })
 
   // Log ultimi 50 invii
-  const { data: logs } = await admin
+  const { data: logsRaw } = await admin
     .from('comunicazioni_log')
     .select('id, created_at, tipologia, oggetto, n_inviati, n_errori, progetto_id, inviata_da, progetti(school_name)')
     .order('created_at', { ascending: false })
     .limit(50)
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const logs = (logsRaw ?? []).map((l: any) => ({
+    ...l,
+    progetti: Array.isArray(l.progetti) ? (l.progetti[0] ?? null) : l.progetti,
+  }))
+
   return (
     <ComunicazioniClient
       progetti={progetti ?? []}
-      logs={logs ?? []}
+      logs={logs}
     />
   )
 }
