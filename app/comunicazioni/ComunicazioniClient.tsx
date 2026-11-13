@@ -51,14 +51,13 @@ export function ComunicazioniClient({ progetti: progettiInitial, logs: initialLo
   const [logs, setLogs] = useState<LogEntry[]>(initialLogs)
   const [progetti, setProgetti] = useState<Progetto[]>(progettiInitial)
 
-  // Carica progetti lato client se il server non li ha passati
+  // Carica sempre i progetti lato client (il server può passare [] per problemi SSR)
   useEffect(() => {
-    if (progettiInitial.length > 0) return
     fetch('/api/progetti/list')
-      .then(r => r.ok ? r.json() : [])
-      .then((data: Progetto[]) => { if (data.length > 0) setProgetti(data) })
+      .then(r => r.json())
+      .then((data: Progetto[]) => { if (Array.isArray(data) && data.length > 0) setProgetti(data) })
       .catch(() => {/* silenzioso */})
-  }, [progettiInitial])
+  }, [])
 
   // Auto-compila oggetto e corpo per alcune tipologie
   useEffect(() => {
