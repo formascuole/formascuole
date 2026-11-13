@@ -20,7 +20,7 @@ export default async function ComunicazioniPage() {
   // Progetti per il selettore
   const { data: progetti } = await admin
     .from('progetti')
-    .select('id, school_name, linea_finanziamento')
+    .select('id, school_name')
     .order('school_name', { ascending: true })
 
   // Log ultimi 50 invii — senza join per evitare errori se la tabella è appena creata

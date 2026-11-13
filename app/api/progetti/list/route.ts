@@ -17,7 +17,7 @@ export async function GET(_req: NextRequest) {
     const admin = createAdminClient()
     const { data, error } = await admin
       .from('progetti')
-      .select('id, school_name, linea_finanziamento')
+      .select('id, school_name')
       .order('school_name', { ascending: true })
 
     if (error) {

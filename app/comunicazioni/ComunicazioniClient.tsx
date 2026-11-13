@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 
-interface Progetto { id: string; school_name: string; linea_finanziamento: string | null }
+interface Progetto { id: string; school_name: string }
 interface LogEntry {
   id: number
   created_at: string
@@ -66,7 +66,7 @@ export function ComunicazioniClient({ progetti: progettiInitial, logs: initialLo
       setCorpo(TESTO_ORE_NON_FIRMATE)
     } else if (tipologia === 'progetto' && progettoId) {
       const p = progetti.find(x => x.id === progettoId)
-      if (p) setOggetto(`Progetto ${p.school_name}${p.linea_finanziamento ? ` — ${p.linea_finanziamento}` : ''}`)
+      if (p) setOggetto(`Comunicazione — ${p.school_name}`)
     } else {
       setOggetto('')
       setCorpo('')
@@ -165,7 +165,7 @@ export function ComunicazioniClient({ progetti: progettiInitial, logs: initialLo
                 <option value="">— Seleziona un progetto —</option>
                 {progetti.map(p => (
                   <option key={p.id} value={p.id}>
-                    {p.school_name}{p.linea_finanziamento ? ` — ${p.linea_finanziamento}` : ''}
+                    {p.school_name}
                   </option>
                 ))}
               </select>
