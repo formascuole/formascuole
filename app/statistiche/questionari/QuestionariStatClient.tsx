@@ -111,6 +111,60 @@ export function QuestionariStatClient({ questionari, attestati }: Props) {
   const [attestatiCorsoFilter, setAttestatiCorsoFilter] = useState('')
   const [attestatiParteciFilter, setAttestatiParteciFilter] = useState('')
   const [reinviando, setReinviando] = useState<string | null>(null)
+
+  // ── Genera attestato manuale ──────────────────────────────────────────────
+  const [generaOpen, setGeneraOpen] = useState(false)
+  const [generaForm, setGeneraForm] = useState({ nome: '', cognome: '', email: '', corso_id: '', corso_label: '' })
+  const [generando, setGenerando] = useState(false)
+  const [generaError, setGeneraError] = useState('')
+  const [generaSuccess, setGeneraSuccess] = useState('')
+  const [corsiSearch, setCorsiSearch] = useState('')
+  const [corsiResults, setCorsiResults] = useState<{ id: string; title: string; school_name: string }[]>([])
+  const [corsiLoading, setCorsiLoading] = useState(false)
+
+  const searchCorsi = async (q: string) => {
+    if (q.length < 2) { setCorsiResults([]); return }
+    setCorsiLoading(true)
+    try {
+      const res = await fetch(`/api/corsi/search?q=${encodeURIComponent(q)}`)
+      if (res.ok) setCorsiResults(await res.json())
+    } finally {
+      setCorsiLoading(false)
+    }
+  }
+
+  const handleGenera = async () => {
+    setGeneraError('')
+    setGeneraSuccess('')
+    if (!generaForm.nome.trim() || !generaForm.cognome.trim() || !generaForm.email.trim() || !generaForm.corso_id) {
+      setGeneraError('Compila tutti i campi')
+      return
+    }
+    setGenerando(true)
+    try {
+      const res = await fetch('/api/attestati/genera', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          corso_id: generaForm.corso_id,
+          attestato_nome: generaForm.nome.trim(),
+          attestato_cognome: generaForm.cognome.trim(),
+          attestato_email: generaForm.email.trim(),
+        }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setGeneraSuccess(`Attestato generato e inviato a ${generaForm.email}`)
+        setGeneraForm({ nome: '', cognome: '', email: '', corso_id: '', corso_label: '' })
+        setCorsiSearch('')
+        setCorsiResults([])
+      } else {
+        setGeneraError(data.error || 'Errore durante la generazione')
+      }
+    } finally {
+      setGenerando(false)
+    }
+  }
   const [anno, setAnno] = useState('')
   const [mese, setMese] = useState('')
   const [linea, setLinea] = useState('')
@@ -266,6 +320,105 @@ export function QuestionariStatClient({ questionari, attestati }: Props) {
       {/* ── ATTESTATI TAB ─────────────────────────────── */}
       {tab === 'attestati' && (
         <div>
+          {/* ── Genera attestato manuale ── */}
+          <div className="mb-4 bg-white rounded-xl overflow-hidden" style={{ border: '0.5px solid #e5e5e5' }}>
+            <button
+              type="button"
+              onClick={() => { setGeneraOpen(o => !o); setGeneraError(''); setGeneraSuccess('') }}
+              className="w-full flex items-center gap-2 px-5 py-3.5 hover:bg-gray-50 transition-colors text-left"
+            >
+              <svg width="15" height="15" fill="none" viewBox="0 0 24 24" className="text-[#d64b55] shrink-0">
+                <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+              <span className="text-sm font-semibold text-gray-800">Genera attestato manuale</span>
+              <svg width="14" height="14" fill="none" viewBox="0 0 24 24" className={`ml-auto text-gray-400 transition-transform ${generaOpen ? 'rotate-180' : ''}`}>
+                <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+            {generaOpen && (
+              <div className="px-5 pb-5 pt-1 border-t border-gray-100 space-y-3">
+                <p className="text-xs text-gray-400">Genera e invia un attestato per un partecipante che non lo ha ricevuto automaticamente.</p>
+                {generaError && <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-[7px]">{generaError}</p>}
+                {generaSuccess && <p className="text-sm text-green-700 bg-green-50 px-3 py-2 rounded-[7px]">✓ {generaSuccess}</p>}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Nome</label>
+                    <input
+                      value={generaForm.nome}
+                      onChange={e => setGeneraForm(f => ({ ...f, nome: e.target.value }))}
+                      placeholder="Marinella"
+                      className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 focus:outline-none focus:border-[#d64b55]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Cognome</label>
+                    <input
+                      value={generaForm.cognome}
+                      onChange={e => setGeneraForm(f => ({ ...f, cognome: e.target.value }))}
+                      placeholder="Miglietta"
+                      className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 focus:outline-none focus:border-[#d64b55]"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Email destinatario</label>
+                  <input
+                    type="email"
+                    value={generaForm.email}
+                    onChange={e => setGeneraForm(f => ({ ...f, email: e.target.value }))}
+                    placeholder="marinella.miglietta@scuola.edu.it"
+                    className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 focus:outline-none focus:border-[#d64b55]"
+                  />
+                </div>
+                <div className="relative">
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Corso</label>
+                  {generaForm.corso_id ? (
+                    <div className="flex items-center gap-2 text-sm border border-gray-200 rounded-[7px] px-3 py-2 bg-gray-50">
+                      <span className="flex-1 text-gray-800">{generaForm.corso_label}</span>
+                      <button type="button" onClick={() => setGeneraForm(f => ({ ...f, corso_id: '', corso_label: '' }))} className="text-gray-400 hover:text-gray-600">✕</button>
+                    </div>
+                  ) : (
+                    <>
+                      <input
+                        value={corsiSearch}
+                        onChange={e => { setCorsiSearch(e.target.value); searchCorsi(e.target.value) }}
+                        placeholder="Cerca per nome corso o scuola…"
+                        className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 focus:outline-none focus:border-[#d64b55]"
+                      />
+                      {corsiLoading && <p className="text-xs text-gray-400 mt-1">Ricerca…</p>}
+                      {corsiResults.length > 0 && (
+                        <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-[7px] shadow-lg max-h-48 overflow-y-auto">
+                          {corsiResults.map(c => (
+                            <button
+                              key={c.id}
+                              type="button"
+                              onClick={() => { setGeneraForm(f => ({ ...f, corso_id: c.id, corso_label: `${c.title} — ${c.school_name}` })); setCorsiSearch(''); setCorsiResults([]) }}
+                              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 border-b border-gray-50 last:border-0"
+                            >
+                              <span className="font-medium text-gray-800">{c.title}</span>
+                              <span className="text-gray-400 ml-2 text-xs">{c.school_name}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+                <div className="flex justify-end pt-1">
+                  <button
+                    type="button"
+                    onClick={handleGenera}
+                    disabled={generando}
+                    className="inline-flex items-center gap-2 text-sm font-semibold px-5 py-2 rounded-[7px] text-white transition-colors disabled:opacity-50"
+                    style={{ backgroundColor: '#d64b55' }}
+                  >
+                    {generando ? 'Generazione…' : 'Genera e invia attestato'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
             <div className="flex gap-2 flex-1">
               <input
