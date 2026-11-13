@@ -49,7 +49,6 @@ export function ComunicazioniClient({ progetti, logs: initialLogs }: Props) {
   const [risultato, setRisultato] = useState<{ n_inviati: number; n_errori: number } | null>(null)
   const [error, setError] = useState('')
   const [logs, setLogs] = useState<LogEntry[]>(initialLogs)
-  const [progettoSearch, setProgettoSearch] = useState('')
 
   // Auto-compila oggetto e corpo per alcune tipologie
   useEffect(() => {
@@ -112,11 +111,6 @@ export function ComunicazioniClient({ progetti, logs: initialLogs }: Props) {
     setStep('form'); setDestinatari([]); setRisultato(null); setError('')
   }
 
-  const progettiFiltrati = progetti.filter(p =>
-    !progettoSearch || p.school_name.toLowerCase().includes(progettoSearch.toLowerCase()) ||
-    (p.linea_finanziamento ?? '').toLowerCase().includes(progettoSearch.toLowerCase())
-  )
-
   const tipologiaLabel = TIPOLOGIE.find(t => t.value === tipologia)?.label ?? tipologia
 
   return (
@@ -152,30 +146,18 @@ export function ComunicazioniClient({ progetti, logs: initialLogs }: Props) {
           {tipologia === 'progetto' && (
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">Progetto</label>
-              <input
-                value={progettoSearch}
-                onChange={e => { setProgettoSearch(e.target.value); setProgettoId('') }}
-                placeholder="Filtra per scuola o finanziamento…"
-                className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 mb-2 focus:outline-none focus:border-[#d64b55]"
-              />
               <select
-                size={Math.min(progettiFiltrati.length, 8)}
                 value={progettoId}
                 onChange={e => setProgettoId(e.target.value)}
-                className="w-full text-sm border border-gray-200 rounded-[7px] focus:outline-none focus:border-[#d64b55]"
+                className="w-full text-sm border border-gray-200 rounded-[7px] px-3 py-2 focus:outline-none focus:border-[#d64b55] bg-white"
               >
                 <option value="">— Seleziona un progetto —</option>
-                {progettiFiltrati.map(p => (
+                {progetti.map(p => (
                   <option key={p.id} value={p.id}>
                     {p.school_name}{p.linea_finanziamento ? ` — ${p.linea_finanziamento}` : ''}
                   </option>
                 ))}
               </select>
-              {progettoId && (
-                <p className="text-xs text-[#d64b55] mt-1.5 font-medium">
-                  ✓ {progetti.find(p => p.id === progettoId)?.school_name}
-                </p>
-              )}
             </div>
           )}
 
