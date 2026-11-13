@@ -26,10 +26,11 @@ export async function GET(request: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  const results = (data ?? []).map((c: { id: string; title: string; progetti: { school_name: string } | null }) => ({
-    id: c.id,
-    title: c.title,
-    school_name: (c.progetti as { school_name: string } | null)?.school_name ?? '',
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const results = (data ?? []).map((c: any) => ({
+    id: c.id as string,
+    title: c.title as string,
+    school_name: (c.progetti?.school_name ?? '') as string,
   }))
 
   return NextResponse.json(results)
