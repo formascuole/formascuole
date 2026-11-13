@@ -138,13 +138,18 @@ export async function GET(request: NextRequest) {
     // Raggruppa per progetto + formatore per evitare email duplicate
     const grouped = new Map<string, { email: string; nome: string; progetto_id: string; corso: string; scuola: string }>()
     for (const s of sessioni ?? []) {
+      // Supabase può restituire join come array — normalizziamo sempre
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const corsi = s.corsi as any
+      const corsiRaw = s.corsi as any
+      const corsi = Array.isArray(corsiRaw) ? corsiRaw[0] : corsiRaw
+      if (!corsi) continue
       if (corsi?.corso_completato) continue  // escludi corsi completati
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const fmt = corsi?.profiles as any
+      const fmtRaw = corsi?.profiles as any
+      const fmt = Array.isArray(fmtRaw) ? fmtRaw[0] : fmtRaw
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const progetto = corsi?.progetti as any
+      const progettoRaw = corsi?.progetti as any
+      const progetto = Array.isArray(progettoRaw) ? progettoRaw[0] : progettoRaw
       if (!fmt?.email) continue
       const pid = corsi?.project_id ?? progetto?.id ?? ''
       const key = `${fmt.email}::${pid}`
