@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { createAdminClient, checkIsSuperAdmin } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
+import { AppLayout } from '@/components/layout/AppLayout'
+import { getUnreadNotificheCount } from '@/lib/notifiche-utils'
 import { ComunicazioniClient } from './ComunicazioniClient'
 
 export default async function ComunicazioniPage() {
@@ -8,9 +10,11 @@ export default async function ComunicazioniPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+  const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
   if (!['admin', 'super_admin'].includes(profile?.role ?? '')) redirect('/dashboard')
 
+  const isSuperAdmin = await checkIsSuperAdmin(user.id)
+  const notifiche = await getUnreadNotificheCount(supabase, user.id)
   const admin = createAdminClient()
 
   // Progetti per il selettore
@@ -33,9 +37,18 @@ export default async function ComunicazioniPage() {
   }))
 
   return (
-    <ComunicazioniClient
-      progetti={progetti ?? []}
-      logs={logs}
-    />
+    <AppLayout
+      role={profile.role}
+      nome={profile.nome}
+      email={profile.email}
+      avatarInitials={profile.avatar_initials}
+      notificheBadge={notifiche}
+      isSuperAdmin={isSuperAdmin}
+    >
+      <ComunicazioniClient
+        progetti={progetti ?? []}
+        logs={logs}
+      />
+    </AppLayout>
   )
 }
