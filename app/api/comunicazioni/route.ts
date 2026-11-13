@@ -119,30 +119,34 @@ export async function GET(request: NextRequest) {
     }
 
   } else if (tipologia === 'ore_non_firmate') {
-    // Sessioni completate con ore non firmate (completata=true ma firma_formatore=false)
+    // Sessioni passate non ancora confermate (completata = false o null)
+    // escludendo corsi già completamente erogati — stessa logica di /api/admin/sessioni-non-firmate
+    const today = new Date().toISOString().slice(0, 10)
     const { data: sessioni } = await admin
       .from('sessioni')
       .select(`
-        id, ore, corso_id,
-        corsi(title, project_id, progetti(school_name, id)),
-        formatore:profiles!sessioni_formatore_id_fkey(id, nome, cognome, email),
-        tutor:profiles!sessioni_tutor_id_fkey(id, nome, cognome, email)
+        id,
+        corsi!corso_id(
+          id, title, corso_completato, project_id,
+          profiles!formatore_id(id, nome, cognome, email),
+          progetti!project_id(id, school_name)
+        )
       `)
-      .eq('completata', true)
-      .eq('firma_formatore', false)
-      .not('formatore_id', 'is', null)
+      .lt('data', today)
+      .or('completata.is.null,completata.eq.false')
 
     // Raggruppa per progetto + formatore per evitare email duplicate
     const grouped = new Map<string, { email: string; nome: string; progetto_id: string; corso: string; scuola: string }>()
     for (const s of sessioni ?? []) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const corsi = s.corsi as any
+      if (corsi?.corso_completato) continue  // escludi corsi completati
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const fmt = s.formatore as any
+      const fmt = corsi?.profiles as any
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const tutor = s.tutor as any
+      const progetto = corsi?.progetti as any
       if (!fmt?.email) continue
-      const pid = corsi?.project_id ?? corsi?.progetti?.id ?? ''
+      const pid = corsi?.project_id ?? progetto?.id ?? ''
       const key = `${fmt.email}::${pid}`
       if (!grouped.has(key)) {
         grouped.set(key, {
@@ -150,21 +154,8 @@ export async function GET(request: NextRequest) {
           nome: `${fmt.nome ?? ''} ${fmt.cognome ?? ''}`.trim(),
           progetto_id: pid,
           corso: corsi?.title ?? '',
-          scuola: corsi?.progetti?.school_name ?? '',
+          scuola: progetto?.school_name ?? '',
         })
-      }
-      // Aggiungi anche il tutor se presente
-      if (tutor?.email) {
-        const tkey = `${tutor.email}::${pid}`
-        if (!grouped.has(tkey)) {
-          grouped.set(tkey, {
-            email: tutor.email,
-            nome: `${tutor.nome ?? ''} ${tutor.cognome ?? ''}`.trim(),
-            progetto_id: pid,
-            corso: corsi?.title ?? '',
-            scuola: corsi?.progetti?.school_name ?? '',
-          })
-        }
       }
     }
     destinatari = [...grouped.values()]
