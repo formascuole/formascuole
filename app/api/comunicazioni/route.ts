@@ -122,7 +122,7 @@ export async function GET(request: NextRequest) {
     // Sessioni passate non ancora confermate (completata = false o null)
     // escludendo corsi già completamente erogati — stessa logica di /api/admin/sessioni-non-firmate
     const today = new Date().toISOString().slice(0, 10)
-    const { data: sessioni } = await admin
+    const { data: sessioni, error: sessErr } = await admin
       .from('sessioni')
       .select(`
         id,
@@ -134,6 +134,13 @@ export async function GET(request: NextRequest) {
       `)
       .lt('data', today)
       .or('completata.is.null,completata.eq.false')
+
+    console.log('[ore_non_firmate] today:', today, 'sessioni count:', sessioni?.length ?? 0, 'error:', sessErr?.message)
+    if (sessioni && sessioni.length > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sample = sessioni[0] as any
+      console.log('[ore_non_firmate] sample[0]:', JSON.stringify(sample).slice(0, 300))
+    }
 
     // Raggruppa per progetto + formatore per evitare email duplicate
     const grouped = new Map<string, { email: string; nome: string; progetto_id: string; corso: string; scuola: string }>()
