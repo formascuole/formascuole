@@ -23,18 +23,23 @@ export default async function ComunicazioniPage() {
     .select('id, school_name, linea_finanziamento')
     .order('school_name', { ascending: true })
 
-  // Log ultimi 50 invii
-  const { data: logsRaw } = await admin
-    .from('comunicazioni_log')
-    .select('id, created_at, tipologia, oggetto, n_inviati, n_errori, progetto_id, inviata_da, progetti(school_name)')
-    .order('created_at', { ascending: false })
-    .limit(50)
-
+  // Log ultimi 50 invii (tabella potrebbe non esistere ancora se migration non eseguita)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const logs = (logsRaw ?? []).map((l: any) => ({
-    ...l,
-    progetti: Array.isArray(l.progetti) ? (l.progetti[0] ?? null) : l.progetti,
-  }))
+  let logs: any[] = []
+  try {
+    const { data: logsRaw } = await admin
+      .from('comunicazioni_log')
+      .select('id, created_at, tipologia, oggetto, n_inviati, n_errori, progetto_id, inviata_da, progetti(school_name)')
+      .order('created_at', { ascending: false })
+      .limit(50)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    logs = (logsRaw ?? []).map((l: any) => ({
+      ...l,
+      progetti: Array.isArray(l.progetti) ? (l.progetti[0] ?? null) : l.progetti,
+    }))
+  } catch {
+    // tabella non ancora creata, ignora
+  }
 
   return (
     <AppLayout
