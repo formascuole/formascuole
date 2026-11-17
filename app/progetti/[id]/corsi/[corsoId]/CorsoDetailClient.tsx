@@ -1111,11 +1111,15 @@ export function CorsoDetailClient({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ completata: true }),
       })
+      const data = await res.json()
       if (res.ok) {
-        const updated = await res.json()
-        setSessioni(prev => prev.map(s => s.id === sessioneId ? { ...s, completata: true, completata_at: updated.completata_at } : s))
+        setSessioni(prev => prev.map(s => s.id === sessioneId ? { ...s, completata: true, completata_at: data.completata_at } : s))
         router.refresh()
+      } else {
+        alert(data?.error || 'Impossibile confermare la sessione. Riprova.')
       }
+    } catch {
+      alert('Errore di rete. Controlla la connessione e riprova.')
     } finally {
       setConfirmingId(null)
     }

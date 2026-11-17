@@ -67,8 +67,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return NextResponse.json({ error: 'Non puoi confermare una sessione futura' }, { status: 400 })
     }
     if (sessioneData === todayStr && sessione.ora_fine) {
-      const nowTime = new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', hour12: false })
-      if (nowTime < (sessione.ora_fine as string).substring(0, 5)) {
+      // Usa ora italiana (UTC+1/+2) indipendentemente dal fuso del server Vercel
+      const nowItaly = new Date().toLocaleTimeString('it-IT', {
+        hour: '2-digit', minute: '2-digit', hour12: false,
+        timeZone: 'Europe/Rome',
+      })
+      if (nowItaly < (sessione.ora_fine as string).substring(0, 5)) {
         return NextResponse.json({ error: 'Non puoi confermare una sessione non ancora conclusa' }, { status: 400 })
       }
     }
