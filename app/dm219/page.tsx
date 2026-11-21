@@ -16,7 +16,7 @@ export default async function Dm219Page() {
   const notifiche = await getUnreadNotificheCount(supabase, user.id)
 
   return (
-    <AppLayout role={profile?.role} notifiche={notifiche}>
+    <AppLayout role={profile?.role} notificheBadge={notifiche}>
       <Dm219ListClient />
     </AppLayout>
   )
