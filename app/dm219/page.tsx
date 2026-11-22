@@ -10,13 +10,19 @@ export default async function Dm219Page() {
   if (!user) redirect('/login')
 
   const { data: profile } = await supabase
-    .from('profiles').select('role').eq('id', user.id).single()
+    .from('profiles').select('role, nome, email, avatar_initials').eq('id', user.id).single()
   if (!['admin', 'super_admin'].includes(profile?.role ?? '')) redirect('/dashboard')
 
   const notifiche = await getUnreadNotificheCount(supabase, user.id)
 
   return (
-    <AppLayout role={profile?.role} notificheBadge={notifiche}>
+    <AppLayout
+      role={profile?.role}
+      nome={profile?.nome}
+      email={profile?.email}
+      avatarInitials={profile?.avatar_initials}
+      notificheBadge={notifiche}
+    >
       <Dm219ListClient />
     </AppLayout>
   )
