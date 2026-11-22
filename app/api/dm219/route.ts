@@ -74,8 +74,10 @@ export async function GET(_req: NextRequest) {
       .select('*')
       .in('progetto_id', progettoIds)
 
+    const DATA_FINE_DEFAULT = '2026-12-20'
+
     const paramsMap = new Map<string, Partial<Dm219Params> & {
-      corsi_inclusi: string[]; corsi_esclusi: string[]
+      corsi_inclusi: string[]; corsi_esclusi: string[]; data_fine_effettiva: string
     }>()
     for (const p of paramsRaw ?? []) {
       paramsMap.set(p.progetto_id, {
@@ -83,6 +85,7 @@ export async function GET(_req: NextRequest) {
         base_quota_lab: p.base_quota_lab,
         corsi_inclusi: p.corsi_inclusi ?? [],
         corsi_esclusi: p.corsi_esclusi ?? [],
+        data_fine_effettiva: p.data_fine_effettiva ?? DATA_FINE_DEFAULT,
       })
     }
 
@@ -99,13 +102,15 @@ export async function GET(_req: NextRequest) {
       const corsiDb = corsiPerProgetto.get(p.id) ?? []
       const override = paramsMap.get(p.id)
 
+      const dataFineEffettiva = override?.data_fine_effettiva ?? DATA_FINE_DEFAULT
+
       const corsiInput: CorsoInput[] = corsiDb.map(c => {
         const sessioni = (c.sessioni as any[]) ?? []
         const ore_erogate = sessioni
           .filter(s => s.completata)
           .reduce((a: number, s: any) => a + Number(s.ore), 0)
         const ore_pianificate = sessioni
-          .filter(s => !s.completata && (s.data as string) >= oggi)
+          .filter(s => !s.completata && (s.data as string) >= oggi && (s.data as string) <= dataFineEffettiva)
           .reduce((a: number, s: any) => a + Number(s.ore), 0)
         const sessioni_scadute_non_erogate = sessioni
           .filter(s => !s.completata && (s.data as string) < oggi).length

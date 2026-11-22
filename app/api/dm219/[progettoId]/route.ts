@@ -3,8 +3,7 @@
  * Dettaglio monitoraggio DM 219/2025 per un singolo progetto.
  *
  * PATCH /api/dm219/[progettoId]
- * Salva/aggiorna i parametri override (tutor_riconosciuto, base_quota_lab,
- * corsi_inclusi, corsi_esclusi) nella tabella dm219_params.
+ * Salva/aggiorna i parametri override nella tabella dm219_params.
  * Solo admin/super_admin.
  */
 import { NextRequest, NextResponse } from 'next/server'
@@ -15,6 +14,9 @@ import {
   type CorsoInput,
   type Dm219Params,
 } from '@/lib/dm219/calcoli'
+
+// Data fine effettiva di default: chiusura pre-natale
+const DATA_FINE_DEFAULT = '2026-12-20'
 
 async function requireAdmin(supabase: ReturnType<typeof createClient> extends Promise<infer T> ? T : never) {
   const { data: { user } } = await supabase.auth.getUser()
@@ -31,6 +33,7 @@ async function requireAdmin(supabase: ReturnType<typeof createClient> extends Pr
 async function buildCorsiInput(
   admin: ReturnType<typeof createAdminClient>,
   progettoId: string,
+  dataFineEffettiva: string,
 ): Promise<CorsoInput[]> {
   const oggi = new Date().toISOString().slice(0, 10)
 
@@ -49,8 +52,9 @@ async function buildCorsiInput(
     const ore_erogate = sessioni
       .filter(s => s.completata)
       .reduce((a: number, s: any) => a + Number(s.ore), 0)
+    // Conta solo le sessioni future ENTRO la data fine effettiva
     const ore_pianificate = sessioni
-      .filter(s => !s.completata && (s.data as string) >= oggi)
+      .filter(s => !s.completata && (s.data as string) >= oggi && (s.data as string) <= dataFineEffettiva)
       .reduce((a: number, s: any) => a + Number(s.ore), 0)
     const sessioni_scadute_non_erogate = sessioni
       .filter(s => !s.completata && (s.data as string) < oggi).length
@@ -96,14 +100,15 @@ export async function GET(
       .eq('progetto_id', progettoId)
       .single()
 
+    const dataFineEffettiva: string = paramsRow?.data_fine_effettiva ?? DATA_FINE_DEFAULT
     const paramsOverride: Partial<Dm219Params> = {}
     const corsi_inclusi: string[] = paramsRow?.corsi_inclusi ?? []
     const corsi_esclusi: string[] = paramsRow?.corsi_esclusi ?? []
     if (paramsRow?.tutor_riconosciuto !== undefined) paramsOverride.tutor_riconosciuto = paramsRow.tutor_riconosciuto
     if (paramsRow?.base_quota_lab) paramsOverride.base_quota_lab = paramsRow.base_quota_lab
 
-    // Corsi e sessioni
-    const corsiInput = await buildCorsiInput(admin, progettoId)
+    // Corsi e sessioni (filtrate per data_fine_effettiva)
+    const corsiInput = await buildCorsiInput(admin, progettoId, dataFineEffettiva)
 
     // Calcola
     const risultato = calcolaProgettoDm219(
@@ -117,12 +122,13 @@ export async function GET(
         status: progetto.status,
         finanziamento_id: progetto.finanziamento_id,
       },
-      params_override: paramsRow ? {
-        tutor_riconosciuto: paramsRow.tutor_riconosciuto,
-        base_quota_lab: paramsRow.base_quota_lab,
+      params_override: {
+        tutor_riconosciuto: paramsRow?.tutor_riconosciuto ?? true,
+        base_quota_lab: paramsRow?.base_quota_lab ?? 'realizzato',
         corsi_inclusi,
         corsi_esclusi,
-      } : null,
+        data_fine_effettiva: dataFineEffettiva,
+      },
       ...risultato,
     })
   } catch (e) {
@@ -146,6 +152,7 @@ export async function PATCH(
       base_quota_lab?: 'realizzato' | 'accordato'
       corsi_inclusi?: string[]
       corsi_esclusi?: string[]
+      data_fine_effettiva?: string
     }
 
     const admin = createAdminClient()
@@ -158,6 +165,7 @@ export async function PATCH(
         ...(body.base_quota_lab && { base_quota_lab: body.base_quota_lab }),
         ...(body.corsi_inclusi !== undefined && { corsi_inclusi: body.corsi_inclusi }),
         ...(body.corsi_esclusi !== undefined && { corsi_esclusi: body.corsi_esclusi }),
+        ...(body.data_fine_effettiva && { data_fine_effettiva: body.data_fine_effettiva }),
         updated_at: new Date().toISOString(),
       }, { onConflict: 'progetto_id' })
 
@@ -167,13 +175,14 @@ export async function PATCH(
     const { data: paramsRow } = await admin
       .from('dm219_params').select('*').eq('progetto_id', progettoId).single()
 
+    const dataFineEffettiva: string = paramsRow?.data_fine_effettiva ?? DATA_FINE_DEFAULT
     const paramsOverride: Partial<Dm219Params> = {}
     const corsi_inclusi: string[] = paramsRow?.corsi_inclusi ?? []
     const corsi_esclusi: string[] = paramsRow?.corsi_esclusi ?? []
     if (paramsRow?.tutor_riconosciuto !== undefined) paramsOverride.tutor_riconosciuto = paramsRow.tutor_riconosciuto
     if (paramsRow?.base_quota_lab) paramsOverride.base_quota_lab = paramsRow.base_quota_lab
 
-    const corsiInput = await buildCorsiInput(admin, progettoId)
+    const corsiInput = await buildCorsiInput(admin, progettoId, dataFineEffettiva)
     const risultato = calcolaProgettoDm219(corsiInput, paramsOverride, corsi_inclusi, corsi_esclusi)
 
     return NextResponse.json({ success: true, ...risultato })

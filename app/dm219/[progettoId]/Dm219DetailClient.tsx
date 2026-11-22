@@ -15,6 +15,7 @@ interface ApiResponse extends RisultatoProgetto {
     base_quota_lab: 'realizzato' | 'accordato'
     corsi_inclusi: string[]
     corsi_esclusi: string[]
+    data_fine_effettiva: string
   } | null
 }
 
@@ -334,7 +335,7 @@ export function Dm219DetailClient({ progettoId }: { progettoId: string }) {
     }
   }
 
-  async function handleParamChange(key: 'tutor_riconosciuto' | 'base_quota_lab', value: boolean | string) {
+  async function handleParamChange(key: 'tutor_riconosciuto' | 'base_quota_lab' | 'data_fine_effettiva', value: boolean | string) {
     setSaving(true)
     try {
       const res = await fetch(`/api/dm219/${progettoId}`, {
@@ -375,6 +376,7 @@ export function Dm219DetailClient({ progettoId }: { progettoId: string }) {
   const paramsOvr = data.params_override
   const tutorRiconosciuto = paramsOvr?.tutor_riconosciuto ?? true
   const baseQuotaLab = paramsOvr?.base_quota_lab ?? 'realizzato'
+  const dataFineEffettiva = paramsOvr?.data_fine_effettiva ?? '2026-12-20'
   const corsiInclusi = paramsOvr?.corsi_inclusi ?? []
   const corsiEsclusi = paramsOvr?.corsi_esclusi ?? []
 
@@ -421,6 +423,17 @@ export function Dm219DetailClient({ progettoId }: { progettoId: string }) {
               <option value="realizzato">Realizzato</option>
               <option value="accordato">Accordato</option>
             </select>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-gray-500">Fine effettiva:</span>
+            <input
+              type="date"
+              value={dataFineEffettiva}
+              disabled={saving}
+              onChange={e => handleParamChange('data_fine_effettiva', e.target.value)}
+              className="text-sm border border-gray-200 rounded-lg px-2 py-1 bg-white"
+              title="Data entro cui contare le sessioni pianificate (es. chiusura pre-natale)"
+            />
           </div>
         </div>
       </div>
