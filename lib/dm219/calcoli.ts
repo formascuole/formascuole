@@ -400,8 +400,6 @@ export function calcolaProgettoDm219(
 
   // 8. Semaforo
   const tutteLeVerifiche = verifiche.every(v => v.ok)
-  const oreErogateEPianificate = totale.ore_erogate + totale.ore_pianificate // non è un campo ma lo calcoliamo
-  void oreErogateEPianificate
 
   // Ore totali erogate+pianificate per corsi dello scenario
   const oreScenarioCorsiErogatiEPianificati = corsi
