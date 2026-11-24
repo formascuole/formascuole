@@ -95,27 +95,31 @@ export async function GET(request: NextRequest) {
     destinatari = (data ?? []).map(p => ({ email: p.email, nome: p.nome ?? '' }))
 
   } else if (tipologia === 'progetto' && progetto_id) {
-    // Formatori e tutor assegnati a corsi del progetto
-    const { data: corsi } = await admin.from('corsi').select('id').eq('project_id', progetto_id)
-    const corsiIds = (corsi ?? []).map(c => c.id)
-    if (corsiIds.length > 0) {
-      const { data: candidature } = await admin
-        .from('candidature_corsi')
-        .select('profiles(nome, email)')
-        .in('corso_id', corsiIds)
-        .eq('stato', 'accettata')
-      destinatari = (candidature ?? [])
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .map((c: any) => c.profiles)
-        .filter(Boolean)
-        .map((p: { nome?: string; email: string }) => ({
-          email: p.email,
-          nome: p.nome ?? '',
-          progetto_id,
-        }))
-      // Deduplica per email
-      const seen = new Set<string>()
-      destinatari = destinatari.filter(d => { if (seen.has(d.email)) return false; seen.add(d.email); return true })
+    // Formatori e tutor effettivamente assegnati ai corsi del progetto
+    // (corsi.formatore_id e corsi.tutor_id — non le candidature)
+    const { data: corsiAssegnati } = await admin
+      .from('corsi')
+      .select('formatore_id, tutor_id')
+      .eq('project_id', progetto_id)
+      .or('formatore_id.not.is.null,tutor_id.not.is.null')
+
+    // Raccogli tutti gli user_id unici (formatori + tutor)
+    const userIds = new Set<string>()
+    for (const c of corsiAssegnati ?? []) {
+      if (c.formatore_id) userIds.add(c.formatore_id)
+      if (c.tutor_id) userIds.add(c.tutor_id)
+    }
+
+    if (userIds.size > 0) {
+      const { data: profiles } = await admin
+        .from('profiles')
+        .select('nome, email')
+        .in('id', [...userIds])
+      destinatari = (profiles ?? []).map(p => ({
+        email: p.email,
+        nome: p.nome ?? '',
+        progetto_id,
+      }))
     }
 
   } else if (tipologia === 'ore_non_firmate') {
