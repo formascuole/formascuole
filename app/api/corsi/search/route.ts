@@ -17,17 +17,51 @@ export async function GET(request: NextRequest) {
   if (q.length < 2) return NextResponse.json([])
 
   const admin = createAdminClient()
-  const { data, error } = await admin
+
+  // Supabase PostgREST non supporta .or() su colonne di tabelle join,
+  // quindi eseguiamo due query separate e uniamo i risultati.
+
+  // 1. Ricerca per titolo corso
+  const { data: byTitle, error: e1 } = await admin
     .from('corsi')
     .select('id, title, progetti(school_name)')
-    .or(`title.ilike.%${q}%,progetti.school_name.ilike.%${q}%`)
+    .ilike('title', `%${q}%`)
     .order('title', { ascending: true })
     .limit(20)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (e1) return NextResponse.json({ error: e1.message }, { status: 500 })
+
+  // 2. Ricerca progetti per school_name, poi recupera i corsi
+  const { data: progettiMatch } = await admin
+    .from('progetti')
+    .select('id')
+    .ilike('school_name', `%${q}%`)
+    .limit(20)
+
+  const progettiIds = (progettiMatch ?? []).map((p: { id: string }) => p.id)
+
+  let bySchool: typeof byTitle = []
+  if (progettiIds.length > 0) {
+    const { data: s } = await admin
+      .from('corsi')
+      .select('id, title, progetti(school_name)')
+      .in('project_id', progettiIds)
+      .order('title', { ascending: true })
+      .limit(20)
+    bySchool = s ?? []
+  }
+
+  // Unisci e deduplica per id
+  const seen = new Set<string>()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const merged = [...(byTitle ?? []), ...bySchool].filter((c: any) => {
+    if (seen.has(c.id)) return false
+    seen.add(c.id)
+    return true
+  }).slice(0, 20)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const results = (data ?? []).map((c: any) => ({
+  const results = merged.map((c: any) => ({
     id: c.id as string,
     title: c.title as string,
     school_name: (c.progetti?.school_name ?? '') as string,
