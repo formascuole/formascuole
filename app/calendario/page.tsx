@@ -20,11 +20,22 @@ export default async function CalendarioPage() {
     ora_inizio: string | null; ora_fine: string | null; modalita_sessione: string | null
     corso: { id: string; title: string; tipo: string | null; modalita: string | null; project_id: string; formatore_id: string | null; calendario_confermato: boolean | null; progetti: { school_name: string; finanziamento_id: string | null } | null } | null
   }
+  // Carica sessioni in una finestra ampia: 6 mesi passati + 12 mesi futuri
+  // Evita il limite di 10000 righe che tagliava i mesi di dicembre/gennaio
+  const oggi = new Date()
+  const dataInizio = new Date(oggi)
+  dataInizio.setMonth(dataInizio.getMonth() - 6)
+  const dataFine = new Date(oggi)
+  dataFine.setFullYear(dataFine.getFullYear() + 1)
+  const dataInizioStr = dataInizio.toISOString().split('T')[0]
+  const dataFineStr = dataFine.toISOString().split('T')[0]
+
   const { data: rawSessioni } = await admin
     .from('sessioni')
     .select('id, data, ora_inizio, ora_fine, ore, completata, modalita_sessione, corso_id, corso:corsi(id, title, tipo, modalita, project_id, formatore_id, calendario_confermato, progetti(school_name, finanziamento_id))')
+    .gte('data', dataInizioStr)
+    .lte('data', dataFineStr)
     .order('data')
-    .limit(10000)
 
   const { data: allProfiles } = await admin.from('profiles').select('id, nome, role')
   const profilesById = new Map((allProfiles || []).map(p => [p.id, p]))

@@ -36,10 +36,19 @@ export default async function CalendarioFormatorePage() {
   }[] = []
 
   if (corsoIds.length > 0) {
+    // Finestra: 6 mesi passati + 12 mesi futuri
+    const oggiCal = new Date()
+    const dataInizioCal = new Date(oggiCal)
+    dataInizioCal.setMonth(dataInizioCal.getMonth() - 6)
+    const dataFineCal = new Date(oggiCal)
+    dataFineCal.setFullYear(dataFineCal.getFullYear() + 1)
+
     const { data: rawSessioni } = await admin
       .from('sessioni')
       .select('id, data, ore, completata, corso_id, corso:corsi(id, title, project_id, progetti(school_name))')
       .in('corso_id', corsoIds)
+      .gte('data', dataInizioCal.toISOString().split('T')[0])
+      .lte('data', dataFineCal.toISOString().split('T')[0])
       .order('data')
 
     sessioni = ((rawSessioni as unknown as RawSessione[]) || []).map(s => ({
