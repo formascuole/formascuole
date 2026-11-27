@@ -39,6 +39,12 @@ export default async function CalendarioPage() {
     .lte('data', dataFineStr)
     .order('data')
 
+  console.log('[calendario] finestra:', dataInizioStr, '→', dataFineStr, '| sessioni caricate:', rawSessioni?.length ?? 0)
+  if (rawSessioni && rawSessioni.length > 0) {
+    const dateUniche = [...new Set(rawSessioni.map(s => s.data))].sort()
+    console.log('[calendario] prima data:', dateUniche[0], '| ultima data:', dateUniche[dateUniche.length - 1])
+  }
+
   const { data: allProfiles } = await admin.from('profiles').select('id, nome, role')
   const profilesById = new Map((allProfiles || []).map(p => [p.id, p]))
 
