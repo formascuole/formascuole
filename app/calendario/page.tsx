@@ -5,6 +5,8 @@ import { AppLayout } from '@/components/layout/AppLayout'
 import { CalendarioClient, SessioneRow, IndisponibilitaRow, FinanziamentoRow } from './CalendarioClient'
 import { getUnreadNotificheCount } from '@/lib/notifiche-utils'
 
+export const dynamic = 'force-dynamic'
+
 export default async function CalendarioPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

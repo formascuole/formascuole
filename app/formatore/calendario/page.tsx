@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { getLettereCount } from '@/lib/get-lettere-count'
+
+export const dynamic = 'force-dynamic'
 import { CalendarioFormatoreClient } from './CalendarioFormatoreClient'
 
 export default async function CalendarioFormatorePage() {
